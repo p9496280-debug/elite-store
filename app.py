@@ -22,12 +22,12 @@ from flask import (
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_store_secret_key")
 
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@novastore.com")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "nova_store.db")
-ADMIN_VODAFONE_NUMBER = os.environ.get("VODAFONE_NUMBER", "01011541698")
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4")
+ADMIN_VODAFONE_NUMBER = os.environ.get("VODAFONE_NUMBER", "010XXXXXXXX")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 
 VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "BEl62iUYgUivxIkv69yViEuiBIa45fMplTfdM35C5m_9JffA9R2E1j8bQ2y_6f40_8gR")
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "A1B2C3D4E5F6G7H8I9J0")
@@ -101,12 +101,11 @@ def init_db():
         cursor = db.execute("SELECT COUNT(*) as count FROM products")
         if cursor.fetchone()["count"] == 0:
             default_products = [
-                ("كود جوجل بلاي (10$)", "الولايات المتحدة", 10.00, "$10.00", "GPLAY-9876-XXXX", "▶", "بطاقات الألعاب", "#35eaa1", "الأكثر مبيعاً"),
-                ("كود بلايستيشن (20$)", "الولايات المتحدة", 20.00, "$20.00", "PSN-5432-XXXX", "PS", "بطاقات الألعاب", "#62a0ff", "مميز"),
-                ("كود إكس بوكس (25$)", "الولايات المتحدة", 25.00, "$25.00", "XBOX-3344-XXXX", "ⓧ", "بطاقات الألعاب", "#5dff9c", None),
-                ("كود ستيم (20$)", "الولايات المتحدة", 20.00, "$20.00", "STEAM-1122-XXXX", "◉", "بطاقات الألعاب", "#9bb8ff", None),
-                ("كود آيتونز (15$)", "الولايات المتحدة", 15.00, "$15.00", "ITUNES-7788-XXXX", "", "بطاقات الهدايا", "#ffc107", None),
-                ("بطاقة دفع مسبقة (50$)", "عالمية", 50.00, "$50.00", "VISA-5544-XXXX", "💳", "بطاقات الدفع", "#ff3b3b", None),
+                ("كود جوجل بلاي (10$)", "الولايات المتحدة", 10.00, "$10.00", "GPLAY-9876-XXXX", "▶", "بطاقات الألعاب", "#35eaa1", "الأكثر مبيعاَ"),
+                ("كود بلايستيشن (20$)", "الولايات المتحدة", 20.00, "$20.00", "PSN-5432-XXXX", "🎮", "بطاقات الألعاب", "#62a0ff", "مميز"),
+                ("كود إكس بوكس (25$)", "الولايات المتحدة", 25.00, "$25.00", "XBOX-3344-XXXX", "ⓧ", "بطاقات الألعاب", "#5dff9c", "الأكثر طلباً"),
+                ("كود ستيم (15$)", "الولايات المتحدة", 15.00, "$15.00", "STEAM-1122-XXXX", "◉", "بطاقات الألعاب", "#9bb8ff", None),
+                ("بطاقة دفع مسبقة (50$)", "عالمية", 50.00, "$50.00", "VISA-5544-XXXX", "💳", "بطاقات الدفع", "#ff3b3b", "شائع"),
             ]
             db.executemany("""
                 INSERT INTO products (name, description, price_val, price, code, icon, category, color, badge)
@@ -156,7 +155,7 @@ def subscribe_push():
     return jsonify({"status": "error"}), 400
 
 
-# ==================== صفحة المتجر الرئيسية المتطابقة مع التصميم ====================
+# ==================== صفحة المتجر الرئيسية المطابقة للصورة 100% ====================
 PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -166,136 +165,152 @@ PAGE = r"""
 <title>NOVA STORE | متجرك الرقمي</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
-:root{--bg:#03091b;--panel:#07132c;--text:#f4f7ff;--blue:#315dff;--purple:#8d38ff;--border:#1b315c}
+:root{--bg:#030712;--panel:#071022;--text:#f4f7ff;--blue:#315dff;--purple:#7d2bff}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 70% 0%,#10133e 0,transparent 36%),var(--bg);color:var(--text);font-family:'Cairo',sans-serif}
-.topbar{min-height:78px;display:flex;align-items:center;gap:20px;padding:12px 4%;border-bottom:1px solid #18284a;position:sticky;top:0;background:#040a1bed;backdrop-filter:blur(16px);z-index:10}
-.brand{display:flex;align-items:center;gap:10px;font-size:24px;font-weight:800;text-decoration:none;color:white}.brand b{color:#754bff}.brand-mark{width:39px;height:39px;display:grid;place-items:center;font-size:33px;background:linear-gradient(140deg,#bc5bff,#276bff);color:white;clip-path:polygon(0 0,75% 0,100% 20%,100% 100%,27% 100%,0 78%)}
-.search{height:44px;max-width:420px;flex:1;display:flex;align-items:center;gap:10px;border:1px solid #263d70;border-radius:30px;padding:0 17px;background:#09132b}
-.search input{width:100%;border:0;outline:0;background:transparent;color:white;font-size:13px}
-.header-actions{display:flex;align-items:center;gap:10px;margin-right:auto}
-.user-profile-badge {display: flex; align-items: center; gap: 10px; background: #0b1734; border: 1px solid #263d70; padding: 6px 14px; border-radius: 30px; text-decoration: none;}
-.user-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #9b37ff, #315dff); display: grid; place-items: center; font-weight: bold; color: white; }
-.nav{min-height:46px;padding:0 4%;display:flex;align-items:center;gap:28px;border-bottom:1px solid #18284a;font-size:13px}
-.nav a{color:#c4cde3;text-decoration:none}.nav a:hover{color:#7f9dff}
-.admin-badge { background: #570f0f; color: #ff7777; border: 1px solid #ff5555; padding: 6px 14px; border-radius: 12px; font-weight: bold; text-decoration:none;}
+.topbar{min-height:74px;display:flex;align-items:center;gap:20px;padding:0 3%;border-bottom:1px solid #14213d;position:sticky;top:0;background:#030712ea;backdrop-filter:blur(16px);z-index:10}
+.brand{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:900;text-decoration:none;color:white}.brand b{color:#7d2bff}.brand-mark{width:36px;height:36px;display:grid;place-items:center;font-size:28px;background:linear-gradient(140deg,#bc5bff,#276bff);color:white;clip-path:polygon(0 0,75% 0,100% 20%,100% 100%,27% 100%,0 78%)}
+.brand-sub{font-size:9px;color:#8fa1c4;letter-spacing:1px;display:block;margin-top:-4px}
+.search{height:42px;max-width:380px;flex:1;display:flex;align-items:center;gap:10px;border:1px solid #1f335f;border-radius:30px;padding:0 16px;background:#060e22}
+.search input{width:100%;border:0;outline:0;background:transparent;color:white;font-size:12px}
+.header-actions{display:flex;align-items:center;gap:12px;margin-right:auto}
+.lang-btn{background:#09142c;border:1px solid #1f335f;padding:5px 12px;border-radius:20px;font-size:11px;color:#c4cde3;display:flex;align-items:center;gap:6px;}
+.user-profile-badge {display: flex; align-items: center; gap: 10px; background: #071024; border: 1px solid #1f335f; padding: 5px 12px; border-radius: 30px; text-decoration: none;}
+.user-avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #9b37ff, #315dff); display: grid; place-items: center; font-weight: bold; color: white; font-size: 12px; }
 
-.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:22px;padding:22px 4%}
+/* Sub Header Navigation */
+.sub-nav{min-height:44px;padding:0 3%;display:flex;align-items:center;gap:25px;border-bottom:1px solid #14213d;font-size:12px;background:#030610}
+.sub-nav a{color:#aab8d0;text-decoration:none;display:flex;align-items:center;gap:6px}.sub-nav a:hover{color:#7f9dff}
+.sub-nav a.active{color:#fff;font-weight:bold}
+
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:20px;padding:20px 3%}
 .main-column{min-width:0}
 
-/* Hero Section */
-.hero{min-height:290px;border:1px solid #263f77;border-radius:22px;overflow:hidden;display:grid;grid-template-columns:1fr 1fr;position:relative;background:radial-gradient(ellipse at 70% 50%,#351174 0,transparent 50%),linear-gradient(110deg,#06102b,#080c2c 65%,#100a3b);padding:25px;align-items:center;}
-.hero h1{font-size:clamp(20px,2vw,28px);line-height:1.6;margin:0 0 10px;font-weight:800}
-.hero p{color:#c4cce2;font-size:12px;line-height:1.8;margin:0 0 15px}
-.hero-btn{display:inline-flex;align-items:center;gap:10px;padding:10px 22px;border-radius:30px;font-size:12px;background:linear-gradient(110deg,#9b37ff,#315dff);color:white;text-decoration:none;font-weight:bold;}
-.trust-row{display:flex;gap:15px;margin-top:15px;color:#dce5ff;font-size:10px}
-.hero-art{position:relative;height:240px;display:flex;align-items:center;justify-content:center}
-.gift-card{position:absolute;width:95px;height:135px;border:1px solid #66bfff;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-size:11px;background:linear-gradient(145deg,#063c9e,#09132e);box-shadow:0 0 20px #168dff55}
-.gift-card.google{right:45%;transform:rotate(-12deg);background:linear-gradient(145deg,#113e83,#11153c);border-color:#35eaa1}
-.gift-card.playstation{right:28%;top:20px;transform:rotate(6deg);background:linear-gradient(145deg,#0759dd,#111342)}
-.gift-card.steam{right:10%;top:30px;transform:rotate(12deg);background:linear-gradient(125deg,#122b54,#050c1c)}
-.gift-card.xbox{right:0;top:70px;transform:rotate(18deg);background:linear-gradient(145deg,#076b38,#09271f);width:85px;height:120px}
+/* Hero Banner */
+.hero{border:1px solid #233c70;border-radius:20px;overflow:hidden;display:grid;grid-template-columns:1.2fr 1fr;position:relative;background:radial-gradient(ellipse at 75% 50%,#43148a 0,transparent 55%),linear-gradient(110deg,#050d26,#070d28 65%,#12083b);padding:25px;align-items:center;}
+.hero h1{font-size:clamp(18px,1.9vw,26px);line-height:1.5;margin:8px 0 10px;font-weight:800}
+.hero p{color:#b6c2db;font-size:11px;line-height:1.7;margin:0 0 15px}
+.hero-btn{display:inline-flex;align-items:center;gap:8px;padding:9px 20px;border-radius:25px;font-size:11px;background:linear-gradient(110deg,#9b37ff,#315dff);color:white;text-decoration:none;font-weight:bold;box-shadow:0 5px 15px #315dff44}
+.trust-bar{display:flex;gap:12px;margin-top:15px;padding-top:12px;border-top:1px solid #1b2f5c;color:#cbd5e1;font-size:9.5px}
+.hero-art{position:relative;height:220px;display:flex;align-items:center;justify-content:center}
+.real-card{position:absolute;width:85px;height:120px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;box-shadow:0 0 25px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2)}
+.real-card.google{right:48%;transform:rotate(-15deg);background:linear-gradient(145deg,#0e2f5c,#09122c);border-color:#35eaa1}
+.real-card.playstation{right:30%;top:15px;transform:rotate(5deg);background:linear-gradient(145deg,#0648c2,#0c133b);border-color:#62a0ff}
+.real-card.steam{right:12%;top:25px;transform:rotate(12deg);background:linear-gradient(145deg,#12223f,#050a18);border-color:#9bb8ff}
+.real-card.xbox{right:0;top:60px;transform:rotate(18deg);background:linear-gradient(145deg,#055a30,#061a14);border-color:#5dff9c;width:78px;height:110px}
 
 /* Categories Grid */
-.categories{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;margin:20px 0}
-.category{border:1px solid #172d53;border-radius:12px;background:linear-gradient(150deg,#07152e,#050d20);padding:14px 8px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;cursor:pointer;transition:0.2s}
-.category:hover{border-color:#5a54ff;transform:translateY(-2px)}
-.category span{font-size:22px;color:#65baff}
-.category b{font-size:11px}
-.category small{font-size:9px;color:#9eafd0}
+.categories{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin:18px 0}
+.category{border:1px solid #172d53;border-radius:12px;background:linear-gradient(150deg,#07142c,#050c1a);padding:12px 6px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:5px;cursor:pointer;transition:0.2s;text-decoration:none;color:white}
+.category:hover{border-color:#635bff;transform:translateY(-2px)}
+.category span{font-size:20px;color:#65baff}
+.category b{font-size:10px}
+.category small{font-size:8px;color:#8fa1c4}
 
-/* Products Section */
-.section-heading{display:flex;align-items:center;justify-content:space-between;margin:25px 0 12px}
-.section-heading h2{font-size:18px;margin:0;display:flex;align-items:center;gap:8px}
-.product-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
-.product-card{border:1px solid #1b3159;background:linear-gradient(150deg,#08152e,#050c1e);border-radius:14px;padding:12px;position:relative;transition:0.2s}
-.product-card:hover{border-color:#5c52ff;transform:translateY(-3px)}
-.product-visual{height:100px;border-radius:10px;background:radial-gradient(circle at 50% 20%,#1b3159,transparent 70%),#07142c;display:flex;align-items:center;justify-content:center;font-size:36px;position:relative;margin-bottom:10px}
-.badge-tag{position:absolute;top:8px;right:8px;background:#ff3b3b;color:white;font-size:9px;padding:2px 8px;border-radius:6px;font-weight:bold}
+/* Section Heading */
+.section-heading{display:flex;align-items:center;justify-content:space-between;margin:22px 0 12px}
+.section-heading h2{font-size:16px;margin:0;display:flex;align-items:center;gap:6px}
+
+/* Product Grid */
+.product-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.product-card{border:1px solid #1a3059;background:linear-gradient(150deg,#07142e,#040a1b);border-radius:14px;padding:12px;position:relative;transition:0.2s}
+.product-card:hover{border-color:#635bff;transform:translateY(-3px)}
+.product-visual{height:95px;border-radius:10px;background:radial-gradient(circle at 50% 30%,#1b325c,transparent 75%),#061126;display:flex;align-items:center;justify-content:center;font-size:32px;position:relative;margin-bottom:10px}
+.badge-tag{position:absolute;top:8px;right:8px;background:#ff3b3b;color:white;font-size:8.5px;padding:2px 7px;border-radius:6px;font-weight:bold}
 .badge-tag.memo{background:#315dff}
-.product-card h3{font-size:13px;margin:5px 0 2px}
-.product-card p{font-size:10px;color:#8fa1c4;margin:0 0 10px}
+.badge-tag.hot{background:#00c853}
+.badge-tag.orange{background:#ff9100}
+.product-card h3{font-size:12px;margin:5px 0 2px}
+.product-card p{font-size:9.5px;color:#8fa1c4;margin:0 0 10px}
 .price-row{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
-.price{font-size:14px;font-weight:800;color:#fff}
-.add-btn{padding:7px 12px;border:0;border-radius:8px;background:linear-gradient(100deg,#933aff,#315dff);font-size:11px;font-weight:700;color:white;cursor:pointer}
+.price{font-size:13px;font-weight:800;color:#fff}
+.add-btn{padding:6px 10px;border:0;border-radius:8px;background:linear-gradient(100deg,#933aff,#315dff);font-size:10px;font-weight:700;color:white;cursor:pointer}
 
 /* AI Assistant Panel */
-.ai-panel{border:1px solid #344b88;border-radius:18px;padding:16px;height:max-content;background:linear-gradient(155deg,#081735,#060d22);position:sticky;top:95px}
-.ai-heading{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-.bot-avatar{width:46px;height:46px;display:grid;place-items:center;border-radius:50%;font-size:22px;background:radial-gradient(circle at 35% 25%,#2c8cff,#11175a 65%);border:1px solid #466bff}
-.ai-message{border:1px solid #1e3c75;border-radius:12px;background:#0a1b42;padding:12px;font-size:11px;line-height:1.7;color:#c4d1ed}
-.ai-quick{display:grid;gap:7px;margin-top:12px}
-.ai-quick button{border:1px solid #244b91;border-radius:9px;background:#0b2050;padding:8px;font-size:10px;text-align:right;color:#fff;cursor:pointer}
-.ai-input{display:flex;gap:6px;align-items:center;border:1px solid #294b91;border-radius:25px;padding:4px 10px;margin-top:15px;background:#081a3c}
-.ai-input input{width:100%;border:0;outline:0;background:transparent;color:white;font-size:11px}
-.ai-input button{width:28px;height:28px;border:0;border-radius:50%;background:#4d55ff;color:white;cursor:pointer}
+.ai-panel{border:1px solid #28417d;border-radius:18px;padding:14px;height:max-content;background:linear-gradient(155deg,#071533,#050b1e);position:sticky;top:88px}
+.ai-heading{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.bot-avatar{width:42px;height:42px;display:grid;place-items:center;border-radius:50%;font-size:20px;background:radial-gradient(circle at 35% 25%,#2c8cff,#0d134d 65%);border:1px solid #466bff}
+.ai-menu-item{display:flex;align-items:center;justify-content:space-between;border:1px solid #1a3366;border-radius:10px;background:#081738;padding:9px 12px;font-size:10.5px;margin-bottom:7px;cursor:pointer;color:#e2e8f0;text-decoration:none}
+.ai-menu-item:hover{background:#0c2252;border-color:#315dff}
+.ai-input{display:flex;gap:6px;align-items:center;border:1px solid #284c96;border-radius:25px;padding:4px 10px;margin-top:12px;background:#061430}
+.ai-input input{width:100%;border:0;outline:0;background:transparent;color:white;font-size:10.5px}
+.ai-input button{width:26px;height:26px;border:0;border-radius:50%;background:#4d55ff;color:white;cursor:pointer}
 
 /* Footer */
-footer{border-top:1px solid #192b4e;padding:25px 4%;display:grid;grid-template-columns:1.5fr 1fr 1fr 1.4fr;gap:20px;color:#aab9d8;font-size:11px;margin-top:40px;background:#030714}
-footer h4{color:#f4f7ff;margin:0 0 10px;font-size:12px}footer a{display:block;margin:5px 0;color:#aab9d8;text-decoration:none}
+footer{border-top:1px solid #17284a;padding:22px 3%;display:grid;grid-template-columns:1.4fr 1fr 1fr 1.3fr;gap:18px;color:#9fb0d2;font-size:10.5px;margin-top:35px;background:#02050f}
+footer h4{color:#f4f7ff;margin:0 0 10px;font-size:11.5px}footer a{display:block;margin:4px 0;color:#9fb0d2;text-decoration:none}
 </style>
 </head>
 <body>
 <header class="topbar">
-  <a class="brand" href="/"><span class="brand-mark">N</span><span>NOVA <b>STORE</b></span></a>
+  <a class="brand" href="/">
+    <span class="brand-mark">N</span>
+    <div>
+      <span>NOVA <b>STORE</b></span>
+      <span class="brand-sub">Better Apps &nbsp;·&nbsp; Faster &nbsp;·&nbsp; Safer</span>
+    </div>
+  </a>
   <label class="search"><span>⌕</span><input id="searchInput" type="search" placeholder="ابحث عن أي منتج..."></label>
   <div class="header-actions">
+    <button class="lang-btn">🌐 AR ▾</button>
     {% if is_admin %}
-      <a href="/admin" class="admin-badge">⚙️ لوحة المطور</a>
+      <a href="/admin" class="admin-badge" style="background:#570f0f;color:#ff7777;border:1px solid #ff5555;padding:5px 12px;border-radius:10px;font-weight:bold;text-decoration:none;font-size:11px;">⚙️ لوحة المطور</a>
     {% endif %}
     {% if user %}
       <a href="/account" class="user-profile-badge">
         <div class="user-avatar">{{ user["name"][:1] }}</div>
         <div>
-          <span style="font-size:11px;font-weight:bold;display:block;">{{ user["name"] }}</span>
-          <span style="font-size:9px;color:#35eaa1;">{{ user["balance"] }} جـ</span>
+          <span style="font-size:10.5px;font-weight:bold;display:block;">{{ user["name"] }}</span>
+          <span style="font-size:8.5px;color:#35eaa1;">{{ user["balance"] }} جـ</span>
         </div>
       </a>
     {% else %}
-      <a href="/login" style="color:#d8e2ff;text-decoration:none;font-size:12px;">تسجيل الدخول</a>
-      <a href="/register" style="padding:8px 14px;background:linear-gradient(110deg,#9b37ff,#315dff);border-radius:10px;font-weight:bold;color:white;text-decoration:none;font-size:12px;">إنشاء حساب</a>
+      <a href="/login" style="color:#d8e2ff;text-decoration:none;font-size:11.5px;">تسجيل الدخول</a>
+      <a href="/register" style="padding:7px 13px;background:linear-gradient(110deg,#9b37ff,#315dff);border-radius:10px;font-weight:bold;color:white;text-decoration:none;font-size:11.5px;">إنشاء حساب</a>
     {% endif %}
   </div> 
 </header>
 
-<nav class="nav">
-  <a href="/" style="color:#7f9dff;font-weight:bold;">الرئيسية</a>
-  <a href="/spin" style="color:#ffc107;font-weight:bold;">🎡 عجلة الحظ (لفة يومياً)</a>
-  <a href="#products">المنتجات</a>
+<nav class="sub-nav">
+  <a href="/"><span style="font-size:14px;">🛒</span> <b>0</b></a>
   <a href="#footer">من نحن</a>
   <a href="#footer">الدعم</a>
+  <a href="/spin" style="color:#ffc107;font-weight:bold;">الطلبات</a>
+  <a href="#products">المنتجات</a>
+  <a href="/spin" style="color:#ffc107;font-weight:bold;">🎡 عجلة الحظ</a>
+  <a href="/" class="active">الرئيسية ⌂</a>
 </nav>
 
 <main class="layout">
   <section class="main-column">
     <div class="hero">
       <div>
-        <span style="color:#bca0ff;font-size:11px;font-weight:bold;">عالمك الرقمي في مكان واحد</span>
+        <span style="color:#facc15;font-size:10.5px;font-weight:bold;background:rgba(250,204,21,0.1);padding:3px 10px;border-radius:10px;border:1px solid rgba(250,204,21,0.2)">👑 أفضل متجر رقمي</span>
         <h1>كل ما تحتاجه من بطاقات الدفع وأكواد الألعاب في مكان واحد!</h1>
-        <p>بطاقات رقمية آمنة وسريعة. شحن الألعاب، أكواد المتاجر العالمية والمزيد من المتجات الرقمية المميزة.</p>
-        <a class="hero-btn" href="#products">تسوق الآن ←</a>
-        <div class="trust-row"><span>♧ دفع آمن 100%</span><span>◷ تسليم سريع</span><span>دعم على مدار الساعة</span></div>
+        <p>بطاقات رقمية آمنة وسريعة. شحن الألعاب، أكواد المتجر العالمية والمزيد من المنتجات الرقمية المميزة.</p>
+        <a class="hero-btn" href="#products">تسوق الآن →</a>
+        <div class="trust-bar"><span>♧ دفع بصل إلى 100%</span><span>⚡ تسليم سريع</span><span>🕒 دعم على مدار الساعة</span></div>
       </div>
       <div class="hero-art">
-        <div class="gift-card google"><span style="color:#35eaa1;font-size:26px;">▶</span><b>Google Play</b></div>
-        <div class="gift-card playstation"><span style="color:#62a0ff;font-size:22px;">PSN</span><b>PlayStation</b></div>
-        <div class="gift-card steam"><span style="color:#9bb8ff;font-size:22px;">◉</span><b>STEAM</b></div>
-        <div class="gift-card xbox"><span style="color:#5dff9c;font-size:22px;">ⓧ</span><b>Xbox</b></div>
+        <div class="real-card google"><span style="color:#35eaa1;font-size:24px;">▶</span><b>Google Play</b></div>
+        <div class="real-card playstation"><span style="color:#62a0ff;font-size:20px;">PS</span><b>PlayStation</b></div>
+        <div class="real-card steam"><span style="color:#9bb8ff;font-size:20px;">◉</span><b>STEAM</b></div>
+        <div class="real-card xbox"><span style="color:#5dff9c;font-size:20px;">ⓧ</span><b>XBOX</b></div>
       </div>
     </div>
 
     <div class="categories">
-      <div class="category"><span>▦</span><b>المنتجات الرقمية</b><small>المزيد من الخدمات</small></div>
-      <div class="category"><span style="color:#35eaa1;">▶</span><b>Google Play</b><small>أكواد جوجل بلاي</small></div>
-      <div class="category"><span style="color:#62a0ff;">▤</span><b>PlayStation</b><small>بطاقات وإاشتراكات</small></div>
-      <div class="category"><span style="color:#5dff9c;">ⓧ</span><b>Xbox</b><small>بطاقات وإاشتراكات</small></div>
-      <div class="category"><span style="color:#9bb8ff;">◉</span><b>Steam</b><small>أكواد ومحافظ ستيم</small></div>
-      <div class="category"><span style="color:#ffc107;">💳</span><b>بطاقات الدفع</b><small>بطاقات مسبقة الدفع</small></div>
-      <div class="category"><span style="color:#bc5bff;">🎁</span><b>بطاقات الهدايا</b><small>هدايا رقمية مميزة</small></div>
+      <a href="#products" class="category"><span>▦</span><b>المنتجات الرقمية</b><small>المزيد من الخدمات</small></a>
+      <a href="#products" class="category"><span style="color:#35eaa1;">▶</span><b>Google Play</b><small>أكواد جوجل بلاي</small></a>
+      <a href="#products" class="category"><span style="color:#62a0ff;">▤</span><b>PlayStation</b><small>بطاقات وإاشتراكات</small></a>
+      <a href="#products" class="category"><span style="color:#5dff9c;">ⓧ</span><b>Xbox</b><small>بطاقات وإاشتراكات</small></a>
+      <a href="#products" class="category"><span style="color:#9bb8ff;">◉</span><b>Steam</b><small>أكواد ومحافظ</small></a>
+      <a href="#products" class="category"><span style="color:#ffc107;">💳</span><b>بطاقات الدفع</b><small>مسبقة الدفع</small></a>
+      <a href="#products" class="category"><span style="color:#bc5bff;">🎁</span><b>بطاقات الهدايا</b><small>هدايا رقمية مميزة</small></a>
     </div>
 
     <div class="section-heading" id="products">
       <h2><span>🔥</span> أحدث المنتجات</h2>
-      <a href="#products" style="font-size:11px;color:#8198ff;text-decoration:none;">عرض الكل ←</a>
+      <a href="#products" style="font-size:10.5px;color:#8198ff;text-decoration:none;">عرض الكل ←</a>
     </div>
 
     <div class="product-grid" id="productGrid"></div>
@@ -303,21 +318,20 @@ footer h4{color:#f4f7ff;margin:0 0 10px;font-size:12px}footer a{display:block;ma
 
   <aside class="ai-panel">
     <div class="ai-heading">
-      <div class="bot-avatar">✦</div>
+      <div class="bot-avatar">🤖</div>
       <div>
-        <h3 style="margin:0 0 2px;font-size:13px;color:#a99bff;">مساعد NOVA AI</h3>
-        <span style="font-size:9px;color:#2fe19a;display:flex;align-items:center;gap:4px;"><i style="width:5px;height:5px;background:#2fe19a;border-radius:50%;display:inline-block;"></i> متصل الآن</span>
+        <h3 style="margin:0 0 2px;font-size:12.5px;color:#a99bff;">مرحباً بك في NOVA STORE</h3>
+        <span style="font-size:8.5px;color:#8fa1c4;display:block;">متجرك الرقمي المفضّل</span>
       </div>
     </div>
-    <div class="ai-message">
-      <b>مرحباً! 👋</b>
-      <p style="margin:4px 0 0;">أنا مساعد NOVA AI. يمكنني مساعدتك في البحث عن المنتجات والإجابة على استفساراتك.</p>
+    
+    <div style="margin-top:12px;">
+      <a href="#products" class="ai-menu-item"><span>عرض وخصومات حصرية</span> ‹</a>
+      <a href="#footer" class="ai-menu-item"><span>خدمة عملاء مميزة</span> ‹</a>
+      <a href="#products" class="ai-menu-item"><span>استرداد واستبدال سهل</span> ‹</a>
+      <a href="#footer" class="ai-menu-item"><span>المتجر الموثوق</span> ‹</a>
     </div>
-    <div class="ai-quick">
-      <button onclick="alert('تصفح القسم المفضل لديك من الأعلى!')">📦 عرض المنتجات المتاحة</button>
-      <button onclick="alert('اختر المنتج وأضفه للسلة بسهولة!')">💳 مساعدة في الشراء</button>
-      <button onclick="alert('تواصل معنا عبر الدعم الفني في الأسفل')">📞 معلومات عن المتجر</button>
-    </div>
+
     <div class="ai-input">
       <input placeholder="اكتب رسالتك هنا..." autocomplete="off">
       <button>➤</button>
@@ -327,25 +341,28 @@ footer h4{color:#f4f7ff;margin:0 0 10px;font-size:12px}footer a{display:block;ma
 
 <footer id="footer">
   <div>
-    <a class="brand" href="/" style="margin-bottom:10px;"><span class="brand-mark" style="width:28px;height:28px;font-size:22px;">N</span><span>NOVA <b>STORE</b></span></a>
-    <p style="line-height:1.7;margin:0;">متجرك الرقمي الأول لبطاقات الدفع وأكواد الألعاب.</p>
+    <a class="brand" href="/" style="margin-bottom:8px;"><span class="brand-mark" style="width:26px;height:26px;font-size:20px;">N</span><span>NOVA <b>STORE</b></span></a>
+    <p style="line-height:1.6;margin:0;font-size:10px;">عالمك الرقمي يبدأ من هنا</p>
   </div>
   <div>
     <h4>روابط سريعة</h4>
     <a href="/">الرئيسية</a>
-    <a href="/spin">عجلة الحظ</a>
     <a href="#products">المنتجات</a>
+    <a href="#footer">الدعم</a>
+    <a href="#footer">من نحن</a>
   </div>
   <div>
     <h4>الدعم والمساعدة</h4>
     <a href="#">مركز المساعدة</a>
     <a href="#">سياسة الخصوصية</a>
+    <a href="#">شروط الاستخدام</a>
     <a href="#">تواصل معنا</a>
   </div>
   <div>
     <h4>وسائل الدفع المتاحة</h4>
-    <div style="font-size:22px;margin-top:10px;letter-spacing:8px;">💳 🅿 🟡 🅕</div>
-    <small style="display:block;margin-top:15px;color:#8194ba;">© 2026 NOVA STORE جميع الحقوق محفوظة</small>
+    <div style="font-size:18px;margin-top:8px;letter-spacing:6px;">💳 🅿 🟡 🅕 🏛️</div>
+    <div style="display:flex;gap:10px;margin-top:15px;font-size:15px;"><a href="#">🌐</a><a href="#">💬</a><a href="#">📸</a><a href="#">✈️</a></div>
+    <small style="display:block;margin-top:10px;color:#788db8;font-size:8.5px;">2026 NOVA STORE جميع الحقوق محفوظة</small>
   </div>
 </footer>
 
@@ -357,7 +374,8 @@ function renderProducts() {
   PRODUCTS.forEach(p => {
     const card = document.createElement('article');
     card.className = 'product-card';
-    let badgeHtml = p.badge ? `<span class="badge-tag ${p.badge==='مميز'?'memo':''}" >${p.badge}</span>` : '';
+    let badgeClass = p.badge === 'مميز' ? 'memo' : (p.badge === 'شائع' ? 'hot' : (p.badge === 'الأكثر طلباً' ? 'orange' : ''));
+    let badgeHtml = p.badge ? `<span class="badge-tag ${badgeClass}">${p.badge}</span>` : '';
     card.innerHTML = `
       ${badgeHtml}
       <div class="product-visual" style="color:${p.color};">${p.icon}</div>
@@ -365,7 +383,7 @@ function renderProducts() {
       <p>${p.description}</p>
       <div class="price-row">
         <span class="price">${p.price}</span>
-        <button class="add-btn" onclick="alert('تمت إضافة ${p.name} بنجاح!')">＋ أضف للسلة</button>
+        <button class="add-btn" onclick="alert('تمت إضافة ${p.name} للسلة بنجاح!')">＋ أضف إلى السلة</button>
       </div>`;
     productGrid.appendChild(card);
   });
@@ -398,9 +416,9 @@ ADMIN_PANEL_PAGE = r"""
 <title>لوحة المطور | NOVA STORE</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
-body{margin:0;background:#03091b;color:white;font-family:'Cairo',sans-serif;padding:30px}
-.box{background:#07132c;border:1px solid #315dff;border-radius:15px;padding:25px;max-width:550px;margin:20px auto;}
-input, textarea {width:100%;padding:12px;margin:10px 0;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white;box-sizing:border-box;}
+body{margin:0;background:#030712;color:white;font-family:'Cairo',sans-serif;padding:30px}
+.box{background:#071024;border:1px solid #315dff;border-radius:15px;padding:25px;max-width:550px;margin:20px auto;}
+input, textarea {width:100%;padding:12px;margin:10px 0;background:#030712;border:1px solid #1f335f;border-radius:9px;color:white;box-sizing:border-box;}
 button{width:100%;padding:13px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;}
 </style>
 </head>
@@ -415,12 +433,12 @@ button{width:100%;padding:13px;background:linear-gradient(110deg,#9b37ff,#315dff
   <form method="POST" action="/admin/add_product">
     <input name="name" placeholder="اسم المنتج (مثال: كود جوجل بلاي)" required>
     <input name="description" placeholder="الوصف (مثال: الولايات المتحدة)" required>
-    <input type="number" step="0.01" name="price_val" placeholder="السعر (مثال: 10)" required>
+    <input type="number" step="0.01" name="price_val" placeholder="السعر الرقمي (مثال: 10)" required>
     <input name="price" placeholder="نص السعر (مثال: $10.00)" required>
     <input name="code" placeholder="الكود الرقمي" required>
-    <input name="icon" placeholder="الأيقونة (مثال: ▶)" required>
+    <input name="icon" placeholder="الأيقونة أو الرمز (مثال: ▶ أو 🎮)" required>
     <input name="category" placeholder="القسم" required>
-    <input name="badge" placeholder="الشارة (مثال: الأكثر مبيعاً أو فارغ)">
+    <input name="badge" placeholder="الشارة (مثال: الأكثر مبيعاً أو مميز)">
     <button type="submit">إضافة المنتج للمتجر</button>
   </form>
 </div>
@@ -448,19 +466,17 @@ SPIN_PAGE = r"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
 *{box-sizing:border-box}
-body{margin:0;background:radial-gradient(ellipse at center,#0f1c3f 0%,#03091b 100%);color:#fff;font-family:'Cairo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
+body{margin:0;background:radial-gradient(ellipse at center,#0f1c3f 0%,#030712 100%);color:#fff;font-family:'Cairo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
 .wheel-container{position:relative;width:340px;height:340px;display:flex;align-items:center;justify-content:center;margin:20px 0;}
 .wheel-outer-ring{position:absolute;inset:-12px;border-radius:50%;border:4px solid #315dff;box-shadow:0 0 35px #8d38ffaa;pointer-events:none;z-index:2;}
 .pointer{position:absolute;top:-22px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-top:28px solid #ff3b3b;z-index:10;}
 canvas{width:100%;height:100%;border-radius:50%;transition: transform 5s cubic-bezier(0.15, 0.99, 0.24, 0.99);}
 .spin-btn{position:absolute;width:75px;height:75px;border-radius:50%;background:radial-gradient(circle,#9b37ff,#315dff);border:3px solid #fff;color:#fff;font-weight:900;font-size:16px;cursor:pointer;z-index:5;}
-.modal{display:none;position:fixed;inset:0;background:#03091bee;backdrop-filter:blur(10px);z-index:100;place-items:center;padding:20px;}
-.modal-content{background:linear-gradient(145deg,#07132c,#0b1e47);border:2px solid #35eaa1;border-radius:20px;padding:30px;text-align:center;max-width:360px;width:100%;}
-#confettiCanvas{position:fixed;inset:0;pointer-events:none;z-index:99}
+.modal{display:none;position:fixed;inset:0;background:#030712ee;backdrop-filter:blur(10px);z-index:100;place-items:center;padding:20px;}
+.modal-content{background:linear-gradient(145deg,#071024,#0b1e47);border:2px solid #35eaa1;border-radius:20px;padding:30px;text-align:center;max-width:360px;width:100%;}
 </style>
 </head>
 <body>
-<canvas id="confettiCanvas"></canvas>
 <div style="text-align:center;margin-bottom:15px;">
   <h1 style="font-size:26px;margin:0;background:linear-gradient(110deg,#bc5bff,#315dff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">🎡 عجلة الحظ النيون</h1>
   <p style="color:#a8b7d8;font-size:12px;">متاحة مرة واحدة فقط كل يوم!</p>
@@ -682,13 +698,13 @@ def register():
                     session["user_email"] = email
                     return redirect(url_for("account"))
     return render_template_string("""
-    <body style="background:#03091b;color:white;font-family:Arial;display:grid;place-items:center;min-height:100vh;">
-      <form method="post" style="background:#07132c;padding:25px;border:1px solid #315dff;border-radius:15px;width:320px;">
+    <body style="background:#030712;color:white;font-family:Arial;display:grid;place-items:center;min-height:100vh;">
+      <form method="post" style="background:#071024;padding:25px;border:1px solid #315dff;border-radius:15px;width:320px;">
         <h2>إنشاء حساب</h2>
-        <input name="name" placeholder="الاسم" required style="width:100%;padding:10px;margin:8px 0;background:#03091b;border:1px solid #263d70;color:white;">
-        <input type="email" name="email" placeholder="البريد الإلكتروني" required style="width:100%;padding:10px;margin:8px 0;background:#03091b;border:1px solid #263d70;color:white;">
-        <input type="password" name="password" placeholder="كلمة المرور" required style="width:100%;padding:10px;margin:8px 0;background:#03091b;border:1px solid #263d70;color:white;">
-        <input name="telegram_id" placeholder="Telegram Chat ID" required style="width:100%;padding:10px;margin:8px 0;background:#03091b;border:1px solid #263d70;color:white;">
+        <input name="name" placeholder="الاسم" required style="width:100%;padding:10px;margin:8px 0;background:#030712;border:1px solid #1f335f;color:white;">
+        <input type="email" name="email" placeholder="البريد الإلكتروني" required style="width:100%;padding:10px;margin:8px 0;background:#030712;border:1px solid #1f335f;color:white;">
+        <input type="password" name="password" placeholder="كلمة المرور" required style="width:100%;padding:10px;margin:8px 0;background:#030712;border:1px solid #1f335f;color:white;">
+        <input name="telegram_id" placeholder="Telegram Chat ID" required style="width:100%;padding:10px;margin:8px 0;background:#030712;border:1px solid #1f335f;color:white;">
         <button style="width:100%;padding:12px;background:#315dff;color:white;border:0;border-radius:8px;font-weight:bold;">تسجيل</button>
         {% if error %}<p style="color:#ff7777;">{{ error }}</p>{% endif %}
       </form>
@@ -709,11 +725,11 @@ def login():
             return redirect(url_for("account"))
         error = "بيانات الدخول غير صحيحة."
     return render_template_string("""
-    <body style="background:#03091b;color:white;font-family:Arial;display:grid;place-items:center;min-height:100vh;">
-      <form method="post" style="background:#07132c;padding:25px;border:1px solid #315dff;border-radius:15px;width:320px;">
+    <body style="background:#030712;color:white;font-family:Arial;display:grid;place-items:center;min-height:100vh;">
+      <form method="post" style="background:#071024;padding:25px;border:1px solid #315dff;border-radius:15px;width:320px;">
         <h2>تسجيل الدخول</h2>
-        <input type="email" name="email" placeholder="البريد الإلكتروني" required style="width:100%;padding:10px;margin:8px 0;background:#03091b;border:1px solid #263d70;color:white;">
-        <input type="password" name="password" placeholder="كلمة المرور" required style="width:100%;padding:10px;margin:8px 0;background:#03091b;border:1px solid #263d70;color:white;">
+        <input type="email" name="email" placeholder="البريد الإلكتروني" required style="width:100%;padding:10px;margin:8px 0;background:#030712;border:1px solid #1f335f;color:white;">
+        <input type="password" name="password" placeholder="كلمة المرور" required style="width:100%;padding:10px;margin:8px 0;background:#030712;border:1px solid #1f335f;color:white;">
         <button style="width:100%;padding:12px;background:#315dff;color:white;border:0;border-radius:8px;font-weight:bold;">دخول</button>
         {% if error %}<p style="color:#ff7777;">{{ error }}</p>{% endif %}
       </form>
@@ -729,8 +745,8 @@ def account():
     with get_db() as db:
         user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
     return render_template_string("""
-    <body style="background:#03091b;color:white;font-family:Arial;display:grid;place-items:center;min-height:100vh;">
-      <div style="background:#07132c;padding:30px;border:1px solid #315dff;border-radius:15px;text-align:center;width:350px;">
+    <body style="background:#030712;color:white;font-family:Arial;display:grid;place-items:center;min-height:100vh;">
+      <div style="background:#071024;padding:30px;border:1px solid #315dff;border-radius:15px;text-align:center;width:350px;">
         <h2>{{ user["name"] }}</h2>
         <p style="color:#35eaa1;font-weight:bold;">الرصيد: {{ user["balance"] }} جنيه</p>
         <a href="/" style="color:#9db4ff;display:block;margin:10px;text-decoration:none;">الرئيسية</a>
