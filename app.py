@@ -1,4 +1,4 @@
-import os
+6import os
 import hmac
 import time
 import secrets
@@ -775,6 +775,7 @@ def admin_login():
     <!DOCTYPE html>
     <html lang="ar" dir="rtl">
     <head>
+    <meta name="google-site-verification" content="c506hjlM_x6NnfsOeo_KA9qL-7H7pmWHTh6GnojnDTM" />
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>NOVA STORE | تسجيل الدخول</title>
