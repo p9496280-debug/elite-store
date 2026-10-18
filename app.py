@@ -28,6 +28,7 @@ DATABASE_PATH = os.environ.get("DATABASE_PATH", "nova_store.db")
 # 📱 ضع رقم فودافون كاش الخاص بك هنا
 ADMIN_VODAFONE_NUMBER = os.environ.get("VODAFONE_NUMBER", "01011541698")
 
+# 🤖 ضع توكن بوت تيليجرام الخاص بك هنا
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4")
 
 
@@ -76,7 +77,7 @@ PRODUCTS = [
     },
     {
         "name": "PlayStation",
-        "description": "بطاقات واشتراكات PlayStation",
+        "description": "بطاقات وااشتراكات PlayStation",
         "price_val": 250,
         "price": "250 جنيه",
         "code": "PSN-5432-XXXX",
@@ -96,7 +97,7 @@ PRODUCTS = [
     },
     {
         "name": "Xbox",
-        "description": "بطاقات واشتراكات Xbox",
+        "description": "بطاقات وااشتراكات Xbox",
         "price_val": 200,
         "price": "200 جنيه",
         "code": "XBOX-3344-XXXX",
@@ -908,6 +909,7 @@ def spin():
 
     return render_template_string(SPIN_PAGE, user=user)
 
+# صفحة شحن الرصيد مع اقتطاع الرسوم واحتساب الصافي
 @app.route("/deposit", methods=["GET", "POST"])
 def deposit():
     email = session.get("user_email")
@@ -915,41 +917,55 @@ def deposit():
         return redirect(url_for("login"))
 
     if request.method == "POST":
+        try:
+            amount_sent = float(request.form.get("amount", 0))
+        except ValueError:
+            amount_sent = 0
+
+        # نسبة الخصم (خصم 30% رسوم تحويل - العميل يتلقى 70% صافي)
+        fee_percentage = 0.30 
+        net_amount = amount_sent * (1 - fee_percentage)
+
         return render_template_string("""
         <!doctype html>
         <html lang="ar" dir="rtl">
-        <head><meta charset="utf-8"><title>طلب شحن</title></head>
+        <head><meta charset="utf-8"><title>طلب شحن | NOVA STORE</title></head>
         <body style="background:#03091b;color:white;text-align:center;padding:50px;font-family:Arial;">
             <div style="background:#07132c;padding:30px;border:1px solid #315dff;border-radius:15px;max-width:400px;margin:auto;">
-                <h2 style="color:#35eaa1;">تم إرسال طلب الشحن بنجاح!</h2>
+                <h2 style="color:#35eaa1;">تم إرسال طلب الشحن! 🚀</h2>
+                <p>المبلغ المحول: <b>{{ amount_sent }} جنيه</b></p>
+                <p style="color:#ffc107;">الرصيد الصافي الذي سيضاف لمحفظتك بعد خصم الرسوم: <br><b style="font-size:22px; color:#35eaa1;">{{ net_amount }} جنيه</b></p>
+                <hr style="border-color:#1b315c;">
                 <p>يرجى تحويل المبلغ المطلوب إلى رقم فودافون كاش التالي:</p>
                 <h2 style="color:#ff3b3b; background:#03091b; padding:10px; border-radius:10px; border:1px solid #ff3b3b55;">{{ vodafone_number }}</h2>
-                <p>سيتم إضافة الرصيد إلى محفظتك فور تأكيد التحويل.</p>
-                <a href="/account" style="color:#9db4ff;">العودة للحساب</a>
+                <p style="font-size:12px; color:#a8b7d8;">سيتم إضافة الرصيد لحسابك فور تأكيد التحويل.</p>
+                <a href="/account" style="color:#9db4ff; text-decoration:none;">العودة للحساب</a>
             </div>
         </body>
         </html>
-        """, vodafone_number=ADMIN_VODAFONE_NUMBER)
+        """, amount_sent=amount_sent, net_amount=net_amount, vodafone_number=ADMIN_VODAFONE_NUMBER)
 
     return render_template_string("""
     <!doctype html>
     <html lang="ar" dir="rtl">
     <meta charset="utf-8">
-    <title>شحن المحفظة</title>
+    <title>شحن المحفظة | NOVA STORE</title>
     <style>
       body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;min-height:100vh;display:grid;place-items:center;padding:20px}
       form{width:100%;max-width:380px;background:#07132c;padding:25px;border:1px solid #315dff;border-radius:18px;box-sizing:border-box}
       input{width:100%;padding:12px;margin:10px 0;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white;box-sizing:border-box;}
       button{width:100%;padding:13px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;}
       .number-box{background:#03091b; border:1px solid #ff3b3b; border-radius:10px; padding:12px; text-align:center; margin:10px 0; font-weight:bold; font-size:18px; color:#ff5555;}
+      .notice{background:#180f2d; border:1px solid #754bff; border-radius:9px; padding:10px; font-size:11px; color:#d0c2ff; margin-bottom:15px; text-align:center;}
     </style>
     <form method="POST">
       <h2>شحن رصيد المحفظة 💳</h2>
+      <div class="notice">💡 تنبيه: يتم خصم رسوم تحويل بسيطة، الشحن بقيمة 10 جـ يمنحك 7 جـ صافي في المحفظة.</div>
       <p style="font-size:13px; color:#a8b7d8;">حول المبلغ لرقم فودافون كاش التالي:</p>
       <div class="number-box">{{ vodafone_number }}</div>
       
-      <label>المبلغ المراد شحنه (بالجنيه)</label>
-      <input type="number" name="amount" required placeholder="100">
+      <label>المبلغ المراد تحويله (بالجنيه)</label>
+      <input type="number" name="amount" required placeholder="مثال: 10">
       <label>رقم فودافون كاش المحول منه</label>
       <input type="text" name="phone" required placeholder="01xxxxxxxx">
       <button type="submit">تأكيد طلب الشحن</button>
