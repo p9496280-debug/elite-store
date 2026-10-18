@@ -226,6 +226,105 @@ renderProducts();
 @app.route("/")
 def home():
     return render_template_string(PAGE, products=PRODUCTS)
+@app.route("/admin/login", methods=["GET", "POST"])
+def admin_login():
+    error = ""
+
+    if request.method == "POST":
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
+
+        if not ADMIN_USERNAME or not ADMIN_PASSWORD:
+            error = "إعدادات المدير غير مكتملة على السيرفر."
+        elif (
+            hmac.compare_digest(username, ADMIN_USERNAME)
+            and hmac.compare_digest(password, ADMIN_PASSWORD)
+        ):
+            session["admin_logged_in"] = True
+            return redirect(url_for("admin"))
+        else:
+            error = "اسم المستخدم أو كلمة المرور غير صحيحة."
+
+    return render_template_string("""
+    <!DOCTYPE html>
+    <html lang="ar" dir="rtl">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>NOVA STORE | تسجيل الدخول</title>
+        <style>
+            * { box-sizing: border-box; }
+            body {
+                margin: 0;
+                min-height: 100vh;
+                display: grid;
+                place-items: center;
+                padding: 20px;
+                background: #03091b;
+                color: white;
+                font-family: Arial, sans-serif;
+            }
+            .box {
+                width: 100%;
+                max-width: 400px;
+                padding: 28px;
+                background: #07132c;
+                border: 1px solid #315dff;
+                border-radius: 20px;
+            }
+            h1 { color: #8d70ff; text-align: center; }
+            p { color: #a8b7d8; text-align: center; }
+            label { display: block; margin-top: 18px; }
+            input {
+                width: 100%;
+                margin-top: 8px;
+                padding: 13px;
+                border: 1px solid #263d70;
+                border-radius: 10px;
+                background: #03091b;
+                color: white;
+            }
+            button {
+                width: 100%;
+                margin-top: 22px;
+                padding: 13px;
+                border: 0;
+                border-radius: 10px;
+                background: linear-gradient(110deg,#9b37ff,#315dff);
+                color: white;
+                font-weight: bold;
+                cursor: pointer;
+            }
+            .error { color: #ff7777; margin-top: 15px; }
+        </style>
+    </head>
+    <body>
+        <form class="box" method="POST">
+            <h1>NOVA STORE</h1>
+            <p>تسجيل دخول لوحة الإدارة 🔐</p>
+
+            <label>اسم المستخدم</label>
+            <input name="username" required autocomplete="username">
+
+            <label>كلمة المرور</label>
+            <input type="password" name="password"
+                   required autocomplete="current-password">
+
+            <button type="submit">تسجيل الدخول</button>
+
+            {% if error %}
+                <div class="error">{{ error }}</div>
+            {% endif %}
+        </form>
+    </body>
+    </html>
+    """, error=error)
+
+
+@app.route("/admin/logout")
+def admin_logout():
+    session.clear()
+    return redirect(url_for("admin_login"))
 @app.route("/admin")
 def admin():
     return """
