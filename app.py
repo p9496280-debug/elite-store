@@ -71,9 +71,8 @@ def init_db():
                 price_val REAL NOT NULL,
                 price TEXT NOT NULL,
                 code TEXT NOT NULL,
-                icon TEXT NOT NULL,
+                card_type TEXT NOT NULL,
                 category TEXT NOT NULL,
-                color TEXT NOT NULL,
                 badge TEXT
             )
         """)
@@ -101,15 +100,15 @@ def init_db():
         cursor = db.execute("SELECT COUNT(*) as count FROM products")
         if cursor.fetchone()["count"] == 0:
             default_products = [
-                ("كود جوجل بلاي (10$)", "الولايات المتحدة", 10.00, "$10.00", "GPLAY-9876-XXXX", "▶", "بطاقات الألعاب", "#35eaa1", "الأكثر مبيعاَ"),
-                ("كود بلايستيشن (20$)", "الولايات المتحدة", 20.00, "$20.00", "PSN-5432-XXXX", "🎮", "بطاقات الألعاب", "#62a0ff", "مميز"),
-                ("كود إكس بوكس (25$)", "الولايات المتحدة", 25.00, "$25.00", "XBOX-3344-XXXX", "ⓧ", "بطاقات الألعاب", "#5dff9c", "الأكثر طلباً"),
-                ("كود ستيم (15$)", "الولايات المتحدة", 15.00, "$15.00", "STEAM-1122-XXXX", "◉", "بطاقات الألعاب", "#9bb8ff", None),
-                ("بطاقة دفع مسبقة (50$)", "عالمية", 50.00, "$50.00", "VISA-5544-XXXX", "💳", "بطاقات الدفع", "#ff3b3b", "شائع"),
+                ("كود جوجل بلاي (10$)", "الولايات المتحدة", 10.00, "$10.00", "GPLAY-9876-XXXX", "google", "بطاقات الألعاب", "الأكثر مبيعاَ"),
+                ("كود بلايستيشن (20$)", "الولايات المتحدة", 20.00, "$20.00", "PSN-5432-XXXX", "playstation", "بطاقات الألعاب", "مميز"),
+                ("كود إكس بوكس (25$)", "الولايات المتحدة", 25.00, "$25.00", "XBOX-3344-XXXX", "xbox", "بطاقات الألعاب", "الأكثر طلباً"),
+                ("كود ستيم (15$)", "الولايات المتحدة", 15.00, "$15.00", "STEAM-1122-XXXX", "steam", "بطاقات الألعاب", None),
+                ("بطاقة دفع مسبقة (50$)", "عالمية", 50.00, "$50.00", "VISA-5544-XXXX", "visa", "بطاقات الدفع", "شائع"),
             ]
             db.executemany("""
-                INSERT INTO products (name, description, price_val, price, code, icon, category, color, badge)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO products (name, description, price_val, price, code, card_type, category, badge)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, default_products)
 
 
@@ -155,7 +154,7 @@ def subscribe_push():
     return jsonify({"status": "error"}), 400
 
 
-# ==================== صفحة المتجر الرئيسية المطابقة للصورة 100% ====================
+# ==================== صفحة المتجر الرئيسية مع البطاقات الحقيقية مرسومة بالتصميم الأصلي ====================
 PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -169,7 +168,7 @@ PAGE = r"""
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 70% 0%,#10133e 0,transparent 36%),var(--bg);color:var(--text);font-family:'Cairo',sans-serif}
 .topbar{min-height:74px;display:flex;align-items:center;gap:20px;padding:0 3%;border-bottom:1px solid #14213d;position:sticky;top:0;background:#030712ea;backdrop-filter:blur(16px);z-index:10}
 .brand{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:900;text-decoration:none;color:white}.brand b{color:#7d2bff}.brand-mark{width:36px;height:36px;display:grid;place-items:center;font-size:28px;background:linear-gradient(140deg,#bc5bff,#276bff);color:white;clip-path:polygon(0 0,75% 0,100% 20%,100% 100%,27% 100%,0 78%)}
-.brand-sub{font-size:9px;color:#8fa1c4;letter-spacing:1px;display:block;margin-top:-4px}
+.brand-sub{font-size:8.5px;color:#8fa1c4;letter-spacing:1px;display:block;margin-top:-4px}
 .search{height:42px;max-width:380px;flex:1;display:flex;align-items:center;gap:10px;border:1px solid #1f335f;border-radius:30px;padding:0 16px;background:#060e22}
 .search input{width:100%;border:0;outline:0;background:transparent;color:white;font-size:12px}
 .header-actions{display:flex;align-items:center;gap:12px;margin-right:auto}
@@ -192,11 +191,13 @@ PAGE = r"""
 .hero-btn{display:inline-flex;align-items:center;gap:8px;padding:9px 20px;border-radius:25px;font-size:11px;background:linear-gradient(110deg,#9b37ff,#315dff);color:white;text-decoration:none;font-weight:bold;box-shadow:0 5px 15px #315dff44}
 .trust-bar{display:flex;gap:12px;margin-top:15px;padding-top:12px;border-top:1px solid #1b2f5c;color:#cbd5e1;font-size:9.5px}
 .hero-art{position:relative;height:220px;display:flex;align-items:center;justify-content:center}
-.real-card{position:absolute;width:85px;height:120px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;box-shadow:0 0 25px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2)}
-.real-card.google{right:48%;transform:rotate(-15deg);background:linear-gradient(145deg,#0e2f5c,#09122c);border-color:#35eaa1}
-.real-card.playstation{right:30%;top:15px;transform:rotate(5deg);background:linear-gradient(145deg,#0648c2,#0c133b);border-color:#62a0ff}
-.real-card.steam{right:12%;top:25px;transform:rotate(12deg);background:linear-gradient(145deg,#12223f,#050a18);border-color:#9bb8ff}
-.real-card.xbox{right:0;top:60px;transform:rotate(18deg);background:linear-gradient(145deg,#055a30,#061a14);border-color:#5dff9c;width:78px;height:110px}
+
+/* رسم البطاقات الحقيقية في الهيرو */
+.real-card{position:absolute;width:85px;height:120px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 10px 25px rgba(0,0,0,0.8);border:1.5px solid rgba(255,255,255,0.3);font-weight:bold;font-size:11px;color:white;text-shadow:0 2px 4px rgba(0,0,0,0.9)}
+.real-card.google{right:48%;transform:rotate(-15deg);background:linear-gradient(135deg,#0e2f5c,#111827);border-color:#35eaa1}
+.real-card.playstation{right:30%;top:15px;transform:rotate(5deg);background:linear-gradient(135deg,#0043ce,#0b133b);border-color:#62a0ff}
+.real-card.steam{right:12%;top:25px;transform:rotate(12deg);background:linear-gradient(135deg,#172a46,#050b18);border-color:#9bb8ff}
+.real-card.xbox{right:0;top:60px;transform:rotate(18deg);background:linear-gradient(135deg,#107c41,#061a14);border-color:#5dff9c;width:78px;height:110px}
 
 /* Categories Grid */
 .categories{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin:18px 0}
@@ -210,12 +211,21 @@ PAGE = r"""
 .section-heading{display:flex;align-items:center;justify-content:space-between;margin:22px 0 12px}
 .section-heading h2{font-size:16px;margin:0;display:flex;align-items:center;gap:6px}
 
-/* Product Grid */
+/* Product Grid & Real Card Visuals */
 .product-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .product-card{border:1px solid #1a3059;background:linear-gradient(150deg,#07142e,#040a1b);border-radius:14px;padding:12px;position:relative;transition:0.2s}
 .product-card:hover{border-color:#635bff;transform:translateY(-3px)}
-.product-visual{height:95px;border-radius:10px;background:radial-gradient(circle at 50% 30%,#1b325c,transparent 75%),#061126;display:flex;align-items:center;justify-content:center;font-size:32px;position:relative;margin-bottom:10px}
-.badge-tag{position:absolute;top:8px;right:8px;background:#ff3b3b;color:white;font-size:8.5px;padding:2px 7px;border-radius:6px;font-weight:bold}
+
+.product-visual{height:110px;border-radius:10px;display:flex;align-items:center;justify-content:center;position:relative;margin-bottom:10px;overflow:hidden;box-shadow:inset 0 0 15px rgba(0,0,0,0.5)}
+.product-visual.google{background:linear-gradient(135deg,#0d2244,#040914);border:1px solid #35eaa144}
+.product-visual.playstation{background:linear-gradient(135deg,#0030ad,#060b26);border:1px solid #62a0ff44}
+.product-visual.xbox{background:linear-gradient(135deg,#0d5c32,#03120d);border:1px solid #5dff9c44}
+.product-visual.steam{background:linear-gradient(135deg,#14243d,#030712);border:1px solid #9bb8ff44}
+.product-visual.visa{background:linear-gradient(135deg,#1a1a2e,#16213e);border:1px solid #ff3b3b44}
+
+.mini-card{width:70px;height:95px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;font-size:9px;font-weight:bold;box-shadow:0 5px 15px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2)}
+
+.badge-tag{position:absolute;top:8px;right:8px;background:#ff3b3b;color:white;font-size:8.5px;padding:2px 7px;border-radius:6px;font-weight:bold;z-index:2}
 .badge-tag.memo{background:#315dff}
 .badge-tag.hot{background:#00c853}
 .badge-tag.orange{background:#ff9100}
@@ -291,10 +301,22 @@ footer h4{color:#f4f7ff;margin:0 0 10px;font-size:11.5px}footer a{display:block;
         <div class="trust-bar"><span>♧ دفع بصل إلى 100%</span><span>⚡ تسليم سريع</span><span>🕒 دعم على مدار الساعة</span></div>
       </div>
       <div class="hero-art">
-        <div class="real-card google"><span style="color:#35eaa1;font-size:24px;">▶</span><b>Google Play</b></div>
-        <div class="real-card playstation"><span style="color:#62a0ff;font-size:20px;">PS</span><b>PlayStation</b></div>
-        <div class="real-card steam"><span style="color:#9bb8ff;font-size:20px;">◉</span><b>STEAM</b></div>
-        <div class="real-card xbox"><span style="color:#5dff9c;font-size:20px;">ⓧ</span><b>XBOX</b></div>
+        <div class="real-card google" style="background:linear-gradient(135deg,#112244,#040812)">
+          <div style="font-size:22px;color:#35eaa1;">▶</div>
+          <div style="font-size:9px;margin-top:5px;">Google Play</div>
+        </div>
+        <div class="real-card playstation" style="background:linear-gradient(135deg,#0030ad,#060b26)">
+          <div style="font-size:18px;font-weight:900;">PSN</div>
+          <div style="font-size:9px;margin-top:5px;">PlayStation</div>
+        </div>
+        <div class="real-card steam" style="background:linear-gradient(135deg,#1b2a4a,#050a14)">
+          <div style="font-size:20px;">STEAM</div>
+          <div style="font-size:8px;margin-top:5px;">Digital</div>
+        </div>
+        <div class="real-card xbox" style="background:linear-gradient(135deg,#107c41,#061a14)">
+          <div style="font-size:18px;">XBOX</div>
+          <div style="font-size:8px;margin-top:5px;">Game Pass</div>
+        </div>
       </div>
     </div>
 
@@ -376,9 +398,24 @@ function renderProducts() {
     card.className = 'product-card';
     let badgeClass = p.badge === 'مميز' ? 'memo' : (p.badge === 'شائع' ? 'hot' : (p.badge === 'الأكثر طلباً' ? 'orange' : ''));
     let badgeHtml = p.badge ? `<span class="badge-tag ${badgeClass}">${p.badge}</span>` : '';
+    
+    // تصميم بطاقات حقيقية احترافية بدون روابط خارجية
+    let cardVisualHtml = '';
+    if(p.card_type === 'google') {
+      cardVisualHtml = `<div class="product-visual google"><div class="mini-card" style="background:linear-gradient(135deg,#1e3a8a,#0f172a)"><span style="font-size:18px;color:#35eaa1">▶</span><b>Google Play</b></div></div>`;
+    } else if(p.card_type === 'playstation') {
+      cardVisualHtml = `<div class="product-visual playstation"><div class="mini-card" style="background:linear-gradient(135deg,#0043ce,#0b133b)"><span style="font-size:15px;font-weight:900">PSN</span><b>PlayStation</b></div></div>`;
+    } else if(p.card_type === 'xbox') {
+      cardVisualHtml = `<div class="product-visual xbox"><div class="mini-card" style="background:linear-gradient(135deg,#107c41,#061a14)"><span style="font-size:15px">XBOX</span><b>Game Pass</b></div></div>`;
+    } else if(p.card_type === 'steam') {
+      cardVisualHtml = `<div class="product-visual steam"><div class="mini-card" style="background:linear-gradient(135deg,#1b2a4a,#050a14)"><span style="font-size:15px">STEAM</span><b>Wallet</b></div></div>`;
+    } else {
+      cardVisualHtml = `<div class="product-visual visa"><div class="mini-card" style="background:linear-gradient(135deg,#3b82f6,#1e293b)"><span style="font-size:16px">VISA</span><b>Prepaid</b></div></div>`;
+    }
+
     card.innerHTML = `
       ${badgeHtml}
-      <div class="product-visual" style="color:${p.color};">${p.icon}</div>
+      ${cardVisualHtml}
       <h3 style="color:#fff;">${p.name}</h3>
       <p>${p.description}</p>
       <div class="price-row">
@@ -418,7 +455,7 @@ ADMIN_PANEL_PAGE = r"""
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
 body{margin:0;background:#030712;color:white;font-family:'Cairo',sans-serif;padding:30px}
 .box{background:#071024;border:1px solid #315dff;border-radius:15px;padding:25px;max-width:550px;margin:20px auto;}
-input, textarea {width:100%;padding:12px;margin:10px 0;background:#030712;border:1px solid #1f335f;border-radius:9px;color:white;box-sizing:border-box;}
+input, select, textarea {width:100%;padding:12px;margin:10px 0;background:#030712;border:1px solid #1f335f;border-radius:9px;color:white;box-sizing:border-box;}
 button{width:100%;padding:13px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;}
 </style>
 </head>
@@ -436,7 +473,13 @@ button{width:100%;padding:13px;background:linear-gradient(110deg,#9b37ff,#315dff
     <input type="number" step="0.01" name="price_val" placeholder="السعر الرقمي (مثال: 10)" required>
     <input name="price" placeholder="نص السعر (مثال: $10.00)" required>
     <input name="code" placeholder="الكود الرقمي" required>
-    <input name="icon" placeholder="الأيقونة أو الرمز (مثال: ▶ أو 🎮)" required>
+    <select name="card_type" required>
+      <option value="google">بطاقة Google Play</option>
+      <option value="playstation">بطاقة PlayStation</option>
+      <option value="xbox">بطاقة Xbox</option>
+      <option value="steam">بطاقة Steam</option>
+      <option value="visa">بطاقة Visa / دفع</option>
+    </select>
     <input name="category" placeholder="القسم" required>
     <input name="badge" placeholder="الشارة (مثال: الأكثر مبيعاً أو مميز)">
     <button type="submit">إضافة المنتج للمتجر</button>
@@ -596,15 +639,15 @@ def admin_add_product():
     price_val = float(request.form.get("price_val", 0))
     price = request.form.get("price")
     code = request.form.get("code")
-    icon = request.form.get("icon")
+    card_type = request.form.get("card_type")
     category = request.form.get("category")
     badge = request.form.get("badge")
 
     with get_db() as db:
         db.execute("""
-            INSERT INTO products (name, description, price_val, price, code, icon, category, color, badge)
-            VALUES (?, ?, ?, ?, ?, ?, ?, '#315dff', ?)
-        """, (name, description, price_val, price, code, icon, category, badge))
+            INSERT INTO products (name, description, price_val, price, code, card_type, category, badge)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (name, description, price_val, price, code, card_type, category, badge))
 
     return redirect(url_for("admin_panel"))
 
