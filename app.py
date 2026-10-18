@@ -361,10 +361,7 @@ document.getElementById('showAll').addEventListener('click', event => {
 document.getElementById('cartBtn').addEventListener('click', () => {
   if (!cart.length) return notify('السلة فارغة حاليًا.');
   const summary = cart.map((item, i) => `${i+1}. ${item.name}`).join('\\n');
-  alert(`محتويات السلة (تجريبي):\\n${summary}\\n\\nالدفع غير مفعّل في هذه النسخة.`);
-});
-document.getElementById('loginBtn').addEventListener('click', () => notify('تسجيل الدخول سيتم تفعيله عند إضافة نظام الحسابات.'));
-document.getElementById('signupBtn').addEventListener('click', () => notify('إنشاء الحساب سيتم تفعيله عند إضافة نظام الحسابات.'));
+  alert(`محتويات السلة (تجريبي):\\n${summary}\\n\\nالدفع غير مفعّل 
 document.getElementById('langBtn').addEventListener('click', () => notify('الواجهة الحالية باللغة العربية.'));
 function answerAssistant(message) {
   const msg = message.trim().toLowerCase();
