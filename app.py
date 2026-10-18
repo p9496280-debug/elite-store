@@ -115,10 +115,49 @@ footer{border-top:1px solid #192b4e;padding:28px 4.2%;display:grid;grid-template
 </aside>
 </main>
 <footer id="footer">
-  <div class="footer-brand"><a class="brand" href="#"><span class="brand-mark">N</span><span>NOVA <b>STORE</b></span></a><p>متجرك الرقمي لبطاقات الدفع وأكواد الألعاب.</p></div>
-  <div><h4>روابط سريعة</h4><a href="#">الرئيسية</a><a href="#products">المنتجات</a><a href="#products">العروض</a></div>
-  <div><h4>الدعم والمساعدة</h4><a href="#footer">مركز المساعدة</a><a href="#footer">سياسة الخصوصية</a><a href="#footer">تواصل معنا</a></div>
-  <div><h4>تابعنا</h4><div class="socials"><span>✈</span><span>◎</span><span>▶</span></div><small>© 2026 NOVA STORE — جميع الحقوق محفوظة</small></div>
+  <div class="footer-brand">
+    <a class="brand" href="/">
+      <span class="brand-mark">N</span>
+      <span>NOVA <b>STORE</b></span>
+    </a>
+    <p>متجرك الرقمي لبطاقات الدفع وأكواد الألعاب.</p>
+    <p>نحن هنا لمساعدتك والإجابة عن استفساراتك.</p>
+  </div>  <div>
+    <h4>روابط سريعة</h4>
+    <a href="/">الرئيسية</a>
+    <a href="#products">المنتجات</a>
+    <a href="#categories">الأقسام</a>
+  </div>  <div>
+    <h4>الدعم والمساعدة</h4>
+    <a href="https://t.me/Mido_M9do" target="_blank" rel="noopener noreferrer">
+      🛟 التواصل مع الدعم
+    </a>
+    <a href="https://t.me/Mido_M9do" target="_blank" rel="noopener noreferrer">
+      👨‍💻 التواصل مع المطوّر
+    </a>
+  </div>  <div class="telegram-section">
+    <h4>مجتمع NOVA STORE</h4>
+    <p>تابع قناتنا واستخدم البوت للتواصل معنا.</p><a class="telegram-btn bot-btn"
+   href="https://t.me/midoassistantAIbot"
+   target="_blank" rel="noopener noreferrer">
+  🤖 تشغيل بوت تيليجرام
+</a>
+
+<a class="telegram-btn channel-btn"
+   href="https://t.me/Midomsn"
+   target="_blank" rel="noopener noreferrer">
+  📢 الانضمام إلى القناة
+</a>
+
+<div class="socials">
+  <a href="https://t.me/Mido_M9do"
+     target="_blank" rel="noopener noreferrer"
+     aria-label="التواصل مع المطور">✈️ تيليجرام</a>
+</div>
+
+<small>© 2026 NOVA STORE — جميع الحقوق محفوظة</small>
+
+  </div>
 </footer>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script>
