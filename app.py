@@ -1,4 +1,4 @@
-6import os
+import os
 import hmac
 import time
 import secrets
@@ -16,13 +16,15 @@ from flask import (
     redirect,
     url_for,
     flash,
+    send_from_directory,
+    make_response,
 )
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY")
 
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
-# إعدادات حسابات المستخدمين
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "nova_store.db")
 
 MAIL_SERVER = "smtp.gmail.com"
@@ -103,43 +105,10 @@ def send_verification_email(email, code):
         )
 
     app.logger.info("تم قبول رسالة التحقق بواسطة Resend.")
-    message = EmailMessage()
-    message["Subject"] = "كود التحقق - NOVA STORE"
-    message["From"] = MAIL_DEFAULT_SENDER
-    message["To"] = email
-
-    message.set_content(
-        f"""مرحبًا بك في NOVA STORE!
-
-كود التحقق الخاص بك هو: {code}
-
-صلاحية الكود 10 دقائق.
-لا تشارك هذا الكود مع أي شخص.
-
-إذا لم تطلب إنشاء حساب، يمكنك تجاهل الرسالة.
-"""
-    )
-
-    app.logger.info("بدء الاتصال بخادم البريد لإرسال كود التحقق")
-
-    with smtplib.SMTP(MAIL_SERVER, MAIL_PORT, timeout=25) as server:
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
-        server.login(MAIL_USERNAME, MAIL_PASSWORD)
-        server.send_message(message)
-
-    app.logger.info("تم إرسال كود التحقق بنجاح")
-
-
-    with smtplib.SMTP(MAIL_SERVER, MAIL_PORT, timeout=15) as server:
-        server.starttls()
-        server.login(MAIL_USERNAME, MAIL_PASSWORD)
-        server.send_message(message)
 
 
 init_db()
-# أقسام المتجر التجريبية. يمكن تعديلها أو ربطها بقاعدة بيانات لاحقًا.
+
 PRODUCTS = [
     {
         "name": "Google Play",
@@ -189,7 +158,8 @@ PAGE = r"""
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#050b20">
+<meta name="theme-color" content="#03091b">
+<link rel="manifest" href="/manifest.json">
 <title>NOVA STORE | متجرك الرقمي</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
@@ -208,59 +178,46 @@ PAGE = r"""
 .product-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.product-card{border:1px solid #1b3159;background:linear-gradient(150deg,#08152e,#050c1e);border-radius:13px;padding:10px;min-width:0;transition:.2s}.product-card:hover{border-color:#5c52ff;transform:translateY(-3px)}.product-visual{height:105px;border-radius:10px;background:radial-gradient(circle at 50% 20%,var(--product-glow),transparent 60%),#07142c;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}.product-visual .logo{font-size:39px;font-weight:800;color:var(--product-color);text-shadow:0 0 20px var(--product-glow)}.product-visual .product-brand{position:absolute;bottom:10px;font:700 12px Arial,sans-serif}.product-card h3{font-size:12px;margin:10px 0 3px}.product-card p{font-size:10px;color:#8fa1c4;margin:0 0 9px}.price{font-size:14px;font-weight:800;color:#fff;margin-bottom:8px}.add-btn{width:100%;padding:9px 4px;border:0;border-radius:9px;background:linear-gradient(100deg,#933aff,#315dff);font-size:11px;font-weight:700}
 .ai-panel{border:1px solid #344b88;border-radius:18px;padding:17px;height:max-content;min-height:420px;background:linear-gradient(155deg,#081735,#060d22);position:sticky;top:145px}.ai-heading{display:flex;align-items:center;gap:12px;margin-bottom:15px}.bot-avatar{width:57px;height:57px;display:grid;place-items:center;border-radius:50%;font-size:30px;color:#b8caff;background:radial-gradient(circle at 35% 25%,#2c8cff,#11175a 65%);border:1px solid #466bff;box-shadow:0 0 24px #2458ff55}.ai-heading h3{margin:0 0 3px;font-size:15px;color:#a99bff}.ai-heading span{font-size:10px;color:#a7b9dc}.ai-heading i{display:inline-block;width:6px;height:6px;border-radius:50%;background:#2fe19a}.ai-message{border:1px solid #1e3c75;border-radius:13px;background:#0a1b42;padding:13px;font-size:12px;line-height:1.9}.ai-message p{color:#c4d1ed;margin:4px 0 0}.ai-quick{display:grid;gap:9px;margin-top:15px}.ai-quick button{border:1px solid #244b91;border-radius:10px;background:#0b2050;padding:10px;font-size:11px;text-align:right}.ai-quick button:hover{background:#132d68}.ai-input{display:flex;gap:7px;align-items:center;border:1px solid #294b91;border-radius:25px;padding:5px;margin-top:22px;background:#081a3c}.ai-input input{min-width:0;flex:1;border:0;outline:0;background:transparent;color:white;padding:6px;font-size:11px}.ai-input button{width:32px;height:32px;border:0;border-radius:50%;background:#4d55ff}.ai-note{font-size:9px;color:#8194ba;line-height:1.6}
 footer{border-top:1px solid #192b4e;padding:28px 4.2%;display:grid;grid-template-columns:1.5fr 1fr 1fr 1.4fr;gap:30px;color:#aab9d8;font-size:12px}footer h4{color:#f4f7ff;margin:0 0 12px;font-size:13px}footer>div>a:not(.brand){display:block;margin:6px 0}footer .brand{font-size:21px;color:#fff}footer .brand-mark{width:32px;height:32px;font-size:26px}footer p{line-height:1.8}.socials{display:flex;gap:12px;font-size:20px;color:#7d9bff;margin:10px 0 20px}
-.telegram-section {
-min-width: 0;
-}
+.telegram-section { min-width: 0; }
+.telegram-section > p { color: #aab9d8; line-height: 1.8; }
+.telegram-btn { display: flex !important; align-items: center; justify-content: center; gap: 8px; width: 100%; margin: 10px 0 !important; padding: 12px 10px; border: 1px solid #315dff; border-radius: 12px; color: #fff !important; font-size: 12px; font-weight: 700; transition: transform .2s, box-shadow .2s; }
+.telegram-btn:hover { transform: translateY(-3px); box-shadow: 0 7px 20px #315dff44; }
+.bot-btn { background: linear-gradient(110deg, #168de5, #315dff); }
+.channel-btn { background: linear-gradient(110deg, #087fba, #1647a5); }
+.socials a { color: #8baaff; font-size: 12px; }
 
-.telegram-section > p {
-color: #aab9d8;
-line-height: 1.8;
+/* PWA App Install Banner Styling */
+.install-banner {
+  display: none;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  left: 20px;
+  max-width: 460px;
+  margin: 0 auto;
+  background: linear-gradient(135deg, #07132c, #0b1e47);
+  border: 1px solid #315dff;
+  border-radius: 16px;
+  padding: 14px 18px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+  z-index: 9999;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  animation: slideUp 0.3s ease-out;
 }
+@keyframes slideUp {
+  from { transform: translateY(100px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.install-banner-text { display: flex; align-items: center; gap: 12px; }
+.install-banner-text img { width: 40px; height: 40px; border-radius: 10px; border: 1px solid #315dff; }
+.install-banner-text div h4 { margin: 0; font-size: 13px; color: #fff; }
+.install-banner-text div p { margin: 2px 0 0; font-size: 11px; color: #a8b7d8; }
+.install-banner-actions { display: flex; align-items: center; gap: 8px; }
+.install-banner-btn { background: linear-gradient(110deg, #9b37ff, #315dff); border: 0; padding: 8px 16px; border-radius: 10px; color: #fff; font-weight: bold; font-size: 12px; cursor: pointer; }
+.install-banner-close { background: transparent; border: 0; color: #a8b7d8; font-size: 16px; cursor: pointer; padding: 4px; }
 
-.telegram-btn {
-display: flex !important;
-align-items: center;
-justify-content: center;
-gap: 8px;
-width: 100%;
-margin: 10px 0 !important;
-padding: 12px 10px;
-border: 1px solid #315dff;
-border-radius: 12px;
-color: #fff !important;
-font-size: 12px;
-font-weight: 700;
-transition: transform .2s, box-shadow .2s;
-}
-
-.telegram-btn:hover {
-transform: translateY(-3px);
-box-shadow: 0 7px 20px #315dff44;
-}
-
-.bot-btn {
-background: linear-gradient(110deg, #168de5, #315dff);
-}
-
-.channel-btn {
-background: linear-gradient(110deg, #087fba, #1647a5);
-}
-
-.socials a {
-color: #8baaff;
-font-size: 12px;
-}
-
-@media (max-width: 650px) {
-.telegram-section {
-grid-column: 1 / -1;
-}
-
-.telegram-btn {
-padding: 14px;
-font-size: 13px;
-}
-}
 .toast{position:fixed;bottom:22px;left:22px;z-index:10;background:#102957;border:1px solid #496cff;padding:12px 18px;border-radius:12px;box-shadow:0 8px 30px #0008;opacity:0;transform:translateY(10px);transition:.25s;pointer-events:none;font-size:13px}.toast.show{opacity:1;transform:translateY(0)}
 @media(max-width:1100px){.topbar{gap:13px;padding:12px 2%}.brand{font-size:20px}.header-actions{gap:7px}.layout{grid-template-columns:1fr}.ai-panel{position:static;min-height:auto}.ai-quick{grid-template-columns:repeat(3,1fr)}.product-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.categories{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:650px){.topbar{min-height:0;padding:12px 4%;gap:10px}.brand{font-size:18px}.brand-mark{width:32px;height:32px;font-size:27px}.search{order:3;flex-basis:100%;max-width:none}.header-actions .login,.header-actions .lang{display:none}.small{padding:9px 11px;font-size:10px}.nav{gap:19px;overflow:auto;padding:0 4%;white-space:nowrap}.nav a{font-size:12px}.layout{padding:13px 3%;gap:15px}.hero{grid-template-columns:1fr}.hero-copy{padding:21px}.hero h1{font-size:22px}.hero-art{min-height:220px;grid-row:1}.gift-card{width:87px;height:124px;font-size:10px}.gift-card span{font-size:29px}.gift-card.google{right:37%}.gift-card.playstation{right:21%;top:15px}.gift-card.steam{right:4%;top:23px}.gift-card.xbox{right:0;top:68px;width:77px;height:112px}.controller{font-size:40px;right:40%}.trust-row{gap:9px}.categories{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.category{min-height:98px}.product-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.product-visual{height:95px}footer{grid-template-columns:1fr 1fr;gap:22px;padding:24px 5%}.footer-brand{grid-column:1/-1}.ai-quick{grid-template-columns:1fr 1fr}.section-heading h2{font-size:17px}}
@@ -348,6 +305,22 @@ font-size: 13px;
 
   </div>
 </footer>
+
+<!-- PWA Install Banner -->
+<div class="install-banner" id="pwaBanner">
+  <div class="install-banner-text">
+    <div style="font-size:26px;background:linear-gradient(140deg,#bc5bff,#276bff);width:40px;height:40px;display:grid;place-items:center;border-radius:10px;font-weight:bold;color:#fff;">N</div>
+    <div>
+      <h4>تطبيق NOVA STORE</h4>
+      <p>نزّل التطبيق لتصفح أسرع وتجربة أفضل</p>
+    </div>
+  </div>
+  <div class="install-banner-actions">
+    <button class="install-banner-btn" id="pwaBtn">تنزيل</button>
+    <button class="install-banner-close" id="pwaClose">✕</button>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script>
 const PRODUCTS = {{ products|tojson }};
@@ -409,8 +382,9 @@ document.getElementById('showAll').addEventListener('click', event => {
 });
 document.getElementById('cartBtn').addEventListener('click', () => {
   if (!cart.length) return notify('السلة فارغة حاليًا.');
-  const summary = cart.map((item, i) => `${i+1}. ${item.name}`).join('\\n');
-  alert(`محتويات السلة (تجريبي):\\n${summary}\\n\\nالدفع غير مفعّل 
+  const summary = cart.map((item, i) => `${i+1}. ${item.name}`).join('\n');
+  alert(`محتويات السلة (تجريبي):\n${summary}\n\nالدفع غير مفعّل`);
+});
 document.getElementById('langBtn').addEventListener('click', () => notify('الواجهة الحالية باللغة العربية.'));
 function answerAssistant(message) {
   const msg = message.trim().toLowerCase();
@@ -443,14 +417,55 @@ document.getElementById('aiForm').addEventListener('submit', event => {
 });
 document.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => answerAssistant(button.dataset.prompt)));
 renderProducts();
+
+// Service Worker & PWA Script
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+}
+
+let deferredPrompt;
+const pwaBanner = document.getElementById('pwaBanner');
+const pwaBtn = document.getElementById('pwaBtn');
+const pwaClose = document.getElementById('pwaClose');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  pwaBanner.style.display = 'flex';
+});
+
+pwaBtn.addEventListener('click', () => {
+  pwaBanner.style.display = 'none';
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(() => {
+      deferredPrompt = null;
+    });
+  }
+});
+
+pwaClose.addEventListener('click', () => {
+  pwaBanner.style.display = 'none';
+});
 </script>
 </body>
 </html>
 """
+
+# Dynamic routes for PWA
+@app.route("/manifest.json")
+def manifest():
+    return send_from_directory("static", "manifest.json", mimetype="application/json")
+
+@app.route("/sw.js")
+def service_worker():
+    response = make_response(send_from_directory("static", "sw.js"))
+    response.headers["Content-Type"] = "application/javascript"
+    return response
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     error = ""
-
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         email = request.form.get("email", "").strip().lower()
@@ -473,7 +488,6 @@ def register():
                     error = "هذا البريد مسجل بالفعل. سجّل الدخول."
                 else:
                     now = int(time.time())
-
                     pending = db.execute(
                         "SELECT last_sent FROM email_codes WHERE email = ?",
                         (email,)
@@ -524,8 +538,7 @@ def register():
                             )
                             error = (
                                 "تعذر إرسال كود التحقق. "
-                                f"نوع الخطأ: {type(e).__name__}. "
-                                "راجع سجل الأخطاء في Render."
+                                f"نوع الخطأ: {type(e).__name__}."
                             )
 
     return render_template_string("""
@@ -571,12 +584,10 @@ def register():
 @app.route("/verify", methods=["GET", "POST"])
 def verify_email():
     email = session.get("pending_email")
-
     if not email:
         return redirect(url_for("register"))
 
     error = ""
-
     if request.method == "POST":
         code = request.form.get("code", "").strip()
         now = int(time.time())
@@ -650,7 +661,6 @@ def verify_email():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     error = ""
-
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
@@ -705,7 +715,6 @@ def login():
 @app.route("/account")
 def account():
     email = session.get("user_email")
-
     if not email:
         return redirect(url_for("login"))
 
@@ -749,13 +758,16 @@ def account():
 def logout():
     session.clear()
     return redirect(url_for("home"))
+
+
 @app.route("/")
 def home():
     return render_template_string(PAGE, products=PRODUCTS)
+
+
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
     error = ""
-
     if request.method == "POST":
         username = request.form.get("username", "")
         password = request.form.get("password", "")
@@ -852,6 +864,8 @@ def admin_login():
 def admin_logout():
     session.clear()
     return redirect(url_for("admin_login"))
+
+
 @app.route("/admin")
 def admin():
     if not session.get("admin_logged_in"):
@@ -917,6 +931,6 @@ def admin():
     </body>
     </html>
     """
+
 if __name__ == "__main__":
-    # host=0.0.0.0 يسمح بالوصول إلى التطبيق من الشبكة عند الحاجة.
     app.run(host="0.0.0.0", port=5000, debug=False)
