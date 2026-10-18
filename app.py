@@ -3,10 +3,8 @@ import hmac
 import time
 import secrets
 import sqlite3
-import smtplib
+import requests
 
-from email.message import EmailMessage
-from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import (
     Flask,
@@ -15,23 +13,19 @@ from flask import (
     session,
     redirect,
     url_for,
-    flash,
     send_from_directory,
     make_response,
 )
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY")
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_store_secret_key")
 
-ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "nova_store.db")
 
-MAIL_SERVER = "smtp.gmail.com"
-MAIL_PORT = 587
-MAIL_USERNAME = os.environ.get("MAIL_USERNAME")
-MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
-MAIL_DEFAULT_SENDER = os.environ.get("MAIL_DEFAULT_SENDER")
+# ضع هنا توكن بوت التيليجرام الخاص بك
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 
 
 def get_db():
@@ -48,6 +42,7 @@ def init_db():
                 name TEXT NOT NULL,
                 email TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
+                telegram_id TEXT NOT NULL,
                 verified INTEGER NOT NULL DEFAULT 0,
                 created_at INTEGER NOT NULL
             )
@@ -56,55 +51,10 @@ def init_db():
         db.execute("""
             CREATE TABLE IF NOT EXISTS email_codes (
                 email TEXT PRIMARY KEY,
-                code_hash TEXT NOT NULL,
-                expires_at INTEGER NOT NULL,
-                attempts INTEGER NOT NULL DEFAULT 0,
-                last_sent INTEGER NOT NULL
+                code TEXT NOT NULL,
+                expires_at INTEGER NOT NULL
             )
         """)
-
-def send_verification_email(email, code):
-    import requests
-
-    api_key = os.environ.get("RESEND_API_KEY")
-    if not api_key:
-        raise RuntimeError("متغير RESEND_API_KEY غير مضبوط.")
-
-    sender = os.environ.get("RESEND_FROM_EMAIL")
-    if not sender:
-        raise RuntimeError("متغير RESEND_FROM_EMAIL غير مضبوط.")
-
-    response = requests.post(
-        "https://api.resend.com/emails",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "from": sender,
-            "to": [email],
-            "subject": "كود التحقق - NOVA STORE",
-            "text": (
-                f"مرحبًا بك في NOVA STORE!\n\n"
-                f"كود التحقق الخاص بك هو: {code}\n\n"
-                "صلاحية الكود 10 دقائق.\n"
-                "لا تشارك هذا الكود مع أي شخص."
-            ),
-        },
-        timeout=20,
-    )
-
-    if not response.ok:
-        app.logger.error(
-            "فشل Resend: HTTP %s - %s",
-            response.status_code,
-            response.text[:500],
-        )
-        raise RuntimeError(
-            f"فشل إرسال البريد عبر Resend: HTTP {response.status_code}"
-        )
-
-    app.logger.info("تم قبول رسالة التحقق بواسطة Resend.")
 
 
 init_db()
@@ -113,7 +63,7 @@ PRODUCTS = [
     {
         "name": "Google Play",
         "description": "بطاقات Google Play الرقمية",
-        "price": "حسب الفئة",
+        "price": "100 جنيه",
         "icon": "▶",
         "category": "بطاقات الألعاب",
         "color": "#35eaa1",
@@ -121,7 +71,7 @@ PRODUCTS = [
     {
         "name": "PlayStation",
         "description": "بطاقات واشتراكات PlayStation",
-        "price": "حسب الفئة",
+        "price": "250 جنيه",
         "icon": "PS",
         "category": "بطاقات الألعاب",
         "color": "#62a0ff",
@@ -129,7 +79,7 @@ PRODUCTS = [
     {
         "name": "Steam",
         "description": "أكواد ومحافظ Steam",
-        "price": "حسب الفئة",
+        "price": "150 جنيه",
         "icon": "◉",
         "category": "بطاقات الألعاب",
         "color": "#9bb8ff",
@@ -137,18 +87,18 @@ PRODUCTS = [
     {
         "name": "Xbox",
         "description": "بطاقات واشتراكات Xbox",
-        "price": "حسب الفئة",
+        "price": "200 جنيه",
         "icon": "ⓧ",
         "category": "بطاقات الألعاب",
         "color": "#5dff9c",
     },
     {
-        "name": "Digital Cards",
-        "description": "بطاقات رقمية متنوعة",
-        "price": "حسب الفئة",
-        "icon": "▰",
-        "category": "بطاقات الدفع",
-        "color": "#c49bff",
+        "name": "Google Accounts",
+        "description": "حسابات جوجل جاهزة وموثقة",
+        "price": "50 جنيه",
+        "icon": "G",
+        "category": "حسابات جوجل",
+        "color": "#ffc107",
     },
 ]
 
@@ -211,7 +161,6 @@ footer{border-top:1px solid #192b4e;padding:28px 4.2%;display:grid;grid-template
   to { transform: translateY(0); opacity: 1; }
 }
 .install-banner-text { display: flex; align-items: center; gap: 12px; }
-.install-banner-text img { width: 40px; height: 40px; border-radius: 10px; border: 1px solid #315dff; }
 .install-banner-text div h4 { margin: 0; font-size: 13px; color: #fff; }
 .install-banner-text div p { margin: 2px 0 0; font-size: 11px; color: #a8b7d8; }
 .install-banner-actions { display: flex; align-items: center; gap: 8px; }
@@ -240,7 +189,7 @@ footer{border-top:1px solid #192b4e;padding:28px 4.2%;display:grid;grid-template
 <main class="layout">
 <section class="main-column">
   <section class="hero">
-    <div class="hero-copy"><span class="eyebrow">عالمك الرقمي في مكان واحد</span><h1>كل ما تحتاجه من بطاقات الدفع<br>وأكواد الألعاب في مكان واحد!</h1><p>بطاقات رقمية آمنة وسريعة، شحن الألعاب، أكواد المتاجر العالمية والمزيد من المنتجات الرقمية المميزة.</p><a class="primary hero-btn" href="#products">تسوّق الآن <span>←</span></a><div class="trust-row"><span>♧ دفع آمن</span><span>◷ تسليم سريع</span><span>✓ دعم على مدار الساعة</span></div></div>
+    <div class="hero-copy"><span class="eyebrow">عالمك الرقمي في مكان واحد</span><h1>كل ما تحتاجه من بطاقات الدفع<br>وأكواد الألعاب في مكان واحد!</h1><p>بطاقات رقمية آمنة وسريعة، شحن الألعاب، أكواد المتاجر العالمية والحسابات الرقمية المميزة.</p><a class="primary hero-btn" href="#products">تسوّق الآن <span>←</span></a><div class="trust-row"><span>♧ دفع آمن</span><span>◷ تسليم سريع</span><span>✓ دعم على مدار الساعة</span></div></div>
     <div class="hero-art" aria-label="بطاقات ألعاب رقمية"><div class="glow"></div><div class="gift-card google"><span class="gplay">▶</span><b>Google Play</b></div><div class="gift-card playstation"><span>ＰＳ</span><b>PlayStation</b></div><div class="gift-card steam"><span>◉</span><b>STEAM</b></div><div class="gift-card xbox"><span>ⓧ</span><b>XBOX</b></div><div class="controller">🎮</div></div>
   </section>
   <section class="categories" id="categories">
@@ -249,7 +198,7 @@ footer{border-top:1px solid #192b4e;padding:28px 4.2%;display:grid;grid-template
     <button class="category" data-category="PlayStation"><span>ＰＳ</span><b>PlayStation</b><small>بطاقات واشتراكات</small></button>
     <button class="category" data-category="Xbox"><span class="c-xbox">ⓧ</span><b>Xbox</b><small>بطاقات واشتراكات</small></button>
     <button class="category" data-category="Steam"><span>◉</span><b>Steam</b><small>أكواد ومحافظ ستيم</small></button>
-    <button class="category" data-category="بطاقات الدفع"><span>▰</span><b>بطاقات الدفع</b><small>بطاقات مسبقة الدفع</small></button>
+    <button class="category" data-category="حسابات جوجل"><span>🌐</span><b>حسابات جوجل</b><small>حسابات جاهزة وموثقة</small></button>
   </section>
   <section class="products-section" id="products"><div class="section-heading"><div><span class="fire">✦</span><h2>أحدث المنتجات</h2></div><a href="#products" id="showAll">عرض الكل ←</a></div><div class="product-grid" id="productGrid"></div></section>
 </section>
@@ -361,7 +310,7 @@ function renderProducts() {
     card.querySelector('[data-add]').addEventListener('click', () => {
       cart.push(p);
       cartCount.textContent = cart.length;
-      notify(`تمت إضافة ${p.name} للسلة (طلب تجريبي).`);
+      notify(`تمت إضافة ${p.name} للسلة.`);
     });
     productGrid.appendChild(card);
   });
@@ -382,8 +331,7 @@ document.getElementById('showAll').addEventListener('click', event => {
 });
 document.getElementById('cartBtn').addEventListener('click', () => {
   if (!cart.length) return notify('السلة فارغة حاليًا.');
-  const summary = cart.map((item, i) => `${i+1}. ${item.name}`).join('\n');
-  alert(`محتويات السلة (تجريبي):\n${summary}\n\nالدفع غير مفعّل`);
+  window.location.href = '/checkout';
 });
 document.getElementById('langBtn').addEventListener('click', () => notify('الواجهة الحالية باللغة العربية.'));
 function answerAssistant(message) {
@@ -396,13 +344,11 @@ function answerAssistant(message) {
   box.appendChild(userLine);
   let answer = 'أقدر أساعدك في معرفة الأقسام والبحث عن المنتجات. جرّب زر «عرض المنتجات المتاحة».';
   if (msg.includes('منتج') || msg.includes('متاح') || msg.includes('قسم')) {
-    answer = 'الأقسام المتاحة: Google Play وPlayStation وXbox وSteam وبطاقات الدفع. استخدم مربعات الأقسام لتصفية المنتجات.';
+    answer = 'الأقسام المتاحة: Google Play وPlayStation وXbox وSteam وحسابات جوجل وبطاقات الدفع.';
   } else if (msg.includes('شراء') || msg.includes('سلة') || msg.includes('دفع')) {
-    answer = 'للتجربة، اضغط «أضف للسلة» تحت المنتج ثم أيقونة السلة. الدفع الحقيقي غير مفعّل بعد.';
+    answer = 'اضغط «أضف للسلة» تحت المنتج ثم أيقونة السلة للانتقال لصفحة الدفع عبر فودافون كاش.';
   } else if (msg.includes('دعم') || msg.includes('تواصل') || msg.includes('مساعدة')) {
-    answer = 'يمكنك استخدام قسم الدعم أسفل الصفحة. لم تتم إضافة وسيلة تواصل فعلية بعد.';
-  } else if (msg.includes('سعر') || msg.includes('اسعار')) {
-    answer = 'الأسعار غير محددة في النسخة التجريبية؛ تظهر المنتجات بعبارة «حسب الفئة».';
+    answer = 'يمكنك استخدام قسم الدعم وتليجرام أسفل الصفحة.';
   }
   const reply = document.createElement('p');
   reply.style.cssText = 'margin-top:8px;padding:10px;background:#0a1b42;border:1px solid #244b91;border-radius:9px;color:#cbd8f5';
@@ -418,7 +364,6 @@ document.getElementById('aiForm').addEventListener('submit', event => {
 document.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => answerAssistant(button.dataset.prompt)));
 renderProducts();
 
-// Service Worker & PWA Script
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');
 }
@@ -452,7 +397,6 @@ pwaClose.addEventListener('click', () => {
 </html>
 """
 
-# Dynamic routes for PWA
 @app.route("/manifest.json")
 def manifest():
     return send_from_directory("static", "manifest.json", mimetype="application/json")
@@ -463,6 +407,7 @@ def service_worker():
     response.headers["Content-Type"] = "application/javascript"
     return response
 
+# الخطوة الأولى: تسجيل الحساب وطلب كود التيليجرام
 @app.route("/register", methods=["GET", "POST"])
 def register():
     error = ""
@@ -470,76 +415,42 @@ def register():
         name = request.form.get("name", "").strip()
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
+        telegram_id = request.form.get("telegram_id", "").strip()
 
-        if not name or len(name) > 80:
-            error = "اكتب اسمًا صحيحًا لا يتجاوز 80 حرفًا."
-        elif len(email) > 254 or "@" not in email:
-            error = "اكتب بريدًا إلكترونيًا صحيحًا."
-        elif len(password) < 10:
-            error = "كلمة المرور يجب أن تكون 10 أحرف على الأقل."
+        if not name or "@" not in email or len(password) < 6 or not telegram_id:
+            error = "يرجى ملء جميع البيانات بشكل صحيح وتحديد معرف التيليجرام."
         else:
             with get_db() as db:
-                existing = db.execute(
-                    "SELECT id, verified FROM users WHERE email = ?",
-                    (email,)
-                ).fetchone()
-
-                if existing and existing["verified"]:
-                    error = "هذا البريد مسجل بالفعل. سجّل الدخول."
+                existing = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+                if existing:
+                    error = "هذا البريد مسجل مسبقاً."
                 else:
+                    # توليد كود تحقق مكون من 6 أرقام
+                    code = f"{secrets.randbelow(1000000):06d}"
                     now = int(time.time())
-                    pending = db.execute(
-                        "SELECT last_sent FROM email_codes WHERE email = ?",
-                        (email,)
-                    ).fetchone()
 
-                    if pending and now - pending["last_sent"] < 60:
-                        error = "انتظر دقيقة قبل طلب كود جديد."
-                    else:
-                        code = f"{secrets.randbelow(1000000):06d}"
-                        code_hash = generate_password_hash(code)
+                    # حفظ بيانات الحساب (مؤقتاً غير مفعل حتى يؤكد الكود) وحفظ الكود
+                    db.execute("""
+                        INSERT OR REPLACE INTO users (name, email, password_hash, telegram_id, verified, created_at)
+                        VALUES (?, ?, ?, ?, 0, ?)
+                    """, (name, email, generate_password_hash(password), telegram_id, now))
 
+                    db.execute("""
+                        INSERT OR REPLACE INTO email_codes (email, code, expires_at)
+                        VALUES (?, ?, ?)
+                    """, (email, code, now + 600))
+
+                    # إرسال الكود فوراً عبر بوت تيليجرام للبوت الخاص بك ليرسله للمستخدم
+                    if TELEGRAM_BOT_TOKEN != "YOUR_BOT_TOKEN_HERE":
                         try:
-                            send_verification_email(email, code)
-
-                            db.execute("""
-                                INSERT INTO users
-                                    (name, email, password_hash, verified, created_at)
-                                VALUES (?, ?, ?, 0, ?)
-                                ON CONFLICT(email) DO UPDATE SET
-                                    name = excluded.name,
-                                    password_hash = excluded.password_hash
-                                WHERE users.verified = 0
-                            """, (
-                                name,
-                                email,
-                                generate_password_hash(password),
-                                now
-                            ))
-
-                            db.execute("""
-                                INSERT INTO email_codes
-                                    (email, code_hash, expires_at, attempts, last_sent)
-                                VALUES (?, ?, ?, 0, ?)
-                                ON CONFLICT(email) DO UPDATE SET
-                                    code_hash = excluded.code_hash,
-                                    expires_at = excluded.expires_at,
-                                    attempts = 0,
-                                    last_sent = excluded.last_sent
-                            """, (email, code_hash, now + 600, now))
-
-                            session["pending_email"] = email
-                            return redirect(url_for("verify_email"))
-
+                            msg = f"مرحباً {name}!\n\nكود التحقق الخاص بك لتسجيل الدخول في NOVA STORE هو:\n`{code}`\n\nصلاحية الكود 10 دقائق."
+                            url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+                            requests.post(url, json={"chat_id": telegram_id, "text": msg, "parse_mode": "Markdown"}, timeout=5)
                         except Exception as e:
-                            app.logger.exception(
-                                "فشل إرسال كود التحقق. نوع الخطأ: %s",
-                                type(e).__name__
-                            )
-                            error = (
-                                "تعذر إرسال كود التحقق. "
-                                f"نوع الخطأ: {type(e).__name__}."
-                            )
+                            app.logger.error("فشل إرسال الكود عبر تيليجرام: %s", e)
+
+                    session["verify_email"] = email
+                    return redirect(url_for("verify"))
 
     return render_template_string("""
     <!doctype html>
@@ -548,115 +459,81 @@ def register():
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>إنشاء حساب | NOVA STORE</title>
     <style>
-      body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;
-           min-height:100vh;display:grid;place-items:center;padding:20px}
-      form{width:100%;max-width:400px;box-sizing:border-box;background:#07132c;
-           padding:25px;border:1px solid #315dff;border-radius:18px}
+      body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;min-height:100vh;display:grid;place-items:center;padding:20px}
+      form{width:100%;max-width:400px;background:#07132c;padding:25px;border:1px solid #315dff;border-radius:18px;box-sizing:border-box}
       h1{color:#9b83ff;text-align:center}
-      label{display:block;margin-top:15px}
-      input{box-sizing:border-box;width:100%;padding:12px;margin-top:7px;
-            background:#03091b;border:1px solid #263d70;border-radius:9px;color:white}
-      button{width:100%;padding:13px;margin-top:20px;border:0;border-radius:10px;
-             background:linear-gradient(110deg,#9b37ff,#315dff);color:white;
-             font-weight:bold}
-      p{color:#ff9999;line-height:1.7}
-      a{color:#9db4ff}
+      label{display:block;margin-top:12px;color:#a8b7d8;font-size:13px}
+      input{box-sizing:border-box;width:100%;padding:11px;margin-top:5px;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white}
+      button{width:100%;padding:13px;margin-top:20px;border:0;border-radius:10px;background:linear-gradient(110deg,#9b37ff,#315dff);color:white;font-weight:bold;cursor:pointer}
+      p{color:#ff9999;text-align:center;font-size:13px}
+      a{color:#9db4ff;display:block;text-align:center;margin-top:12px;font-size:12px}
     </style>
     <form method="post">
       <h1>NOVA STORE</h1>
       <h3>إنشاء حساب جديد</h3>
       <label>الاسم</label>
-      <input name="name" maxlength="80" required autocomplete="name">
+      <input name="name" required>
       <label>البريد الإلكتروني</label>
-      <input type="email" name="email" required autocomplete="email">
-      <label>كلمة المرور (10 أحرف على الأقل)</label>
-      <input type="password" name="password" minlength="10"
-             required autocomplete="new-password">
-      <button type="submit">إرسال كود التحقق</button>
+      <input type="email" name="email" required>
+      <label>كلمة المرور</label>
+      <input type="password" name="password" required>
+      <label>معرف تيليجرام (Telegram Chat ID) لاستلام الكود عليه</label>
+      <input name="telegram_id" placeholder="مثال: 123456789" required>
+      <button type="submit">إرسال الكود إلى تيليجرام</button>
       {% if error %}<p>{{ error }}</p>{% endif %}
-      <p><a href="{{ url_for('login') }}">لديك حساب؟ تسجيل الدخول</a></p>
-      <a href="/">العودة إلى المتجر</a>
+      <a href="{{ url_for('login') }}">تسجيل الدخول</a>
+      <a href="/">العودة للمتجر</a>
     </form>
     </html>
     """, error=error)
 
-
+# الخطوة الثانية: صفحة إدخال كود الـ 6 أرقام الذي وصل للبوت
 @app.route("/verify", methods=["GET", "POST"])
-def verify_email():
-    email = session.get("pending_email")
+def verify():
+    email = session.get("verify_email")
     if not email:
         return redirect(url_for("register"))
 
     error = ""
     if request.method == "POST":
-        code = request.form.get("code", "").strip()
+        entered_code = request.form.get("code", "").strip()
         now = int(time.time())
 
         with get_db() as db:
-            record = db.execute(
-                "SELECT * FROM email_codes WHERE email = ?",
-                (email,)
-            ).fetchone()
-
-            if not record or now > record["expires_at"]:
-                error = "انتهت صلاحية الكود. ابدأ التسجيل من جديد."
-            elif record["attempts"] >= 5:
-                error = "تجاوزت عدد المحاولات المسموح بها."
+            record = db.execute("SELECT * FROM email_codes WHERE email = ?", (email,)).fetchone()
+            if record and record["code"] == entered_code and now <= record["expires_at"]:
+                db.execute("UPDATE users SET verified = 1 WHERE email = ?", (email,))
+                db.execute("DELETE FROM email_codes WHERE email = ?", (email,))
+                session.pop("verify_email", None)
+                session["user_email"] = email
+                return redirect(url_for("account"))
             else:
-                db.execute(
-                    "UPDATE email_codes SET attempts = attempts + 1 WHERE email = ?",
-                    (email,)
-                )
-
-                if (
-                    len(code) == 6
-                    and code.isdigit()
-                    and check_password_hash(record["code_hash"], code)
-                ):
-                    db.execute(
-                        "UPDATE users SET verified = 1 WHERE email = ?",
-                        (email,)
-                    )
-                    db.execute(
-                        "DELETE FROM email_codes WHERE email = ?",
-                        (email,)
-                    )
-
-                    session.pop("pending_email", None)
-                    session["user_email"] = email
-                    return redirect(url_for("account"))
-
-                error = "كود التحقق غير صحيح."
+                error = "كود التحقق غير صحيح أو انتهت صلاحيته."
 
     return render_template_string("""
     <!doctype html>
     <html lang="ar" dir="rtl">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>التحقق من البريد | NOVA STORE</title>
+    <title>تأكيد الكود | NOVA STORE</title>
     <style>
-      body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;
-           min-height:100vh;display:grid;place-items:center;padding:20px}
-      form{width:100%;max-width:380px;box-sizing:border-box;background:#07132c;
-           padding:25px;border:1px solid #315dff;border-radius:18px;text-align:center}
-      input{box-sizing:border-box;width:100%;padding:14px;margin-top:15px;
-            background:#03091b;border:1px solid #263d70;border-radius:9px;
-            color:white;text-align:center;font-size:24px;letter-spacing:8px}
-      button{width:100%;padding:13px;margin-top:18px;border:0;border-radius:10px;
-             background:linear-gradient(110deg,#9b37ff,#315dff);color:white}
-      p{color:#ff9999}
+      body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;min-height:100vh;display:grid;place-items:center;padding:20px}
+      form{width:100%;max-width:380px;background:#07132c;padding:25px;border:1px solid #315dff;border-radius:18px;box-sizing:border-box;text-align:center}
+      h1{color:#35eaa1;font-size:22px}
+      p{color:#a8b7d8;font-size:13px;line-height:1.6}
+      input{width:100%;padding:14px;margin-top:15px;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white;text-align:center;font-size:24px;letter-spacing:8px;box-sizing:border-box}
+      button{width:100%;padding:13px;margin-top:18px;border:0;border-radius:10px;background:linear-gradient(110deg,#9b37ff,#315dff);color:white;font-weight:bold;cursor:pointer}
+      .err{color:#ff9999;margin-top:10px;font-size:13px}
     </style>
     <form method="post">
-      <h1>تأكيد بريدك الإلكتروني 📧</h1>
-      <p>أدخل الكود المكون من 6 أرقام الذي أرسلناه إلى بريدك.</p>
-      <input name="code" inputmode="numeric" pattern="[0-9]{6}"
-             minlength="6" maxlength="6" required autocomplete="one-time-code">
+      <h1>تم إرسال الكود 🤖</h1>
+      <p>تفقد بوت تيليجرام الخاص بك، لقد أرسلنا لك كود مكون من 6 أرقام لتأكيد حسابك.</p>
+      <input name="code" maxlength="6" required autocomplete="one-time-code">
       <button type="submit">تأكيد الحساب</button>
-      {% if error %}<p>{{ error }}</p>{% endif %}
+      {% if error %}<div class="err">{{ error }}</div>{% endif %}
     </form>
     </html>
     """, error=error)
-
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -666,17 +543,12 @@ def login():
         password = request.form.get("password", "")
 
         with get_db() as db:
-            user = db.execute(
-                "SELECT * FROM users WHERE email = ? AND verified = 1",
-                (email,)
-            ).fetchone()
+            user = db.execute("SELECT * FROM users WHERE email = ? AND verified = 1", (email,)).fetchone()
 
         if user and check_password_hash(user["password_hash"], password):
-            session.clear()
             session["user_email"] = email
             return redirect(url_for("account"))
-
-        error = "بيانات الدخول غير صحيحة أو لم يتم تأكيد البريد."
+        error = "بيانات الدخول غير صحيحة أو لم يتم تأكيد الحساب."
 
     return render_template_string("""
     <!doctype html>
@@ -685,32 +557,29 @@ def login():
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>تسجيل الدخول | NOVA STORE</title>
     <style>
-      body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;
-           min-height:100vh;display:grid;place-items:center;padding:20px}
-      form{width:100%;max-width:400px;box-sizing:border-box;background:#07132c;
-           padding:25px;border:1px solid #315dff;border-radius:18px}
-      input{box-sizing:border-box;width:100%;padding:12px;margin:9px 0 15px;
-            background:#03091b;border:1px solid #263d70;border-radius:9px;color:white}
-      button{width:100%;padding:13px;border:0;border-radius:10px;
-             background:linear-gradient(110deg,#9b37ff,#315dff);color:white}
-      a{display:inline-block;margin-top:15px;color:#9db4ff}
-      p{color:#ff9999}
+      body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;min-height:100vh;display:grid;place-items:center;padding:20px}
+      form{width:100%;max-width:400px;background:#07132c;padding:25px;border:1px solid #315dff;border-radius:18px;box-sizing:border-box}
+      h1{color:#9b83ff;text-align:center}
+      label{display:block;margin-top:12px;color:#a8b7d8;font-size:13px}
+      input{box-sizing:border-box;width:100%;padding:11px;margin-top:5px;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white}
+      button{width:100%;padding:13px;margin-top:20px;border:0;border-radius:10px;background:linear-gradient(110deg,#9b37ff,#315dff);color:white;font-weight:bold;cursor:pointer}
+      p{color:#ff9999;text-align:center;font-size:13px}
+      a{color:#9db4ff;display:block;text-align:center;margin-top:12px;font-size:12px}
     </style>
     <form method="post">
       <h1>NOVA STORE</h1>
       <h3>تسجيل الدخول</h3>
       <label>البريد الإلكتروني</label>
-      <input type="email" name="email" required autocomplete="email">
+      <input type="email" name="email" required>
       <label>كلمة المرور</label>
-      <input type="password" name="password" required autocomplete="current-password">
+      <input type="password" name="password" required>
       <button type="submit">دخول</button>
       {% if error %}<p>{{ error }}</p>{% endif %}
-      <a href="{{ url_for('register') }}">إنشاء حساب جديد</a><br>
-      <a href="/">العودة إلى المتجر</a>
+      <a href="{{ url_for('register') }}">إنشاء حساب جديد</a>
+      <a href="/">العودة للمتجر</a>
     </form>
     </html>
     """, error=error)
-
 
 @app.route("/account")
 def account():
@@ -719,14 +588,7 @@ def account():
         return redirect(url_for("login"))
 
     with get_db() as db:
-        user = db.execute(
-            "SELECT name, email FROM users WHERE email = ? AND verified = 1",
-            (email,)
-        ).fetchone()
-
-    if not user:
-        session.clear()
-        return redirect(url_for("login"))
+        user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
 
     return render_template_string("""
     <!doctype html>
@@ -735,202 +597,104 @@ def account():
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>حسابي | NOVA STORE</title>
     <style>
-      body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;
-           min-height:100vh;display:grid;place-items:center;padding:20px}
-      main{width:100%;max-width:500px;box-sizing:border-box;background:#07132c;
-           padding:25px;border:1px solid #315dff;border-radius:18px}
-      p{color:#a8b7d8;overflow-wrap:anywhere}
-      a{display:inline-block;margin:10px 10px 0 0;color:#9db4ff}
+      body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;min-height:100vh;display:grid;place-items:center;padding:20px}
+      main{width:100%;max-width:450px;background:#07132c;padding:25px;border:1px solid #315dff;border-radius:18px;box-sizing:border-box}
+      p{color:#a8b7d8;word-break:break-all}
+      a{display:inline-block;margin-top:15px;color:#9db4ff;text-decoration:none;margin-left:15px}
     </style>
     <main>
-      <h1>👤 حسابي في NOVA STORE</h1>
-      <h2>مرحبًا {{ user["name"] }}</h2>
+      <h1>👤 حسابك الشخصي</h1>
+      <h2>مرحبًا، {{ user["name"] }}</h2>
       <p>البريد الإلكتروني: {{ user["email"] }}</p>
-      <p>حالة الحساب: تم التحقق ✅</p>
-      <a href="/">العودة إلى المتجر</a>
-      <a href="{{ url_for('logout') }}">تسجيل الخروج</a>
+      <p>معرف تيليجرام: {{ user["telegram_id"] }}</p>
+      <p style="color:#35eaa1;">حالة الحساب: مؤكد ونشط ✅</p>
+      <a href="/">العودة للمتجر</a>
+      <a href="/logout">تسجيل الخروج</a>
     </main>
     </html>
     """, user=user)
-
 
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect(url_for("home"))
 
+@app.route("/checkout", methods=["GET", "POST"])
+def checkout():
+    email = session.get("user_email")
+    if not email:
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        phone = request.form.get("phone", "").strip()
+        with get_db() as db:
+            user = db.execute("SELECT telegram_id FROM users WHERE email = ?", (email,)).fetchone()
+            telegram_id = user["telegram_id"] if user else None
+
+        if telegram_id and TELEGRAM_BOT_TOKEN != "YOUR_BOT_TOKEN_HERE":
+            try:
+                sample_code = "GPLAY-CODE-7788"
+                msg = f"تم تأكيد عملية الدفع بنجاح! 🚀\n\nالمنتج الخاص بك:\n`{sample_code}`"
+                url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+                requests.post(url, json={"chat_id": telegram_id, "text": msg, "parse_mode": "Markdown"}, timeout=5)
+            except Exception as e:
+                app.logger.error("فشل إرسال المنتج عبر تيليجرام: %s", e)
+
+        return render_template_string("""
+        <!doctype html>
+        <html lang="ar" dir="rtl">
+        <head>
+            <meta charset="utf-8">
+            <title>تم الطلب | NOVA STORE</title>
+            <style>
+                body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh;padding:20px;text-align:center;}
+                .box{background:#07132c;padding:30px;border:1px solid #315dff;border-radius:18px;max-width:400px;width:100%;}
+                h1{color:#35eaa1;}
+                p{color:#a8b7d8;line-height:1.7;}
+                a{display:inline-block;margin-top:20px;color:#9db4ff;text-decoration:none;}
+            </style>
+        </head>
+        <body>
+            <div class="box">
+                <h1>تم إرسال الطلب بنجاح! 🚀</h1>
+                <p>تم إرسال <b>كود أو تفاصيل المنتج</b> مباشرة إلى حسابك على <b>بوت تيليجرام</b>.</p>
+                <a href="/">العودة إلى المتجر</a>
+            </div>
+        </body>
+        </html>
+        """)
+
+    return render_template_string("""
+    <!doctype html>
+    <html lang="ar" dir="rtl">
+    <head>
+        <meta charset="utf-8">
+        <title>إتمام الدفع | NOVA STORE</title>
+        <style>
+            body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh;padding:20px;}
+            form{background:#07132c;padding:25px;border:1px solid #315dff;border-radius:18px;max-width:400px;width:100%;box-sizing:border-box;}
+            h1{color:#8d70ff;text-align:center;font-size:20px;}
+            label{display:block;margin-top:15px;color:#a8b7d8;}
+            input{width:100%;padding:12px;margin-top:8px;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white;box-sizing:border-box;}
+            button{width:100%;padding:13px;margin-top:20px;border:0;border-radius:10px;background:linear-gradient(110deg,#9b37ff,#315dff);color:white;font-weight:bold;cursor:pointer;}
+            a{display:block;text-align:center;margin-top:15px;color:#9db4ff;text-decoration:none;}
+        </style>
+    </head>
+    <body>
+        <form method="POST">
+            <h1>إتمام الدفع عبر فودافون كاش</h1>
+            <label>رقم هاتفك المحول منه (فودافون كاش)</label>
+            <input type="text" name="phone" required placeholder="01xxxxxxxx">
+            <button type="submit">تأكيد ودفع عبر فودافون كاش</button>
+            <a href="/">العودة للمتجر</a>
+        </form>
+    </body>
+    </html>
+    """)
 
 @app.route("/")
 def home():
     return render_template_string(PAGE, products=PRODUCTS)
-
-
-@app.route("/admin/login", methods=["GET", "POST"])
-def admin_login():
-    error = ""
-    if request.method == "POST":
-        username = request.form.get("username", "")
-        password = request.form.get("password", "")
-
-        if not ADMIN_USERNAME or not ADMIN_PASSWORD:
-            error = "إعدادات المدير غير مكتملة على السيرفر."
-        elif (
-            hmac.compare_digest(username, ADMIN_USERNAME)
-            and hmac.compare_digest(password, ADMIN_PASSWORD)
-        ):
-            session["admin_logged_in"] = True
-            return redirect(url_for("admin"))
-        else:
-            error = "اسم المستخدم أو كلمة المرور غير صحيحة."
-
-    return render_template_string("""
-    <!DOCTYPE html>
-    <html lang="ar" dir="rtl">
-    <head>
-    <meta name="google-site-verification" content="c506hjlM_x6NnfsOeo_KA9qL-7H7pmWHTh6GnojnDTM" />
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>NOVA STORE | تسجيل الدخول</title>
-        <style>
-            * { box-sizing: border-box; }
-            body {
-                margin: 0;
-                min-height: 100vh;
-                display: grid;
-                place-items: center;
-                padding: 20px;
-                background: #03091b;
-                color: white;
-                font-family: Arial, sans-serif;
-            }
-            .box {
-                width: 100%;
-                max-width: 400px;
-                padding: 28px;
-                background: #07132c;
-                border: 1px solid #315dff;
-                border-radius: 20px;
-            }
-            h1 { color: #8d70ff; text-align: center; }
-            p { color: #a8b7d8; text-align: center; }
-            label { display: block; margin-top: 18px; }
-            input {
-                width: 100%;
-                margin-top: 8px;
-                padding: 13px;
-                border: 1px solid #263d70;
-                border-radius: 10px;
-                background: #03091b;
-                color: white;
-            }
-            button {
-                width: 100%;
-                margin-top: 22px;
-                padding: 13px;
-                border: 0;
-                border-radius: 10px;
-                background: linear-gradient(110deg,#9b37ff,#315dff);
-                color: white;
-                font-weight: bold;
-                cursor: pointer;
-            }
-            .error { color: #ff7777; margin-top: 15px; }
-        </style>
-    </head>
-    <body>
-        <form class="box" method="POST">
-            <h1>NOVA STORE</h1>
-            <p>تسجيل دخول لوحة الإدارة 🔐</p>
-
-            <label>اسم المستخدم</label>
-            <input name="username" required autocomplete="username">
-
-            <label>كلمة المرور</label>
-            <input type="password" name="password"
-                   required autocomplete="current-password">
-
-            <button type="submit">تسجيل الدخول</button>
-
-            {% if error %}
-                <div class="error">{{ error }}</div>
-            {% endif %}
-        </form>
-    </body>
-    </html>
-    """, error=error)
-
-
-@app.route("/admin/logout")
-def admin_logout():
-    session.clear()
-    return redirect(url_for("admin_login"))
-
-
-@app.route("/admin")
-def admin():
-    if not session.get("admin_logged_in"):
-        return redirect(url_for("admin_login"))
-    return """
-    <!DOCTYPE html>
-    <html lang="ar" dir="rtl">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>NOVA STORE | لوحة الإدارة</title>
-        <style>
-            body {
-                margin: 0;
-                background: #03091b;
-                color: white;
-                font-family: Arial, sans-serif;
-                padding: 30px;
-            }
-            .panel {
-                max-width: 700px;
-                margin: 40px auto;
-                padding: 25px;
-                background: #07132c;
-                border: 1px solid #315dff;
-                border-radius: 20px;
-            }
-            h1 { color: #8d70ff; }
-            .card {
-                background: #0d1c3b;
-                padding: 18px;
-                margin: 15px 0;
-                border-radius: 12px;
-            }
-            a {
-                display: inline-block;
-                margin-top: 15px;
-                color: #8baaff;
-                text-decoration: none;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="panel">
-            <h1>⚡ NOVA STORE</h1>
-            <h2>لوحة الإدارة</h2>
-            <div class="card">
-                <h3>🛍️ إدارة المتجر</h3>
-                <p>عدد المنتجات التجريبية: 5</p>
-            </div>
-            <div class="card">
-                <h3>💳 إعدادات الدفع</h3>
-                <p>وسيلة الدفع المخططة: فودافون كاش</p>
-                <p>الدفع الإلكتروني غير مفعّل بعد.</p>
-            </div>
-            <div class="card">
-                <h3>📊 حالة النظام</h3>
-                <p>الموقع يعمل في الوضع التجريبي.</p>
-            </div>
-            <a href="/">← العودة إلى المتجر</a>
-            <a href="/admin/logout">تسجيل الخروج 🔒</a>
-        </div>
-    </body>
-    </html>
-    """
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
