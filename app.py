@@ -397,7 +397,304 @@ renderProducts();
 </body>
 </html>
 """
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    error = ""
 
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+
+        if not name or len(name) > 80:
+            error = "اكتب اسمًا صحيحًا لا يتجاوز 80 حرفًا."
+        elif len(email) > 254 or "@" not in email:
+            error = "اكتب بريدًا إلكترونيًا صحيحًا."
+        elif len(password) < 10:
+            error = "كلمة المرور يجب أن تكون 10 أحرف على الأقل."
+        else:
+            with get_db() as db:
+                existing = db.execute(
+                    "SELECT id, verified FROM users WHERE email = ?",
+                    (email,)
+                ).fetchone()
+
+                if existing and existing["verified"]:
+                    error = "هذا البريد مسجل بالفعل. سجّل الدخول."
+                else:
+                    now = int(time.time())
+
+                    pending = db.execute(
+                        "SELECT last_sent FROM email_codes WHERE email = ?",
+                        (email,)
+                    ).fetchone()
+
+                    if pending and now - pending["last_sent"] < 60:
+                        error = "انتظر دقيقة قبل طلب كود جديد."
+                    else:
+                        code = f"{secrets.randbelow(1000000):06d}"
+                        code_hash = generate_password_hash(code)
+
+                        try:
+                            send_verification_email(email, code)
+
+                            db.execute("""
+                                INSERT INTO users
+                                    (name, email, password_hash, verified, created_at)
+                                VALUES (?, ?, ?, 0, ?)
+                                ON CONFLICT(email) DO UPDATE SET
+                                    name = excluded.name,
+                                    password_hash = excluded.password_hash
+                                WHERE users.verified = 0
+                            """, (
+                                name,
+                                email,
+                                generate_password_hash(password),
+                                now
+                            ))
+
+                            db.execute("""
+                                INSERT INTO email_codes
+                                    (email, code_hash, expires_at, attempts, last_sent)
+                                VALUES (?, ?, ?, 0, ?)
+                                ON CONFLICT(email) DO UPDATE SET
+                                    code_hash = excluded.code_hash,
+                                    expires_at = excluded.expires_at,
+                                    attempts = 0,
+                                    last_sent = excluded.last_sent
+                            """, (email, code_hash, now + 600, now))
+
+                            session["pending_email"] = email
+                            return redirect(url_for("verify_email"))
+
+                        except Exception:
+                            app.logger.exception("فشل إرسال كود التحقق")
+                            error = (
+                                "تعذر إرسال كود التحقق. "
+                                "راجع إعدادات البريد وحاول لاحقًا."
+                            )
+
+    return render_template_string("""
+    <!doctype html>
+    <html lang="ar" dir="rtl">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>إنشاء حساب | NOVA STORE</title>
+    <style>
+      body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;
+           min-height:100vh;display:grid;place-items:center;padding:20px}
+      form{width:100%;max-width:400px;box-sizing:border-box;background:#07132c;
+           padding:25px;border:1px solid #315dff;border-radius:18px}
+      h1{color:#9b83ff;text-align:center}
+      label{display:block;margin-top:15px}
+      input{box-sizing:border-box;width:100%;padding:12px;margin-top:7px;
+            background:#03091b;border:1px solid #263d70;border-radius:9px;color:white}
+      button{width:100%;padding:13px;margin-top:20px;border:0;border-radius:10px;
+             background:linear-gradient(110deg,#9b37ff,#315dff);color:white;
+             font-weight:bold}
+      p{color:#ff9999;line-height:1.7}
+      a{color:#9db4ff}
+    </style>
+    <form method="post">
+      <h1>NOVA STORE</h1>
+      <h3>إنشاء حساب جديد</h3>
+      <label>الاسم</label>
+      <input name="name" maxlength="80" required autocomplete="name">
+      <label>البريد الإلكتروني</label>
+      <input type="email" name="email" required autocomplete="email">
+      <label>كلمة المرور (10 أحرف على الأقل)</label>
+      <input type="password" name="password" minlength="10"
+             required autocomplete="new-password">
+      <button type="submit">إرسال كود التحقق</button>
+      {% if error %}<p>{{ error }}</p>{% endif %}
+      <p><a href="{{ url_for('login') }}">لديك حساب؟ تسجيل الدخول</a></p>
+      <a href="/">العودة إلى المتجر</a>
+    </form>
+    </html>
+    """, error=error)
+
+
+@app.route("/verify", methods=["GET", "POST"])
+def verify_email():
+    email = session.get("pending_email")
+
+    if not email:
+        return redirect(url_for("register"))
+
+    error = ""
+
+    if request.method == "POST":
+        code = request.form.get("code", "").strip()
+        now = int(time.time())
+
+        with get_db() as db:
+            record = db.execute(
+                "SELECT * FROM email_codes WHERE email = ?",
+                (email,)
+            ).fetchone()
+
+            if not record or now > record["expires_at"]:
+                error = "انتهت صلاحية الكود. ابدأ التسجيل من جديد."
+            elif record["attempts"] >= 5:
+                error = "تجاوزت عدد المحاولات المسموح بها."
+            else:
+                db.execute(
+                    "UPDATE email_codes SET attempts = attempts + 1 WHERE email = ?",
+                    (email,)
+                )
+
+                if (
+                    len(code) == 6
+                    and code.isdigit()
+                    and check_password_hash(record["code_hash"], code)
+                ):
+                    db.execute(
+                        "UPDATE users SET verified = 1 WHERE email = ?",
+                        (email,)
+                    )
+                    db.execute(
+                        "DELETE FROM email_codes WHERE email = ?",
+                        (email,)
+                    )
+
+                    session.pop("pending_email", None)
+                    session["user_email"] = email
+                    return redirect(url_for("account"))
+
+                error = "كود التحقق غير صحيح."
+
+    return render_template_string("""
+    <!doctype html>
+    <html lang="ar" dir="rtl">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>التحقق من البريد | NOVA STORE</title>
+    <style>
+      body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;
+           min-height:100vh;display:grid;place-items:center;padding:20px}
+      form{width:100%;max-width:380px;box-sizing:border-box;background:#07132c;
+           padding:25px;border:1px solid #315dff;border-radius:18px;text-align:center}
+      input{box-sizing:border-box;width:100%;padding:14px;margin-top:15px;
+            background:#03091b;border:1px solid #263d70;border-radius:9px;
+            color:white;text-align:center;font-size:24px;letter-spacing:8px}
+      button{width:100%;padding:13px;margin-top:18px;border:0;border-radius:10px;
+             background:linear-gradient(110deg,#9b37ff,#315dff);color:white}
+      p{color:#ff9999}
+    </style>
+    <form method="post">
+      <h1>تأكيد بريدك الإلكتروني 📧</h1>
+      <p>أدخل الكود المكون من 6 أرقام الذي أرسلناه إلى بريدك.</p>
+      <input name="code" inputmode="numeric" pattern="[0-9]{6}"
+             minlength="6" maxlength="6" required autocomplete="one-time-code">
+      <button type="submit">تأكيد الحساب</button>
+      {% if error %}<p>{{ error }}</p>{% endif %}
+    </form>
+    </html>
+    """, error=error)
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    error = ""
+
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+
+        with get_db() as db:
+            user = db.execute(
+                "SELECT * FROM users WHERE email = ? AND verified = 1",
+                (email,)
+            ).fetchone()
+
+        if user and check_password_hash(user["password_hash"], password):
+            session.clear()
+            session["user_email"] = email
+            return redirect(url_for("account"))
+
+        error = "بيانات الدخول غير صحيحة أو لم يتم تأكيد البريد."
+
+    return render_template_string("""
+    <!doctype html>
+    <html lang="ar" dir="rtl">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>تسجيل الدخول | NOVA STORE</title>
+    <style>
+      body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;
+           min-height:100vh;display:grid;place-items:center;padding:20px}
+      form{width:100%;max-width:400px;box-sizing:border-box;background:#07132c;
+           padding:25px;border:1px solid #315dff;border-radius:18px}
+      input{box-sizing:border-box;width:100%;padding:12px;margin:9px 0 15px;
+            background:#03091b;border:1px solid #263d70;border-radius:9px;color:white}
+      button{width:100%;padding:13px;border:0;border-radius:10px;
+             background:linear-gradient(110deg,#9b37ff,#315dff);color:white}
+      a{display:inline-block;margin-top:15px;color:#9db4ff}
+      p{color:#ff9999}
+    </style>
+    <form method="post">
+      <h1>NOVA STORE</h1>
+      <h3>تسجيل الدخول</h3>
+      <label>البريد الإلكتروني</label>
+      <input type="email" name="email" required autocomplete="email">
+      <label>كلمة المرور</label>
+      <input type="password" name="password" required autocomplete="current-password">
+      <button type="submit">دخول</button>
+      {% if error %}<p>{{ error }}</p>{% endif %}
+      <a href="{{ url_for('register') }}">إنشاء حساب جديد</a><br>
+      <a href="/">العودة إلى المتجر</a>
+    </form>
+    </html>
+    """, error=error)
+
+
+@app.route("/account")
+def account():
+    email = session.get("user_email")
+
+    if not email:
+        return redirect(url_for("login"))
+
+    with get_db() as db:
+        user = db.execute(
+            "SELECT name, email FROM users WHERE email = ? AND verified = 1",
+            (email,)
+        ).fetchone()
+
+    if not user:
+        session.clear()
+        return redirect(url_for("login"))
+
+    return render_template_string("""
+    <!doctype html>
+    <html lang="ar" dir="rtl">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>حسابي | NOVA STORE</title>
+    <style>
+      body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;
+           min-height:100vh;display:grid;place-items:center;padding:20px}
+      main{width:100%;max-width:500px;box-sizing:border-box;background:#07132c;
+           padding:25px;border:1px solid #315dff;border-radius:18px}
+      p{color:#a8b7d8;overflow-wrap:anywhere}
+      a{display:inline-block;margin:10px 10px 0 0;color:#9db4ff}
+    </style>
+    <main>
+      <h1>👤 حسابي في NOVA STORE</h1>
+      <h2>مرحبًا {{ user["name"] }}</h2>
+      <p>البريد الإلكتروني: {{ user["email"] }}</p>
+      <p>حالة الحساب: تم التحقق ✅</p>
+      <a href="/">العودة إلى المتجر</a>
+      <a href="{{ url_for('logout') }}">تسجيل الخروج</a>
+    </main>
+    </html>
+    """, user=user)
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("home"))
 @app.route("/")
 def home():
     return render_template_string(PAGE, products=PRODUCTS)
