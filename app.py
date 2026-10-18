@@ -221,7 +221,68 @@ renderProducts();
 @app.route("/")
 def home():
     return render_template_string(PAGE, products=PRODUCTS)
-
+@app.route("/admin")
+def admin():
+    return """
+    <!DOCTYPE html>
+    <html lang="ar" dir="rtl">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>NOVA STORE | لوحة الإدارة</title>
+        <style>
+            body {
+                margin: 0;
+                background: #03091b;
+                color: white;
+                font-family: Arial, sans-serif;
+                padding: 30px;
+            }
+            .panel {
+                max-width: 700px;
+                margin: 40px auto;
+                padding: 25px;
+                background: #07132c;
+                border: 1px solid #315dff;
+                border-radius: 20px;
+            }
+            h1 { color: #8d70ff; }
+            .card {
+                background: #0d1c3b;
+                padding: 18px;
+                margin: 15px 0;
+                border-radius: 12px;
+            }
+            a {
+                display: inline-block;
+                margin-top: 15px;
+                color: #8baaff;
+                text-decoration: none;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="panel">
+            <h1>⚡ NOVA STORE</h1>
+            <h2>لوحة الإدارة</h2>
+            <div class="card">
+                <h3>🛍️ إدارة المتجر</h3>
+                <p>عدد المنتجات التجريبية: 5</p>
+            </div>
+            <div class="card">
+                <h3>💳 إعدادات الدفع</h3>
+                <p>وسيلة الدفع المخططة: فودافون كاش</p>
+                <p>الدفع الإلكتروني غير مفعّل بعد.</p>
+            </div>
+            <div class="card">
+                <h3>📊 حالة النظام</h3>
+                <p>الموقع يعمل في الوضع التجريبي.</p>
+            </div>
+            <a href="/">← العودة إلى المتجر</a>
+        </div>
+    </body>
+    </html>
+    """
 if __name__ == "__main__":
     # host=0.0.0.0 يسمح بالوصول إلى التطبيق من الشبكة عند الحاجة.
     app.run(host="0.0.0.0", port=5000, debug=False)
