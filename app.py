@@ -24,7 +24,6 @@ ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "nova_store.db")
 
-# ضع هنا توكن بوت التيليجرام الخاص بك
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4")
 
 
@@ -118,7 +117,24 @@ PAGE = r"""
 .topbar{min-height:78px;display:flex;align-items:center;gap:22px;padding:12px 4%;border-bottom:1px solid #18284a;position:sticky;top:0;background:#040a1bed;backdrop-filter:blur(16px);z-index:5}
 .brand{display:flex;align-items:center;gap:10px;white-space:nowrap;font-family:Arial,sans-serif;font-size:24px;font-weight:800;letter-spacing:.4px}.brand b{color:#754bff}.brand-mark{width:39px;height:39px;display:grid;place-items:center;font-size:33px;font-weight:900;font-style:italic;background:linear-gradient(140deg,#bc5bff,#276bff);color:white;clip-path:polygon(0 0,75% 0,100% 20%,100% 100%,27% 100%,0 78%)}
 .search{height:44px;max-width:470px;flex:1;display:flex;align-items:center;gap:10px;border:1px solid #263d70;border-radius:30px;padding:0 17px;background:#09132b}.search span{font-size:24px;color:#7185b5}.search input{width:100%;border:0;outline:0;background:transparent;color:white;font-size:13px}
-.header-actions{display:flex;align-items:center;gap:10px;margin-right:auto}.header-actions button,.nav a,.cart{background:none;border:0;font-size:13px}.lang{border-radius:25px!important;background:#0b1734!important;padding:10px 14px}.primary{border:0;border-radius:14px;background:linear-gradient(110deg,#9b37ff,#315dff);box-shadow:0 7px 24px #593bff44;color:#fff;font-weight:700}.small{padding:11px 17px;border-radius:12px}.login{color:#d8e2ff}
+
+/* أزرار الحساب في العرض العلوي */
+.header-actions{display:flex;align-items:center;gap:10px;margin-right:auto}
+.header-actions button,.nav a,.cart{background:none;border:0;font-size:13px}
+.lang{border-radius:25px!important;background:#0b1734!important;padding:10px 14px}
+.primary{border:0;border-radius:14px;background:linear-gradient(110deg,#9b37ff,#315dff);box-shadow:0 7px 24px #593bff44;color:#fff;font-weight:700}
+.small{padding:11px 17px;border-radius:12px}
+.login{color:#d8e2ff}
+
+/* بروفايل المستخدم الجديد في العرض العلوي */
+.user-profile-badge {display: flex; align-items: center; gap: 10px; background: #0b1734; border: 1px solid #263d70; padding: 6px 14px; border-radius: 30px; text-decoration: none; transition: 0.2s;}
+.user-profile-badge:hover { border-color: #315dff; }
+.user-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #9b37ff, #315dff); display: grid; place-items: center; font-weight: bold; color: white; font-size: 15px; }
+.user-info { display: flex; flex-direction: column; text-align: right; }
+.user-name { font-size: 12px; font-weight: bold; color: #f4f7ff; }
+.user-status { font-size: 10px; color: #35eaa1; display: flex; align-items: center; gap: 4px; }
+.user-status::before { content: ""; width: 6px; height: 6px; background: #35eaa1; border-radius: 50%; display: inline-block; }
+
 .nav{min-height:46px;padding:0 5%;display:flex;align-items:center;gap:34px;border-bottom:1px solid #18284a;color:#c4cde3;font-size:13px}.nav a{min-height:46px;display:flex;align-items:center}.nav a.active{color:#7f9dff;border-bottom:2px solid #6953ff}.cart{margin-right:auto;font-size:19px!important}.cart span{background:#2777ff;border-radius:20px;padding:1px 7px;font-size:11px}
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:20px;padding:22px 3.2% 30px}.main-column{min-width:0}
 .hero{min-height:290px;border:1px solid #263f77;border-radius:22px;overflow:hidden;display:grid;grid-template-columns:1fr 1fr;position:relative;background:radial-gradient(ellipse at 70% 50%,#351174 0,transparent 50%),linear-gradient(110deg,#06102b,#080c2c 65%,#100a3b)}.hero:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,#080b2555);pointer-events:none}.hero-copy{padding:28px 32px;z-index:1}.eyebrow{color:#bca0ff;font-size:12px;font-weight:700}.hero h1{font-size:clamp(22px,2.2vw,31px);line-height:1.65;margin:8px 0;font-weight:800}.hero p{color:#c4cce2;font-size:13px;line-height:1.9;max-width:470px;margin:0 0 15px}.hero-btn{display:inline-flex;align-items:center;gap:20px;padding:11px 22px;border-radius:30px;font-size:13px}.trust-row{display:flex;gap:15px;margin-top:20px;color:#dce5ff;font-size:11px;flex-wrap:wrap}
@@ -176,16 +192,31 @@ footer{border-top:1px solid #192b4e;padding:28px 4.2%;display:grid;grid-template
 <header class="topbar">
   <a class="brand" href="#"><span class="brand-mark">N</span><span>NOVA <b>STORE</b></span></a>
   <label class="search"><span>⌕</span><input id="searchInput" type="search" placeholder="ابحث عن أي منتج..." aria-label="بحث عن المنتجات"></label>
- <div class="header-actions">
-  <button class="lang" id="langBtn">AR ◉</button>
-  <a class="login" href="/login">تسجيل الدخول</a>
-  <a class="primary small" href="/register">إنشاء حساب</a>
-</div> 
+  
+  <div class="header-actions">
+    <button class="lang" id="langBtn">AR ◉</button>
+    {% if user %}
+      <!-- إذا كان المستخدم مسجلاً: يظهر بروفايله وصورته وحالته -->
+      <a href="/account" class="user-profile-badge">
+        <div class="user-avatar">{{ user["name"][:1] }}</div>
+        <div class="user-info">
+          <span class="user-name">{{ user["name"] }}</span>
+          <span class="user-status">متصل الآن</span>
+        </div>
+      </a>
+    {% else %}
+      <!-- إذا لم يكن مسجلاً: تظهر أزرار الدخول والتسجيل -->
+      <a class="login" href="/login">تسجيل الدخول</a>
+      <a class="primary small" href="/register">إنشاء حساب</a>
+    {% endif %}
+  </div> 
 </header>
+
 <nav class="nav">
   <a class="active" href="#">الرئيسية</a><a href="#categories">المنتجات</a><a href="#products">العروض</a><a href="#footer">من نحن</a><a href="#footer">الدعم</a>
   <button class="cart" id="cartBtn" aria-label="سلة المشتريات">🛒 <span id="cartCount">0</span></button>
 </nav>
+
 <main class="layout">
 <section class="main-column">
   <section class="hero">
@@ -407,7 +438,6 @@ def service_worker():
     response.headers["Content-Type"] = "application/javascript"
     return response
 
-# الخطوة الأولى: تسجيل الحساب وطلب كود التيليجرام
 @app.route("/register", methods=["GET", "POST"])
 def register():
     error = ""
@@ -425,11 +455,9 @@ def register():
                 if existing:
                     error = "هذا البريد مسجل مسبقاً."
                 else:
-                    # توليد كود تحقق مكون من 6 أرقام
                     code = f"{secrets.randbelow(1000000):06d}"
                     now = int(time.time())
 
-                    # حفظ بيانات الحساب (مؤقتاً غير مفعل حتى يؤكد الكود) وحفظ الكود
                     db.execute("""
                         INSERT OR REPLACE INTO users (name, email, password_hash, telegram_id, verified, created_at)
                         VALUES (?, ?, ?, ?, 0, ?)
@@ -440,7 +468,6 @@ def register():
                         VALUES (?, ?, ?)
                     """, (email, code, now + 600))
 
-                    # إرسال الكود فوراً عبر بوت تيليجرام للبوت الخاص بك ليرسله للمستخدم
                     if TELEGRAM_BOT_TOKEN != "YOUR_BOT_TOKEN_HERE":
                         try:
                             msg = f"مرحباً {name}!\n\nكود التحقق الخاص بك لتسجيل الدخول في NOVA STORE هو:\n`{code}`\n\nصلاحية الكود 10 دقائق."
@@ -487,7 +514,6 @@ def register():
     </html>
     """, error=error)
 
-# الخطوة الثانية: صفحة إدخال كود الـ 6 أرقام الذي وصل للبوت
 @app.route("/verify", methods=["GET", "POST"])
 def verify():
     email = session.get("verify_email")
@@ -598,18 +624,24 @@ def account():
     <title>حسابي | NOVA STORE</title>
     <style>
       body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;min-height:100vh;display:grid;place-items:center;padding:20px}
-      main{width:100%;max-width:450px;background:#07132c;padding:25px;border:1px solid #315dff;border-radius:18px;box-sizing:border-box}
-      p{color:#a8b7d8;word-break:break-all}
-      a{display:inline-block;margin-top:15px;color:#9db4ff;text-decoration:none;margin-left:15px}
+      main{width:100%;max-width:450px;background:#07132c;padding:25px;border:1px solid #315dff;border-radius:18px;box-sizing:border-box;text-align:center;}
+      .profile-avatar { width: 70px; height: 70px; border-radius: 50%; background: linear-gradient(135deg, #9b37ff, #315dff); display: grid; place-items: center; font-size: 30px; font-weight: bold; color: white; margin: 0 auto 15px; border: 2px solid #35eaa1; }
+      h2 { color: #f4f7ff; margin: 5px 0; }
+      p{color:#a8b7d8;word-break:break-all;font-size:13px;margin:8px 0;}
+      .status { color: #35eaa1; font-weight: bold; margin-bottom: 20px; }
+      a{display:inline-block;margin-top:15px;color:#9db4ff;text-decoration:none;margin-left:10px;padding:8px 16px;background:#0b1734;border:1px solid #263d70;border-radius:10px;}
+      .logout-btn { background: #571010; border-color: #ff5555; color: #ffcccc; }
     </style>
     <main>
-      <h1>👤 حسابك الشخصي</h1>
-      <h2>مرحبًا، {{ user["name"] }}</h2>
+      <div class="profile-avatar">{{ user["name"][:1] }}</div>
+      <h2>{{ user["name"] }}</h2>
       <p>البريد الإلكتروني: {{ user["email"] }}</p>
       <p>معرف تيليجرام: {{ user["telegram_id"] }}</p>
-      <p style="color:#35eaa1;">حالة الحساب: مؤكد ونشط ✅</p>
-      <a href="/">العودة للمتجر</a>
-      <a href="/logout">تسجيل الخروج</a>
+      <div class="status">حالة الحساب: متصل ونشط ✅</div>
+      <div>
+        <a href="/">العودة للمتجر</a>
+        <a class="logout-btn" href="/logout">تسجيل الخروج</a>
+      </div>
     </main>
     </html>
     """, user=user)
@@ -694,7 +726,13 @@ def checkout():
 
 @app.route("/")
 def home():
-    return render_template_string(PAGE, products=PRODUCTS)
+    email = session.get("user_email")
+    user = None
+    if email:
+        with get_db() as db:
+            user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+    
+    return render_template_string(PAGE, products=PRODUCTS, user=user)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
