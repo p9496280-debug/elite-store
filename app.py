@@ -481,12 +481,16 @@ def register():
                             session["pending_email"] = email
                             return redirect(url_for("verify_email"))
 
-                        except Exception:
-                            app.logger.exception("فشل إرسال كود التحقق")
-                            error = (
-                                "تعذر إرسال كود التحقق. "
-                                "راجع إعدادات البريد وحاول لاحقًا."
-                            )
+                        except Exception as e:
+    app.logger.exception(
+        "فشل إرسال كود التحقق. نوع الخطأ: %s",
+        type(e).__name__
+    )
+    error = (
+        "تعذر إرسال كود التحقق. "
+        f"نوع الخطأ: {type(e).__name__}. "
+        "راجع سجل الأخطاء في Render."
+    )
 
     return render_template_string("""
     <!doctype html>
