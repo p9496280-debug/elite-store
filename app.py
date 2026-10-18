@@ -61,61 +61,44 @@ def init_db():
             )
         """)
 
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS products (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL,
+                price_val REAL NOT NULL,
+                price TEXT NOT NULL,
+                code TEXT NOT NULL,
+                icon TEXT NOT NULL,
+                category TEXT NOT NULL,
+                color TEXT NOT NULL
+            )
+        """)
+
+        # إضافة منتجات افتراضية عند تشغيل القاعدة لأول مرة
+        cursor = db.execute("SELECT COUNT(*) as count FROM products")
+        if cursor.fetchone()["count"] == 0:
+            default_products = [
+                ("Google Play", "بطاقات Google Play الرقمية", 100, "100 جنيه", "GPLAY-9876-XXXX", "▶", "بطاقات الألعاب", "#35eaa1"),
+                ("PlayStation", "بطاقات واشتراكات PlayStation", 250, "250 جنيه", "PSN-5432-XXXX", "PS", "بطاقات الألعاب", "#62a0ff"),
+                ("Steam", "أكواد ومحافظ Steam", 150, "150 جنيه", "STEAM-1122-XXXX", "◉", "بطاقات الألعاب", "#9bb8ff"),
+                ("Xbox", "بطاقات واشتراكات Xbox", 200, "200 جنيه", "XBOX-3344-XXXX", "ⓧ", "بطاقات الألعاب", "#5dff9c"),
+                ("Google Accounts", "حسابات جوجل جاهزة وموثقة", 50, "50 جنيه", "acc_google_2026@gmail.com : Pass123", "G", "حسابات جوجل", "#ffc107"),
+            ]
+            db.executemany("""
+                INSERT INTO products (name, description, price_val, price, code, icon, category, color)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, default_products)
+
 
 init_db()
 
-PRODUCTS = [
-    {
-        "name": "Google Play",
-        "description": "بطاقات Google Play الرقمية",
-        "price_val": 100,
-        "price": "100 جنيه",
-        "code": "GPLAY-9876-XXXX",
-        "icon": "▶",
-        "category": "بطاقات الألعاب",
-        "color": "#35eaa1",
-    },
-    {
-        "name": "PlayStation",
-        "description": "بطاقات وااشتراكات PlayStation",
-        "price_val": 250,
-        "price": "250 جنيه",
-        "code": "PSN-5432-XXXX",
-        "icon": "PS",
-        "category": "بطاقات الألعاب",
-        "color": "#62a0ff",
-    },
-    {
-        "name": "Steam",
-        "description": "أكواد ومحافظ Steam",
-        "price_val": 150,
-        "price": "150 جنيه",
-        "code": "STEAM-1122-XXXX",
-        "icon": "◉",
-        "category": "بطاقات الألعاب",
-        "color": "#9bb8ff",
-    },
-    {
-        "name": "Xbox",
-        "description": "بطاقات وااشتراكات Xbox",
-        "price_val": 200,
-        "price": "200 جنيه",
-        "code": "XBOX-3344-XXXX",
-        "icon": "ⓧ",
-        "category": "بطاقات الألعاب",
-        "color": "#5dff9c",
-    },
-    {
-        "name": "Google Accounts",
-        "description": "حسابات جوجل جاهزة وموثقة",
-        "price_val": 50,
-        "price": "50 جنيه",
-        "code": "acc_google_2026@gmail.com : Pass123",
-        "icon": "G",
-        "category": "حسابات جوجل",
-        "color": "#ffc107",
-    },
-]
+
+def get_products():
+    with get_db() as db:
+        rows = db.execute("SELECT * FROM products").fetchall()
+        return [dict(row) for row in rows]
+
 
 PAGE = r"""
 <!doctype html>
@@ -536,9 +519,12 @@ canvas{
 .modal-btn{margin-top:20px;padding:12px 25px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:12px;color:white;font-weight:bold;cursor:pointer}
 
 .back-link{margin-top:25px;color:#8198ff;text-decoration:none;font-size:13px}
+#confettiCanvas{position:fixed;inset:0;pointer-events:none;z-index:99}
 </style>
 </head>
 <body>
+
+<canvas id="confettiCanvas"></canvas>
 
 <div class="spin-header">
   <h1>🎡 عجلة الحظ اليومية</h1>
@@ -612,6 +598,66 @@ function drawWheel() {
 
 drawWheel();
 
+// نظام الصوت التفاعلي للـ Web Audio API
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playClickSound() {
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.04);
+  gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+  gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.04);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.04);
+}
+
+function playWinSound() {
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const notes = [261.63, 329.63, 392.00, 523.25];
+  notes.forEach((freq, idx) => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime + idx * 0.12);
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime + idx * 0.12);
+    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + idx * 0.12 + 0.3);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(audioCtx.currentTime + idx * 0.12);
+    osc.stop(audioCtx.currentTime + idx * 0.12 + 0.3);
+  });
+}
+
+// تأثير القصاصات الملونة (Confetti)
+function startConfetti() {
+  const c = document.getElementById('confettiCanvas');
+  const cx = c.getContext('2d');
+  c.width = window.innerWidth;
+  c.height = window.innerHeight;
+  const particles = Array.from({length: 80}, () => ({
+    x: Math.random() * c.width,
+    y: Math.random() * c.height - c.height,
+    r: Math.random() * 6 + 4,
+    d: Math.random() * 2 + 1,
+    color: ['#bc5bff', '#315dff', '#35eaa1', '#ffc107', '#ff3b3b'][Math.floor(Math.random()*5)]
+  }));
+  let timer = setInterval(() => {
+    cx.clearRect(0, 0, c.width, c.height);
+    particles.forEach(p => {
+      p.y += p.d * 3;
+      cx.beginPath();
+      cx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      cx.fillStyle = p.color;
+      cx.fill();
+    });
+  }, 20);
+  setTimeout(() => clearInterval(timer), 4000);
+}
+
 let isSpinning = false;
 
 spinBtn.addEventListener('click', () => {
@@ -625,10 +671,24 @@ spinBtn.addEventListener('click', () => {
   const degreesPerItem = 360 / numItems;
   const targetDegree = (360 - (selectedIndex * degreesPerItem) - (degreesPerItem / 2)) + (360 * 5);
   
+  // تفعيل الصوت أثنا الدوران
+  let clicks = 0;
+  const soundInterval = setInterval(() => {
+    playClickSound();
+    clicks++;
+    if (clicks > 25) clearInterval(soundInterval);
+  }, 180);
+
   canvas.style.transform = `rotate(${targetDegree}deg)`;
 
   setTimeout(() => {
     isSpinning = false;
+    clearInterval(soundInterval);
+
+    if (prize.type !== 'none') {
+      playWinSound();
+      startConfetti();
+    }
     
     fetch('/spin', {
       method: 'POST',
@@ -652,6 +712,246 @@ spinBtn.addEventListener('click', () => {
 </body>
 </html>
 """
+
+# ==================== لوحة تحكم الإدارة (Admin Panel) ====================
+
+ADMIN_LOGIN_PAGE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تسجيل دخول الإدارة | NOVA STORE</title>
+<style>
+  body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;min-height:100vh;display:grid;place-items:center;padding:20px}
+  form{width:100%;max-width:380px;background:#07132c;padding:28px;border:1px solid #315dff;border-radius:18px;box-sizing:border-box}
+  h1{color:#bc5bff;text-align:center;font-size:22px;margin-bottom:20px}
+  label{display:block;margin-top:12px;color:#a8b7d8;font-size:13px}
+  input{box-sizing:border-box;width:100%;padding:12px;margin-top:5px;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white}
+  button{width:100%;padding:13px;margin-top:20px;border:0;border-radius:10px;background:linear-gradient(110deg,#9b37ff,#315dff);color:white;font-weight:bold;cursor:pointer}
+  .err{color:#ff5555;text-align:center;font-size:13px;margin-top:10px}
+</style>
+</head>
+<body>
+<form method="post">
+  <h1>⚙️ لوحة الإدارة</h1>
+  <label>اسم المستخدم</label>
+  <input name="username" required>
+  <label>كلمة المرور</label>
+  <input type="password" name="password" required>
+  <button type="submit">دخول اللوحة</button>
+  {% if error %}<div class="err">{{ error }}</div>{% endif %}
+</form>
+</body>
+</html>
+"""
+
+ADMIN_DASHBOARD_PAGE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>لوحة التحكم | NOVA STORE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
+*{box-sizing:border-box}
+body{margin:0;background:#03091b;color:#f4f7ff;font-family:'Cairo',sans-serif;padding:20px}
+header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1b315c;padding-bottom:15px;margin-bottom:25px}
+h1{margin:0;font-size:22px;color:#bc5bff}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:30px}
+.stat-card{background:#07132c;border:1px solid #263d70;border-radius:14px;padding:18px;text-align:center}
+.stat-card h3{margin:0;font-size:13px;color:#a8b7d8}
+.stat-card b{font-size:26px;color:#35eaa1;display:block;margin-top:8px}
+
+.section{background:#07132c;border:1px solid #263d70;border-radius:16px;padding:20px;margin-bottom:25px}
+.section h2{margin-top:0;font-size:18px;color:#8d38ff;border-bottom:1px solid #1b315c;padding-bottom:10px}
+
+table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
+th,td{padding:12px;text-align:right;border-bottom:1px solid #1b315c}
+th{color:#a8b7d8;background:#050d20}
+input,select{padding:8px 12px;background:#03091b;border:1px solid #263d70;border-radius:8px;color:white;font-size:12px}
+.btn{padding:8px 14px;border:0;border-radius:8px;background:#315dff;color:white;font-weight:bold;cursor:pointer;font-size:12px}
+.btn-danger{background:#ff3b3b}
+.logout{color:#ff7777;text-decoration:none;font-weight:bold;font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚙️ لوحة تحكم إدارة NOVA STORE</h1>
+  <a href="/admin/logout" class="logout">تسجيل الخروج ←</a>
+</header>
+
+<div class="stats">
+  <div class="stat-card"><h3>إجمالي المسجلين</h3><b>{{ users|length }}</b></div>
+  <div class="stat-card"><h3>إجمالي المنتجات</h3><b>{{ products|length }}</b></div>
+  <div class="stat-card"><h3>رقم التحويل الحالي</h3><b style="font-size:18px; color:#ffc107;">{{ vodafone_num }}</b></div>
+</div>
+
+<div class="section">
+  <h2>👥 إدارة حسابات المستخدمين والمحفظة</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>الاسم</th>
+        <th>البريد الإلكتروني</th>
+        <th>تليجرام ID</th>
+        <th>الرصيد الحالي</th>
+        <th>تعديل الرصيد</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td><b>{{ u['name'] }}</b></td>
+        <td>{{ u['email'] }}</td>
+        <td>{{ u['telegram_id'] }}</td>
+        <td style="color:#35eaa1; font-weight:bold;">{{ u['balance'] }} جـ</td>
+        <td>
+          <form method="post" action="/admin/update_balance" style="display:flex; gap:6px;">
+            <input type="hidden" name="user_id" value="{{ u['id'] }}">
+            <input type="number" step="0.5" name="new_balance" placeholder="الرصيد الجديد" value="{{ u['balance'] }}" style="width:90px;" required>
+            <button type="submit" class="btn">حفظ</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2>➕ إضافة منتج جديد</h2>
+  <form method="post" action="/admin/add_product" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px;">
+    <input name="name" placeholder="اسم المنتج (مثال: جوجل بلاي)" required>
+    <input name="description" placeholder="الوصف" required>
+    <input type="number" step="1" name="price_val" placeholder="السعر بالجنيه" required>
+    <input name="code" placeholder="الكود أو الحساب" required>
+    <input name="icon" placeholder="الأيقونة (مثال: ▶)" required>
+    <input name="category" placeholder="القسم" required>
+    <input name="color" placeholder="كود اللون (مثال: #35eaa1)" value="#315dff" required>
+    <button type="submit" class="btn" style="grid-column:1/-1;">حفظ المنتج الجديد</button>
+  </form>
+</div>
+
+<div class="section">
+  <h2>🛒 قائمة المنتجات الحالية</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>الاسم</th>
+        <th>الوصف</th>
+        <th>السعر</th>
+        <th>الكود/الحساب</th>
+        <th>القسم</th>
+        <th>حذف</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in products %}
+      <tr>
+        <td><b>{{ p['name'] }}</b></td>
+        <td>{{ p['description'] }}</td>
+        <td style="color:#35eaa1;">{{ p['price'] }}</td>
+        <td><code>{{ p['code'] }}</code></td>
+        <td>{{ p['category'] }}</td>
+        <td>
+          <a href="/admin/delete_product/{{ p['id'] }}" class="btn btn-danger" onclick="return confirm('هل تريد حذف المنتج؟')">حذف</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p style="text-align:center;"><a href="/" style="color:#8198ff;">← العودة للمتجر الرئيسية</a></p>
+</body>
+</html>
+"""
+
+@app.route("/admin", methods=["GET", "POST"])
+def admin_login():
+    if session.get("is_admin"):
+        return redirect(url_for("admin_dashboard"))
+
+    error = ""
+    if request.method == "POST":
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
+
+        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+            session["is_admin"] = True
+            return redirect(url_for("admin_dashboard"))
+        error = "اسم المستخدم أو كلمة المرور غير صحيحة!"
+
+    return render_template_string(ADMIN_LOGIN_PAGE, error=error)
+
+@app.route("/admin/dashboard")
+def admin_dashboard():
+    if not session.get("is_admin"):
+        return redirect(url_for("admin_login"))
+
+    with get_db() as db:
+        users = db.execute("SELECT * FROM users ORDER BY id DESC").fetchall()
+        products = db.execute("SELECT * FROM products ORDER BY id DESC").fetchall()
+
+    return render_template_string(
+        ADMIN_DASHBOARD_PAGE, 
+        users=users, 
+        products=products, 
+        vodafone_num=ADMIN_VODAFONE_NUMBER
+    )
+
+@app.route("/admin/update_balance", methods=["POST"])
+def admin_update_balance():
+    if not session.get("is_admin"):
+        return redirect(url_for("admin_login"))
+
+    user_id = request.form.get("user_id")
+    new_balance = request.form.get("new_balance")
+
+    with get_db() as db:
+        db.execute("UPDATE users SET balance = ? WHERE id = ?", (new_balance, user_id))
+
+    return redirect(url_for("admin_dashboard"))
+
+@app.route("/admin/add_product", methods=["POST"])
+def admin_add_product():
+    if not session.get("is_admin"):
+        return redirect(url_for("admin_login"))
+
+    name = request.form.get("name")
+    description = request.form.get("description")
+    price_val = float(request.form.get("price_val", 0))
+    price = f"{int(price_val)} جنيه"
+    code = request.form.get("code")
+    icon = request.form.get("icon")
+    category = request.form.get("category")
+    color = request.form.get("color")
+
+    with get_db() as db:
+        db.execute("""
+            INSERT INTO products (name, description, price_val, price, code, icon, category, color)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (name, description, price_val, price, code, icon, category, color))
+
+    return redirect(url_for("admin_dashboard"))
+
+@app.route("/admin/delete_product/<int:product_id>")
+def admin_delete_product(product_id):
+    if not session.get("is_admin"):
+        return redirect(url_for("admin_login"))
+
+    with get_db() as db:
+        db.execute("DELETE FROM products WHERE id = ?", (product_id,))
+
+    return redirect(url_for("admin_dashboard"))
+
+@app.route("/admin/logout")
+def admin_logout():
+    session.pop("is_admin", None)
+    return redirect(url_for("admin_login"))
+
 
 @app.route("/manifest.json")
 def manifest():
@@ -909,7 +1209,6 @@ def spin():
 
     return render_template_string(SPIN_PAGE, user=user)
 
-# صفحة شحن الرصيد مع اقتطاع الرسوم واحتساب الصافي
 @app.route("/deposit", methods=["GET", "POST"])
 def deposit():
     email = session.get("user_email")
@@ -922,7 +1221,6 @@ def deposit():
         except ValueError:
             amount_sent = 0
 
-        # نسبة الخصم (خصم 30% رسوم تحويل - العميل يتلقى 70% صافي)
         fee_percentage = 0.30 
         net_amount = amount_sent * (1 - fee_percentage)
 
@@ -1044,7 +1342,8 @@ def home():
         with get_db() as db:
             user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
     
-    return render_template_string(PAGE, products=PRODUCTS, user=user)
+    products = get_products()
+    return render_template_string(PAGE, products=products, user=user)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
