@@ -1,0 +1,20 @@
+{
+  "name": "NOVA STORE | متجرك الرقمي",
+  "short_name": "NOVA STORE",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#03091b",
+  "theme_color": "#03091b",
+  "icons": [
+    {
+      "src": "https://via.placeholder.com/192/315dff/ffffff?text=NOVA",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://via.placeholder.com/512/315dff/ffffff?text=NOVA",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
