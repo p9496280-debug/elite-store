@@ -22,6 +22,74 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY")
 
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
+# إعدادات حسابات المستخدمين
+DATABASE_PATH = os.environ.get("DATABASE_PATH", "nova_store.db")
+
+MAIL_SERVER = "smtp.gmail.com"
+MAIL_PORT = 587
+MAIL_USERNAME = os.environ.get("MAIL_USERNAME")
+MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
+MAIL_DEFAULT_SENDER = os.environ.get("MAIL_DEFAULT_SENDER")
+
+
+def get_db():
+    connection = sqlite3.connect(DATABASE_PATH)
+    connection.row_factory = sqlite3.Row
+    return connection
+
+
+def init_db():
+    with get_db() as db:
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                verified INTEGER NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL
+            )
+        """)
+
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS email_codes (
+                email TEXT PRIMARY KEY,
+                code_hash TEXT NOT NULL,
+                expires_at INTEGER NOT NULL,
+                attempts INTEGER NOT NULL DEFAULT 0,
+                last_sent INTEGER NOT NULL
+            )
+        """)
+
+
+def send_verification_email(email, code):
+    if not all([MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER]):
+        raise RuntimeError("إعدادات البريد الإلكتروني غير مكتملة.")
+
+    message = EmailMessage()
+    message["Subject"] = "كود التحقق - NOVA STORE"
+    message["From"] = MAIL_DEFAULT_SENDER
+    message["To"] = email
+
+    message.set_content(
+        f"""مرحبًا بك في NOVA STORE!
+
+كود التحقق الخاص بك هو: {code}
+
+صلاحية الكود 10 دقائق.
+لا تشارك هذا الكود مع أي شخص.
+
+إذا لم تطلب إنشاء حساب، يمكنك تجاهل الرسالة.
+"""
+    )
+
+    with smtplib.SMTP(MAIL_SERVER, MAIL_PORT, timeout=15) as server:
+        server.starttls()
+        server.login(MAIL_USERNAME, MAIL_PASSWORD)
+        server.send_message(message)
+
+
+init_db()
 # أقسام المتجر التجريبية. يمكن تعديلها أو ربطها بقاعدة بيانات لاحقًا.
 PRODUCTS = [
     {
