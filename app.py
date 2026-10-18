@@ -327,6 +327,8 @@ def admin_logout():
     return redirect(url_for("admin_login"))
 @app.route("/admin")
 def admin():
+    if not session.get("admin_logged_in"):
+        return redirect(url_for("admin_login"))
     return """
     <!DOCTYPE html>
     <html lang="ar" dir="rtl">
