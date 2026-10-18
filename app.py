@@ -25,7 +25,10 @@ ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "nova_store.db")
 
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4")
+# 📱 ضع رقم فودافون كاش الخاص بك هنا
+ADMIN_VODAFONE_NUMBER = os.environ.get("VODAFONE_NUMBER", "010XXXXXXXX")
+
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 
 
 def get_db():
@@ -216,8 +219,8 @@ footer{border-top:1px solid #192b4e;padding:28px 4.2%;display:grid;grid-template
   <section class="categories" id="categories">
     <button class="category active" data-category="الكل"><span>▦</span><b>كل المنتجات</b><small>اكتشف المزيد</small></button>
     <button class="category" data-category="Google Play"><span class="c-google">▶</span><b>Google Play</b><small>أكواد جوجل بلاي</small></button>
-    <button class="category" data-category="PlayStation"><span>ＰＳ</span><b>PlayStation</b><small>بطاقات واشتراكات</small></button>
-    <button class="category" data-category="Xbox"><span class="c-xbox">ⓧ</span><b>Xbox</b><small>بطاقات واشتراكات</small></button>
+    <button class="category" data-category="PlayStation"><span>ＰＳ</span><b>PlayStation</b><small>بطاقات وااشتراكات</small></button>
+    <button class="category" data-category="Xbox"><span class="c-xbox">ⓧ</span><b>Xbox</b><small>بطاقات وااشتراكات</small></button>
     <button class="category" data-category="Steam"><span>◉</span><b>Steam</b><small>أكواد ومحافظ ستيم</small></button>
     <button class="category" data-category="حسابات جوجل"><span>🌐</span><b>حسابات جوجل</b><small>حسابات جاهزة وموثقة</small></button>
   </section>
@@ -919,13 +922,14 @@ def deposit():
         <body style="background:#03091b;color:white;text-align:center;padding:50px;font-family:Arial;">
             <div style="background:#07132c;padding:30px;border:1px solid #315dff;border-radius:15px;max-width:400px;margin:auto;">
                 <h2 style="color:#35eaa1;">تم إرسال طلب الشحن بنجاح!</h2>
-                <p>حول المبلغ المطلوب إلى رقم فودافون كاش: <b>01012345678</b></p>
+                <p>يرجى تحويل المبلغ المطلوب إلى رقم فودافون كاش التالي:</p>
+                <h2 style="color:#ff3b3b; background:#03091b; padding:10px; border-radius:10px; border:1px solid #ff3b3b55;">{{ vodafone_number }}</h2>
                 <p>سيتم إضافة الرصيد إلى محفظتك فور تأكيد التحويل.</p>
                 <a href="/account" style="color:#9db4ff;">العودة للحساب</a>
             </div>
         </body>
         </html>
-        """)
+        """, vodafone_number=ADMIN_VODAFONE_NUMBER)
 
     return render_template_string("""
     <!doctype html>
@@ -937,18 +941,22 @@ def deposit():
       form{width:100%;max-width:380px;background:#07132c;padding:25px;border:1px solid #315dff;border-radius:18px;box-sizing:border-box}
       input{width:100%;padding:12px;margin:10px 0;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white;box-sizing:border-box;}
       button{width:100%;padding:13px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;}
+      .number-box{background:#03091b; border:1px solid #ff3b3b; border-radius:10px; padding:12px; text-align:center; margin:10px 0; font-weight:bold; font-size:18px; color:#ff5555;}
     </style>
     <form method="POST">
       <h2>شحن رصيد المحفظة 💳</h2>
+      <p style="font-size:13px; color:#a8b7d8;">حول المبلغ لرقم فودافون كاش التالي:</p>
+      <div class="number-box">{{ vodafone_number }}</div>
+      
       <label>المبلغ المراد شحنه (بالجنيه)</label>
       <input type="number" name="amount" required placeholder="100">
       <label>رقم فودافون كاش المحول منه</label>
       <input type="text" name="phone" required placeholder="01xxxxxxxx">
       <button type="submit">تأكيد طلب الشحن</button>
-      <a href="/account" style="display:block;text-align:center;margin-top:15px;color:#9db4ff;font-size:13px;">العودة</a>
+      <a href="/account" style="display:block;text-align:center;margin-top:15px;color:#9db4ff;font-size:13px;text-decoration:none;">العودة للحساب</a>
     </form>
     </html>
-    """)
+    """, vodafone_number=ADMIN_VODAFONE_NUMBER)
 
 @app.route("/logout")
 def logout():
