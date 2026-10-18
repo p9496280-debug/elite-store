@@ -221,7 +221,11 @@ font-size: 13px;
 <header class="topbar">
   <a class="brand" href="#"><span class="brand-mark">N</span><span>NOVA <b>STORE</b></span></a>
   <label class="search"><span>⌕</span><input id="searchInput" type="search" placeholder="ابحث عن أي منتج..." aria-label="بحث عن المنتجات"></label>
-  <div class="header-actions"><button class="lang" id="langBtn">AR ◉</button><button class="login" id="loginBtn">تسجيل الدخول</button><button class="primary small" id="signupBtn">إنشاء حساب</button></div>
+ <div class="header-actions">
+  <button class="lang" id="langBtn">AR ◉</button>
+  <a class="login" href="/login">تسجيل الدخول</a>
+  <a class="primary small" href="/register">إنشاء حساب</a>
+</div> 
 </header>
 <nav class="nav">
   <a class="active" href="#">الرئيسية</a><a href="#categories">المنتجات</a><a href="#products">العروض</a><a href="#footer">من نحن</a><a href="#footer">الدعم</a>
