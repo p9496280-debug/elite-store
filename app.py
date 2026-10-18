@@ -21,9 +21,8 @@ from flask import (
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_store_secret_key")
 
-# 👨‍💻 بريد المطور/الأدمن المخصص للدخول
+# 👨‍💻 بيانات المطور/الأدمن المخصصة للدخول المباشر
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@novastore.com")
-ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "nova_store.db")
@@ -78,20 +77,25 @@ def init_db():
             )
         """)
 
-        # إنشاء حساب الأدمن التلقائي إذا لم يكن موجوداً
-        admin_exists = db.execute("SELECT id FROM users WHERE email = ?", (ADMIN_EMAIL,)).fetchone()
-        if not admin_exists:
+        # إنشاء أو تفعيل حساب الأدمن المطور تلقائياً بدون الحاجة لتأكيد
+        admin_user = db.execute("SELECT id FROM users WHERE email = ?", (ADMIN_EMAIL,)).fetchone()
+        if not admin_user:
             db.execute("""
                 INSERT INTO users (name, email, password_hash, telegram_id, balance, verified, created_at)
                 VALUES (?, ?, ?, ?, 999999.0, 1, ?)
             """, ("المطور (ADMIN)", ADMIN_EMAIL, generate_password_hash(ADMIN_PASSWORD), "000000", int(time.time())))
+        else:
+            # التأكد من تحديث كلمة المرور وتفعيل الحساب تلقائياً
+            db.execute("""
+                UPDATE users SET password_hash = ?, verified = 1 WHERE email = ?
+            """, (generate_password_hash(ADMIN_PASSWORD), ADMIN_EMAIL))
 
         # إضافة منتجات افتراضية عند تشغيل القاعدة لأول مرة
         cursor = db.execute("SELECT COUNT(*) as count FROM products")
         if cursor.fetchone()["count"] == 0:
             default_products = [
                 ("Google Play", "بطاقات Google Play الرقمية", 100, "100 جنيه", "GPLAY-9876-XXXX", "▶", "بطاقات الألعاب", "#35eaa1"),
-                ("PlayStation", "بطاقات واشتراكات PlayStation", 250, "250 جنيه", "PSN-5432-XXXX", "PS", "بطاقات الألعاب", "#62a0ff"),
+                ("PlayStation", "بطاقات وااشتراكات PlayStation", 250, "250 جنيه", "PSN-5432-XXXX", "PS", "بطاقات الألعاب", "#62a0ff"),
                 ("Steam", "أكواد ومحافظ Steam", 150, "150 جنيه", "STEAM-1122-XXXX", "◉", "بطاقات الألعاب", "#9bb8ff"),
                 ("Xbox", "بطاقات وااشتراكات Xbox", 200, "200 جنيه", "XBOX-3344-XXXX", "ⓧ", "بطاقات الألعاب", "#5dff9c"),
                 ("Google Accounts", "حسابات جوجل جاهزة وموثقة", 50, "50 جنيه", "acc_google_2026@gmail.com : Pass123", "G", "حسابات جوجل", "#ffc107"),
@@ -200,7 +204,6 @@ footer{border-top:1px solid #192b4e;padding:28px 4.2%;display:grid;grid-template
   <a class="active" href="#">الرئيسية</a>
   <a href="/spin" class="spin-link">🎡 عجلة الحظ</a>
   {% if is_admin %}
-    <!-- هذا الزر يظهر حصراً وخاصة للمطور والأدمن فقط -->
     <a href="/admin/dashboard" class="admin-link">⚙️ لوحة المطور</a>
   {% endif %}
   <a href="#categories">المنتجات</a>
@@ -726,8 +729,6 @@ spinBtn.addEventListener('click', () => {
 </html>
 """
 
-# ==================== لوحة تحكم الإدارة (Admin Panel) ====================
-
 ADMIN_DASHBOARD_PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -1083,9 +1084,9 @@ def login():
       <h1>NOVA STORE</h1>
       <h3>تسجيل الدخول</h3>
       <label>البريد الإلكتروني</label>
-      <input type="email" name="email" required>
+      <input type="email" name="email" required placeholder="admin@novastore.com">
       <label>كلمة المرور</label>
-      <input type="password" name="password" required>
+      <input type="password" name="password" required placeholder="••••••••">
       <button type="submit">دخول</button>
       {% if error %}<p>{{ error }}</p>{% endif %}
       <a href="{{ url_for('register') }}">إنشاء حساب جديد</a>
@@ -1225,7 +1226,7 @@ def deposit():
       .notice{background:#180f2d; border:1px solid #754bff; border-radius:9px; padding:10px; font-size:11px; color:#d0c2ff; margin-bottom:15px; text-align:center;}
     </style>
     <form method="POST">
-      Describe <h2>شحن رصيد المحفظة 💳</h2>
+      <h2>شحن رصيد المحفظة 💳</h2>
       <div class="notice">💡 تنبيه: يتم خصم رسوم تحويل بسيطة، الشحن بقيمة 10 جـ يمنحك 7 جـ صافي في المحفظة.</div>
       <p style="font-size:13px; color:#a8b7d8;">حول المبلغ لرقم فودافون كاش التالي:</p>
       <div class="number-box">{{ vodafone_number }}</div>
