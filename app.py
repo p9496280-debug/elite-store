@@ -1,7 +1,12 @@
-from flask import Flask, render_template_string
+import os
+import hmac
+from flask import Flask, render_template_string, request, session, redirect, url_for
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY")
 
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
 # أقسام المتجر التجريبية. يمكن تعديلها أو ربطها بقاعدة بيانات لاحقًا.
 PRODUCTS = [
     {
