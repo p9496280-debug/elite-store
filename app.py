@@ -61,10 +61,11 @@ def init_db():
             )
         """)
 
-
 def send_verification_email(email, code):
-    if not all([MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER]):
-        raise RuntimeError("إعدادات البريد الإلكتروني غير مكتملة.")
+    if not MAIL_USERNAME or not MAIL_PASSWORD or not MAIL_DEFAULT_SENDER:
+        raise RuntimeError(
+            "إعدادات البريد ناقصة: تحقق من MAIL_USERNAME وMAIL_PASSWORD وMAIL_DEFAULT_SENDER"
+        )
 
     message = EmailMessage()
     message["Subject"] = "كود التحقق - NOVA STORE"
@@ -82,6 +83,18 @@ def send_verification_email(email, code):
 إذا لم تطلب إنشاء حساب، يمكنك تجاهل الرسالة.
 """
     )
+
+    app.logger.info("بدء الاتصال بخادم البريد لإرسال كود التحقق")
+
+    with smtplib.SMTP(MAIL_SERVER, MAIL_PORT, timeout=25) as server:
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+        server.login(MAIL_USERNAME, MAIL_PASSWORD)
+        server.send_message(message)
+
+    app.logger.info("تم إرسال كود التحقق بنجاح")
+
 
     with smtplib.SMTP(MAIL_SERVER, MAIL_PORT, timeout=15) as server:
         server.starttls()
