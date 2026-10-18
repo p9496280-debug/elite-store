@@ -15,6 +15,7 @@ from flask import (
     url_for,
     send_from_directory,
     make_response,
+    jsonify,
 )
 
 app = Flask(__name__)
@@ -42,6 +43,7 @@ def init_db():
                 email TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
                 telegram_id TEXT NOT NULL,
+                balance REAL NOT NULL DEFAULT 0.0,
                 verified INTEGER NOT NULL DEFAULT 0,
                 created_at INTEGER NOT NULL
             )
@@ -62,7 +64,9 @@ PRODUCTS = [
     {
         "name": "Google Play",
         "description": "بطاقات Google Play الرقمية",
+        "price_val": 100,
         "price": "100 جنيه",
+        "code": "GPLAY-9876-XXXX",
         "icon": "▶",
         "category": "بطاقات الألعاب",
         "color": "#35eaa1",
@@ -70,7 +74,9 @@ PRODUCTS = [
     {
         "name": "PlayStation",
         "description": "بطاقات واشتراكات PlayStation",
+        "price_val": 250,
         "price": "250 جنيه",
+        "code": "PSN-5432-XXXX",
         "icon": "PS",
         "category": "بطاقات الألعاب",
         "color": "#62a0ff",
@@ -78,7 +84,9 @@ PRODUCTS = [
     {
         "name": "Steam",
         "description": "أكواد ومحافظ Steam",
+        "price_val": 150,
         "price": "150 جنيه",
+        "code": "STEAM-1122-XXXX",
         "icon": "◉",
         "category": "بطاقات الألعاب",
         "color": "#9bb8ff",
@@ -86,7 +94,9 @@ PRODUCTS = [
     {
         "name": "Xbox",
         "description": "بطاقات واشتراكات Xbox",
+        "price_val": 200,
         "price": "200 جنيه",
+        "code": "XBOX-3344-XXXX",
         "icon": "ⓧ",
         "category": "بطاقات الألعاب",
         "color": "#5dff9c",
@@ -94,7 +104,9 @@ PRODUCTS = [
     {
         "name": "Google Accounts",
         "description": "حسابات جوجل جاهزة وموثقة",
+        "price_val": 50,
         "price": "50 جنيه",
+        "code": "acc_google_2026@gmail.com : Pass123",
         "icon": "G",
         "category": "حسابات جوجل",
         "color": "#ffc107",
@@ -117,16 +129,12 @@ PAGE = r"""
 .topbar{min-height:78px;display:flex;align-items:center;gap:22px;padding:12px 4%;border-bottom:1px solid #18284a;position:sticky;top:0;background:#040a1bed;backdrop-filter:blur(16px);z-index:5}
 .brand{display:flex;align-items:center;gap:10px;white-space:nowrap;font-family:Arial,sans-serif;font-size:24px;font-weight:800;letter-spacing:.4px}.brand b{color:#754bff}.brand-mark{width:39px;height:39px;display:grid;place-items:center;font-size:33px;font-weight:900;font-style:italic;background:linear-gradient(140deg,#bc5bff,#276bff);color:white;clip-path:polygon(0 0,75% 0,100% 20%,100% 100%,27% 100%,0 78%)}
 .search{height:44px;max-width:470px;flex:1;display:flex;align-items:center;gap:10px;border:1px solid #263d70;border-radius:30px;padding:0 17px;background:#09132b}.search span{font-size:24px;color:#7185b5}.search input{width:100%;border:0;outline:0;background:transparent;color:white;font-size:13px}
-
-/* أزرار الحساب في العرض العلوي */
 .header-actions{display:flex;align-items:center;gap:10px;margin-right:auto}
 .header-actions button,.nav a,.cart{background:none;border:0;font-size:13px}
 .lang{border-radius:25px!important;background:#0b1734!important;padding:10px 14px}
 .primary{border:0;border-radius:14px;background:linear-gradient(110deg,#9b37ff,#315dff);box-shadow:0 7px 24px #593bff44;color:#fff;font-weight:700}
 .small{padding:11px 17px;border-radius:12px}
 .login{color:#d8e2ff}
-
-/* بروفايل المستخدم الجديد في العرض العلوي */
 .user-profile-badge {display: flex; align-items: center; gap: 10px; background: #0b1734; border: 1px solid #263d70; padding: 6px 14px; border-radius: 30px; text-decoration: none; transition: 0.2s;}
 .user-profile-badge:hover { border-color: #315dff; }
 .user-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #9b37ff, #315dff); display: grid; place-items: center; font-weight: bold; color: white; font-size: 15px; }
@@ -135,7 +143,9 @@ PAGE = r"""
 .user-status { font-size: 10px; color: #35eaa1; display: flex; align-items: center; gap: 4px; }
 .user-status::before { content: ""; width: 6px; height: 6px; background: #35eaa1; border-radius: 50%; display: inline-block; }
 
-.nav{min-height:46px;padding:0 5%;display:flex;align-items:center;gap:34px;border-bottom:1px solid #18284a;color:#c4cde3;font-size:13px}.nav a{min-height:46px;display:flex;align-items:center}.nav a.active{color:#7f9dff;border-bottom:2px solid #6953ff}.cart{margin-right:auto;font-size:19px!important}.cart span{background:#2777ff;border-radius:20px;padding:1px 7px;font-size:11px}
+.nav{min-height:46px;padding:0 5%;display:flex;align-items:center;gap:28px;border-bottom:1px solid #18284a;color:#c4cde3;font-size:13px}.nav a{min-height:46px;display:flex;align-items:center}.nav a.active{color:#7f9dff;border-bottom:2px solid #6953ff}.cart{margin-right:auto;font-size:19px!important}.cart span{background:#2777ff;border-radius:20px;padding:1px 7px;font-size:11px}
+.spin-link{color:#ffc107!important;font-weight:bold;background:#1a1708;padding:4px 12px;border-radius:15px;border:1px solid #ffc10744}
+
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:20px;padding:22px 3.2% 30px}.main-column{min-width:0}
 .hero{min-height:290px;border:1px solid #263f77;border-radius:22px;overflow:hidden;display:grid;grid-template-columns:1fr 1fr;position:relative;background:radial-gradient(ellipse at 70% 50%,#351174 0,transparent 50%),linear-gradient(110deg,#06102b,#080c2c 65%,#100a3b)}.hero:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,#080b2555);pointer-events:none}.hero-copy{padding:28px 32px;z-index:1}.eyebrow{color:#bca0ff;font-size:12px;font-weight:700}.hero h1{font-size:clamp(22px,2.2vw,31px);line-height:1.65;margin:8px 0;font-weight:800}.hero p{color:#c4cce2;font-size:13px;line-height:1.9;max-width:470px;margin:0 0 15px}.hero-btn{display:inline-flex;align-items:center;gap:20px;padding:11px 22px;border-radius:30px;font-size:13px}.trust-row{display:flex;gap:15px;margin-top:20px;color:#dce5ff;font-size:11px;flex-wrap:wrap}
 .hero-art{position:relative;min-height:285px;display:flex;align-items:center;justify-content:center;perspective:700px}.glow{position:absolute;width:260px;height:190px;background:#5533ff;filter:blur(80px);opacity:.6}.gift-card{position:absolute;width:112px;height:158px;border:1px solid #66bfff;border-radius:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;box-shadow:0 0 26px #168dff66;font-family:Arial,sans-serif;font-size:12px;transform:rotate(-9deg);background:linear-gradient(145deg,#063c9e,#09132e)}.gift-card span{font-size:36px}.gift-card.google{right:40%;z-index:2;transform:rotate(-15deg);background:linear-gradient(145deg,#113e83,#11153c)}.gplay{color:#35eaa1}.gift-card.playstation{right:23%;top:24px;transform:rotate(8deg);background:linear-gradient(145deg,#0759dd,#111342)}.gift-card.steam{right:6%;top:31px;transform:rotate(13deg);background:linear-gradient(145deg,#122b54,#050b1c)}.gift-card.xbox{right:0;top:83px;transform:rotate(19deg);background:linear-gradient(145deg,#076b38,#09271f);width:96px;height:140px}.gift-card.xbox span{color:#64ff99}.controller{position:absolute;bottom:8px;right:42%;font-size:52px;filter:drop-shadow(0 0 15px #5a53ff)}
@@ -152,30 +162,7 @@ footer{border-top:1px solid #192b4e;padding:28px 4.2%;display:grid;grid-template
 .channel-btn { background: linear-gradient(110deg, #087fba, #1647a5); }
 .socials a { color: #8baaff; font-size: 12px; }
 
-/* PWA App Install Banner Styling */
-.install-banner {
-  display: none;
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  left: 20px;
-  max-width: 460px;
-  margin: 0 auto;
-  background: linear-gradient(135deg, #07132c, #0b1e47);
-  border: 1px solid #315dff;
-  border-radius: 16px;
-  padding: 14px 18px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
-  z-index: 9999;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  animation: slideUp 0.3s ease-out;
-}
-@keyframes slideUp {
-  from { transform: translateY(100px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
+.install-banner { display: none; position: fixed; bottom: 20px; right: 20px; left: 20px; max-width: 460px; margin: 0 auto; background: linear-gradient(135deg, #07132c, #0b1e47); border: 1px solid #315dff; border-radius: 16px; padding: 14px 18px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7); z-index: 9999; align-items: center; justify-content: space-between; gap: 12px; }
 .install-banner-text { display: flex; align-items: center; gap: 12px; }
 .install-banner-text div h4 { margin: 0; font-size: 13px; color: #fff; }
 .install-banner-text div p { margin: 2px 0 0; font-size: 11px; color: #a8b7d8; }
@@ -196,16 +183,14 @@ footer{border-top:1px solid #192b4e;padding:28px 4.2%;display:grid;grid-template
   <div class="header-actions">
     <button class="lang" id="langBtn">AR ◉</button>
     {% if user %}
-      <!-- إذا كان المستخدم مسجلاً: يظهر بروفايله وصورته وحالته -->
       <a href="/account" class="user-profile-badge">
         <div class="user-avatar">{{ user["name"][:1] }}</div>
         <div class="user-info">
           <span class="user-name">{{ user["name"] }}</span>
-          <span class="user-status">متصل الآن</span>
+          <span class="user-status">{{ user["balance"] }} جـ (رصيدك)</span>
         </div>
       </a>
     {% else %}
-      <!-- إذا لم يكن مسجلاً: تظهر أزرار الدخول والتسجيل -->
       <a class="login" href="/login">تسجيل الدخول</a>
       <a class="primary small" href="/register">إنشاء حساب</a>
     {% endif %}
@@ -213,7 +198,12 @@ footer{border-top:1px solid #192b4e;padding:28px 4.2%;display:grid;grid-template
 </header>
 
 <nav class="nav">
-  <a class="active" href="#">الرئيسية</a><a href="#categories">المنتجات</a><a href="#products">العروض</a><a href="#footer">من نحن</a><a href="#footer">الدعم</a>
+  <a class="active" href="#">الرئيسية</a>
+  <a href="/spin" class="spin-link">🎡 عجلة الحظ</a>
+  <a href="#categories">المنتجات</a>
+  <a href="#products">العروض</a>
+  <a href="#footer">من نحن</a>
+  <a href="#footer">الدعم</a>
   <button class="cart" id="cartBtn" aria-label="سلة المشتريات">🛒 <span id="cartCount">0</span></button>
 </nav>
 
@@ -253,6 +243,7 @@ footer{border-top:1px solid #192b4e;padding:28px 4.2%;display:grid;grid-template
     <a href="/">الرئيسية</a>
     <a href="#products">المنتجات</a>
     <a href="#categories">الأقسام</a>
+    <a href="/spin">🎡 عجلة الحظ</a>
   </div>  <div>
     <h4>الدعم والمساعدة</h4>
     <a href="https://t.me/Mido_M9do" target="_blank" rel="noopener noreferrer">
@@ -286,7 +277,6 @@ footer{border-top:1px solid #192b4e;padding:28px 4.2%;display:grid;grid-template
   </div>
 </footer>
 
-<!-- PWA Install Banner -->
 <div class="install-banner" id="pwaBanner">
   <div class="install-banner-text">
     <div style="font-size:26px;background:linear-gradient(140deg,#bc5bff,#276bff);width:40px;height:40px;display:grid;place-items:center;border-radius:10px;font-weight:bold;color:#fff;">N</div>
@@ -373,13 +363,11 @@ function answerAssistant(message) {
   userLine.style.cssText = 'margin-top:12px;padding:8px;background:#102957;border-radius:8px;color:#fff';
   userLine.textContent = 'أنت: ' + message;
   box.appendChild(userLine);
-  let answer = 'أقدر أساعدك في معرفة الأقسام والبحث عن المنتجات. جرّب زر «عرض المنتجات المتاحة».';
+  let answer = 'أقدر أساعدك في معرفة الأقسام والبحث عن المنتجات.';
   if (msg.includes('منتج') || msg.includes('متاح') || msg.includes('قسم')) {
     answer = 'الأقسام المتاحة: Google Play وPlayStation وXbox وSteam وحسابات جوجل وبطاقات الدفع.';
   } else if (msg.includes('شراء') || msg.includes('سلة') || msg.includes('دفع')) {
-    answer = 'اضغط «أضف للسلة» تحت المنتج ثم أيقونة السلة للانتقال لصفحة الدفع عبر فودافون كاش.';
-  } else if (msg.includes('دعم') || msg.includes('تواصل') || msg.includes('مساعدة')) {
-    answer = 'يمكنك استخدام قسم الدعم وتليجرام أسفل الصفحة.';
+    answer = 'اضغط «أضف للسلة» تحت المنتج ثم أيقونة السلة للانتقال لصفحة الدفع والشحن.';
   }
   const reply = document.createElement('p');
   reply.style.cssText = 'margin-top:8px;padding:10px;background:#0a1b42;border:1px solid #244b91;border-radius:9px;color:#cbd8f5';
@@ -428,6 +416,239 @@ pwaClose.addEventListener('click', () => {
 </html>
 """
 
+SPIN_PAGE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>عجلة الحظ اليومية | NOVA STORE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background: radial-gradient(ellipse at center, #0f1c3f 0%, #03091b 100%);
+  color:#fff;
+  font-family:'Cairo',sans-serif;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  overflow-x:hidden;
+}
+
+.spin-header{text-align:center;margin-bottom:20px}
+.spin-header h1{font-size:28px;margin:0;background:linear-gradient(110deg,#bc5bff,#315dff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:900}
+.spin-header p{color:#a8b7d8;font-size:13px;margin-top:5px}
+
+.wheel-container{
+  position:relative;
+  width:340px;
+  height:340px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin:20px 0;
+}
+
+.wheel-outer-ring{
+  position:absolute;
+  inset:-12px;
+  border-radius:50%;
+  border:4px solid #315dff;
+  box-shadow:0 0 35px #8d38ffaa, inset 0 0 20px #315dffaa;
+  pointer-events:none;
+  z-index:2;
+}
+
+.pointer{
+  position:absolute;
+  top:-22px;
+  left:50%;
+  transform:translateX(-50%);
+  width:0;
+  height:0;
+  border-left:16px solid transparent;
+  border-right:16px solid transparent;
+  border-top:28px solid #ff3b3b;
+  filter:drop-shadow(0 4px 10px #ff3b3b88);
+  z-index:10;
+}
+
+canvas{
+  width:100%;
+  height:100%;
+  border-radius:50%;
+  transition: transform 5s cubic-bezier(0.15, 0.99, 0.24, 0.99);
+}
+
+.spin-btn{
+  position:absolute;
+  width:75px;
+  height:75px;
+  border-radius:50%;
+  background:radial-gradient(circle, #9b37ff, #315dff);
+  border:3px solid #fff;
+  color:#fff;
+  font-weight:900;
+  font-size:16px;
+  cursor:pointer;
+  box-shadow:0 0 25px #9b37ffbb;
+  z-index:5;
+  display:grid;
+  place-items:center;
+  transition:transform .2s, box-shadow .2s;
+}
+.spin-btn:hover:not(:disabled){transform:scale(1.08);box-shadow:0 0 35px #9b37ff}
+.spin-btn:disabled{opacity:0.6;cursor:not-allowed}
+
+.modal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:#03091bee;
+  backdrop-filter:blur(10px);
+  z-index:100;
+  place-items:center;
+  padding:20px;
+}
+.modal-content{
+  background:linear-gradient(145deg, #07132c, #0b1e47);
+  border:2px solid #35eaa1;
+  border-radius:20px;
+  padding:30px;
+  text-align:center;
+  max-width:360px;
+  width:100%;
+  box-shadow:0 10px 40px #35eaa144;
+  animation:pop .4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes pop{from{transform:scale(0.5);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-content h2{color:#35eaa1;margin:0 0 10px;font-size:24px}
+.modal-content p{color:#a8b7d8;font-size:14px;line-height:1.6}
+.modal-btn{margin-top:20px;padding:12px 25px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:12px;color:white;font-weight:bold;cursor:pointer}
+
+.back-link{margin-top:25px;color:#8198ff;text-decoration:none;font-size:13px}
+</style>
+</head>
+<body>
+
+<div class="spin-header">
+  <h1>🎡 عجلة الحظ اليومية</h1>
+  <p>أدر العجلة واكسب رصيداً فورياً في محفظتك أو جوائز حصرية!</p>
+</div>
+
+<div class="wheel-container">
+  <div class="pointer"></div>
+  <div class="wheel-outer-ring"></div>
+  <canvas id="wheel" width="500" height="500"></canvas>
+  <button class="spin-btn" id="spinBtn">أَدِرْ!</button>
+</div>
+
+<a href="/" class="back-link">← العودة للمتجر الرئيسية</a>
+
+<div class="modal" id="resultModal">
+  <div class="modal-content">
+    <div style="font-size:50px;">🎁</div>
+    <h2 id="prizeTitle">مبروك!</h2>
+    <p id="prizeDesc"></p>
+    <button class="modal-btn" onclick="location.href='/'">استلام والعودة للمتجر</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('wheel');
+const ctx = canvas.getContext('2d');
+const spinBtn = document.getElementById('spinBtn');
+const resultModal = document.getElementById('resultModal');
+
+const items = [
+  { label: '5 جنيه 💰', color: '#8d38ff', type: 'balance', amount: 5 },
+  { label: 'حظ أوفر 😅', color: '#1b2a4a', type: 'none', amount: 0 },
+  { label: '10 جنيه 💳', color: '#315dff', type: 'balance', amount: 10 },
+  { label: 'خصم 20% 🏷️', color: '#00c853', type: 'discount', amount: 0 },
+  { label: '50 جنيه 🎁', color: '#ff9100', type: 'balance', amount: 50 },
+  { label: 'حساب جوجل 🌐', color: '#ff1744', type: 'account', amount: 0 }
+];
+
+const numItems = items.length;
+const arc = (2 * Math.PI) / numItems;
+
+function drawWheel() {
+  const radius = canvas.width / 2;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  for (let i = 0; i < numItems; i++) {
+    const angle = i * arc;
+    ctx.beginPath();
+    ctx.fillStyle = items[i].color;
+    ctx.moveTo(radius, radius);
+    ctx.arc(radius, radius, radius - 10, angle, angle + arc);
+    ctx.lineTo(radius, radius);
+    ctx.fill();
+    ctx.strokeStyle = '#03091b';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    ctx.save();
+    ctx.translate(radius, radius);
+    ctx.rotate(angle + arc / 2);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 22px Cairo";
+    ctx.shadowColor = "#000";
+    ctx.shadowBlur = 8;
+    ctx.fillText(items[i].label, radius - 35, 8);
+    ctx.restore();
+  }
+}
+
+drawWheel();
+
+let isSpinning = false;
+
+spinBtn.addEventListener('click', () => {
+  if (isSpinning) return;
+  isSpinning = true;
+  spinBtn.disabled = true;
+
+  const selectedIndex = Math.floor(Math.random() * numItems);
+  const prize = items[selectedIndex];
+
+  const degreesPerItem = 360 / numItems;
+  const targetDegree = (360 - (selectedIndex * degreesPerItem) - (degreesPerItem / 2)) + (360 * 5);
+  
+  canvas.style.transform = `rotate(${targetDegree}deg)`;
+
+  setTimeout(() => {
+    isSpinning = false;
+    
+    fetch('/spin', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        prize: prize.label,
+        type: prize.type,
+        amount: prize.amount
+      })
+    }).then(() => {
+      document.getElementById('prizeTitle').textContent = prize.type === 'none' ? 'للأسف!' : '🎉 مبروك!';
+      document.getElementById('prizeDesc').textContent = prize.type === 'none' 
+        ? 'حاول مرة أخرى في المرة القادمة.' 
+        : `لقد فزت بـ (${prize.label})! تمت إضافة الجائزة إلى محفظتك أو حسابك.`;
+      resultModal.style.display = 'grid';
+    });
+
+  }, 5000);
+});
+</script>
+</body>
+</html>
+"""
+
 @app.route("/manifest.json")
 def manifest():
     return send_from_directory("static", "manifest.json", mimetype="application/json")
@@ -448,7 +669,7 @@ def register():
         telegram_id = request.form.get("telegram_id", "").strip()
 
         if not name or "@" not in email or len(password) < 6 or not telegram_id:
-            error = "يرجى ملء جميع البيانات بشكل صحيح وتحديد معرف التيليجرام."
+            error = "يرجى ملء جميع البيانات بشكل صحيح."
         else:
             with get_db() as db:
                 existing = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
@@ -459,8 +680,8 @@ def register():
                     now = int(time.time())
 
                     db.execute("""
-                        INSERT OR REPLACE INTO users (name, email, password_hash, telegram_id, verified, created_at)
-                        VALUES (?, ?, ?, ?, 0, ?)
+                        INSERT OR REPLACE INTO users (name, email, password_hash, telegram_id, balance, verified, created_at)
+                        VALUES (?, ?, ?, ?, 0.0, 0, ?)
                     """, (name, email, generate_password_hash(password), telegram_id, now))
 
                     db.execute("""
@@ -470,7 +691,7 @@ def register():
 
                     if TELEGRAM_BOT_TOKEN != "YOUR_BOT_TOKEN_HERE":
                         try:
-                            msg = f"مرحباً {name}!\n\nكود التحقق الخاص بك لتسجيل الدخول في NOVA STORE هو:\n`{code}`\n\nصلاحية الكود 10 دقائق."
+                            msg = f"مرحباً {name}!\n\nكود التحقق الخاص بك لتسجيل الدخول في NOVA STORE هو:\n`{code}`"
                             url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
                             requests.post(url, json={"chat_id": telegram_id, "text": msg, "parse_mode": "Markdown"}, timeout=5)
                         except Exception as e:
@@ -504,7 +725,7 @@ def register():
       <input type="email" name="email" required>
       <label>كلمة المرور</label>
       <input type="password" name="password" required>
-      <label>معرف تيليجرام (Telegram Chat ID) لاستلام الكود عليه</label>
+      <label>معرف تيليجرام (Telegram Chat ID)</label>
       <input name="telegram_id" placeholder="مثال: 123456789" required>
       <button type="submit">إرسال الكود إلى تيليجرام</button>
       {% if error %}<p>{{ error }}</p>{% endif %}
@@ -553,7 +774,7 @@ def verify():
     </style>
     <form method="post">
       <h1>تم إرسال الكود 🤖</h1>
-      <p>تفقد بوت تيليجرام الخاص بك، لقد أرسلنا لك كود مكون من 6 أرقام لتأكيد حسابك.</p>
+      <p>تفقد بوت تيليجرام الخاص بك، لقد أرسلنا لك كود مكون من 6 أرقام.</p>
       <input name="code" maxlength="6" required autocomplete="one-time-code">
       <button type="submit">تأكيد الحساب</button>
       {% if error %}<div class="err">{{ error }}</div>{% endif %}
@@ -621,30 +842,113 @@ def account():
     <html lang="ar" dir="rtl">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>حسابي | NOVA STORE</title>
+    <title>حسابي والمحفظة | NOVA STORE</title>
     <style>
       body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;min-height:100vh;display:grid;place-items:center;padding:20px}
       main{width:100%;max-width:450px;background:#07132c;padding:25px;border:1px solid #315dff;border-radius:18px;box-sizing:border-box;text-align:center;}
       .profile-avatar { width: 70px; height: 70px; border-radius: 50%; background: linear-gradient(135deg, #9b37ff, #315dff); display: grid; place-items: center; font-size: 30px; font-weight: bold; color: white; margin: 0 auto 15px; border: 2px solid #35eaa1; }
       h2 { color: #f4f7ff; margin: 5px 0; }
       p{color:#a8b7d8;word-break:break-all;font-size:13px;margin:8px 0;}
-      .status { color: #35eaa1; font-weight: bold; margin-bottom: 20px; }
-      a{display:inline-block;margin-top:15px;color:#9db4ff;text-decoration:none;margin-left:10px;padding:8px 16px;background:#0b1734;border:1px solid #263d70;border-radius:10px;}
+      .wallet-box { background: #0b1734; border: 1px solid #315dff; border-radius: 12px; padding: 15px; margin: 15px 0; }
+      .wallet-box h3 { color: #35eaa1; margin: 0 0 5px; font-size: 18px; }
+      a{display:inline-block;margin-top:10px;color:#9db4ff;text-decoration:none;margin-left:5px;padding:8px 14px;background:#0b1734;border:1px solid #263d70;border-radius:10px;font-size:13px;}
       .logout-btn { background: #571010; border-color: #ff5555; color: #ffcccc; }
     </style>
     <main>
       <div class="profile-avatar">{{ user["name"][:1] }}</div>
       <h2>{{ user["name"] }}</h2>
       <p>البريد الإلكتروني: {{ user["email"] }}</p>
-      <p>معرف تيليجرام: {{ user["telegram_id"] }}</p>
-      <div class="status">حالة الحساب: متصل ونشط ✅</div>
+      
+      <div class="wallet-box">
+        <h3>رصيد محفظتك: {{ user["balance"] }} جنيه</h3>
+        <p>استخدم رصيدك لشراء الأكواد والحسابات فوراً دون انتظار.</p>
+        <a href="/deposit" style="background:#315dff; color:white; border:0;">شحن الرصيد (فودافون كاش)</a>
+      </div>
+
       <div>
+        <a href="/spin" style="color:#ffc107; font-weight:bold;">🎡 عجلة الحظ</a>
         <a href="/">العودة للمتجر</a>
         <a class="logout-btn" href="/logout">تسجيل الخروج</a>
       </div>
     </main>
     </html>
     """, user=user)
+
+@app.route("/spin", methods=["GET", "POST"])
+def spin():
+    email = session.get("user_email")
+    if not email:
+        return redirect(url_for("login"))
+
+    with get_db() as db:
+        user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+
+    if request.method == "POST":
+        data = request.get_json() or {}
+        prize = data.get("prize", "")
+        reward_type = data.get("type", "none")
+        amount = float(data.get("amount", 0))
+
+        if reward_type == "balance" and amount > 0:
+            with get_db() as db:
+                db.execute("UPDATE users SET balance = balance + ? WHERE email = ?", (amount, email))
+
+            if user["telegram_id"] and TELEGRAM_BOT_TOKEN != "YOUR_BOT_TOKEN_HERE":
+                try:
+                    msg = f"🎉 مبروك يا {user['name']}!\n\nلقد ربحت {prize} من عجلة الحظ وتمت إضافة المبلغ إلى محفظتك بنجاح! 💰"
+                    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+                    requests.post(url, json={"chat_id": user["telegram_id"], "text": msg}, timeout=5)
+                except Exception as e:
+                    app.logger.error("خطأ تيليجرام: %s", e)
+
+        return jsonify({"status": "success", "new_balance": user["balance"] + amount})
+
+    return render_template_string(SPIN_PAGE, user=user)
+
+@app.route("/deposit", methods=["GET", "POST"])
+def deposit():
+    email = session.get("user_email")
+    if not email:
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        return render_template_string("""
+        <!doctype html>
+        <html lang="ar" dir="rtl">
+        <head><meta charset="utf-8"><title>طلب شحن</title></head>
+        <body style="background:#03091b;color:white;text-align:center;padding:50px;font-family:Arial;">
+            <div style="background:#07132c;padding:30px;border:1px solid #315dff;border-radius:15px;max-width:400px;margin:auto;">
+                <h2 style="color:#35eaa1;">تم إرسال طلب الشحن بنجاح!</h2>
+                <p>حول المبلغ المطلوب إلى رقم فودافون كاش: <b>01012345678</b></p>
+                <p>سيتم إضافة الرصيد إلى محفظتك فور تأكيد التحويل.</p>
+                <a href="/account" style="color:#9db4ff;">العودة للحساب</a>
+            </div>
+        </body>
+        </html>
+        """)
+
+    return render_template_string("""
+    <!doctype html>
+    <html lang="ar" dir="rtl">
+    <meta charset="utf-8">
+    <title>شحن المحفظة</title>
+    <style>
+      body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;min-height:100vh;display:grid;place-items:center;padding:20px}
+      form{width:100%;max-width:380px;background:#07132c;padding:25px;border:1px solid #315dff;border-radius:18px;box-sizing:border-box}
+      input{width:100%;padding:12px;margin:10px 0;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white;box-sizing:border-box;}
+      button{width:100%;padding:13px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;}
+    </style>
+    <form method="POST">
+      <h2>شحن رصيد المحفظة 💳</h2>
+      <label>المبلغ المراد شحنه (بالجنيه)</label>
+      <input type="number" name="amount" required placeholder="100">
+      <label>رقم فودافون كاش المحول منه</label>
+      <input type="text" name="phone" required placeholder="01xxxxxxxx">
+      <button type="submit">تأكيد طلب الشحن</button>
+      <a href="/account" style="display:block;text-align:center;margin-top:15px;color:#9db4ff;font-size:13px;">العودة</a>
+    </form>
+    </html>
+    """)
 
 @app.route("/logout")
 def logout():
@@ -657,72 +961,56 @@ def checkout():
     if not email:
         return redirect(url_for("login"))
 
+    with get_db() as db:
+        user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+
     if request.method == "POST":
-        phone = request.form.get("phone", "").strip()
-        with get_db() as db:
-            user = db.execute("SELECT telegram_id FROM users WHERE email = ?", (email,)).fetchone()
-            telegram_id = user["telegram_id"] if user else None
+        if user["balance"] >= 50:
+            with get_db() as db:
+                db.execute("UPDATE users SET balance = balance - 50 WHERE email = ?", (email,))
+            
+            if user["telegram_id"] and TELEGRAM_BOT_TOKEN != "YOUR_BOT_TOKEN_HERE":
+                try:
+                    msg = "تم خصم المبلغ من محفظتك بنجاح!\n\n🎟️ الكود الخاص بك:\n`GPLAY-CODE-9988`"
+                    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+                    requests.post(url, json={"chat_id": user["telegram_id"], "text": msg, "parse_mode": "Markdown"}, timeout=5)
+                except Exception as e:
+                    app.logger.error("خطأ التيليجرام: %s", e)
 
-        if telegram_id and TELEGRAM_BOT_TOKEN != "YOUR_BOT_TOKEN_HERE":
-            try:
-                sample_code = "GPLAY-CODE-7788"
-                msg = f"تم تأكيد عملية الدفع بنجاح! 🚀\n\nالمنتج الخاص بك:\n`{sample_code}`"
-                url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-                requests.post(url, json={"chat_id": telegram_id, "text": msg, "parse_mode": "Markdown"}, timeout=5)
-            except Exception as e:
-                app.logger.error("فشل إرسال المنتج عبر تيليجرام: %s", e)
-
-        return render_template_string("""
-        <!doctype html>
-        <html lang="ar" dir="rtl">
-        <head>
-            <meta charset="utf-8">
-            <title>تم الطلب | NOVA STORE</title>
-            <style>
-                body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh;padding:20px;text-align:center;}
-                .box{background:#07132c;padding:30px;border:1px solid #315dff;border-radius:18px;max-width:400px;width:100%;}
-                h1{color:#35eaa1;}
-                p{color:#a8b7d8;line-height:1.7;}
-                a{display:inline-block;margin-top:20px;color:#9db4ff;text-decoration:none;}
-            </style>
-        </head>
-        <body>
-            <div class="box">
-                <h1>تم إرسال الطلب بنجاح! 🚀</h1>
-                <p>تم إرسال <b>كود أو تفاصيل المنتج</b> مباشرة إلى حسابك على <b>بوت تيليجرام</b>.</p>
-                <a href="/">العودة إلى المتجر</a>
-            </div>
-        </body>
-        </html>
-        """)
+            return render_template_string("""
+            <body style="background:#03091b;color:white;text-align:center;padding:50px;font-family:Arial;">
+                <div style="background:#07132c;padding:30px;border:1px solid #315dff;border-radius:15px;max-width:400px;margin:auto;">
+                    <h1 style="color:#35eaa1;">تم الشراء بنجاح! 🚀</h1>
+                    <p>تم خصم الثمن من رصيدك وإرسال الكود مباشرة إلى <b>بوت تيليجرام</b>.</p>
+                    <a href="/" style="color:#9db4ff;">العودة للمتجر</a>
+                </div>
+            </body>
+            """)
+        else:
+            return render_template_string("""
+            <body style="background:#03091b;color:white;text-align:center;padding:50px;font-family:Arial;">
+                <div style="background:#07132c;padding:30px;border:1px solid #ff5555;border-radius:15px;max-width:400px;margin:auto;">
+                    <h2 style="color:#ff7777;">عذراً، رصيدك غير كافٍ!</h2>
+                    <p>يرجى شحن محفظتك أولاً لتتمكن من إتمام الشراء.</p>
+                    <a href="/deposit" style="color:#35eaa1;">شحن الرصيد الآن</a> | <a href="/" style="color:#9db4ff;">الرئيسية</a>
+                </div>
+            </body>
+            """)
 
     return render_template_string("""
     <!doctype html>
     <html lang="ar" dir="rtl">
-    <head>
-        <meta charset="utf-8">
-        <title>إتمام الدفع | NOVA STORE</title>
-        <style>
-            body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh;padding:20px;}
-            form{background:#07132c;padding:25px;border:1px solid #315dff;border-radius:18px;max-width:400px;width:100%;box-sizing:border-box;}
-            h1{color:#8d70ff;text-align:center;font-size:20px;}
-            label{display:block;margin-top:15px;color:#a8b7d8;}
-            input{width:100%;padding:12px;margin-top:8px;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white;box-sizing:border-box;}
-            button{width:100%;padding:13px;margin-top:20px;border:0;border-radius:10px;background:linear-gradient(110deg,#9b37ff,#315dff);color:white;font-weight:bold;cursor:pointer;}
-            a{display:block;text-align:center;margin-top:15px;color:#9db4ff;text-decoration:none;}
-        </style>
-    </head>
-    <body>
-        <form method="POST">
-            <h1>إتمام الدفع عبر فودافون كاش</h1>
-            <label>رقم هاتفك المحول منه (فودافون كاش)</label>
-            <input type="text" name="phone" required placeholder="01xxxxxxxx">
-            <button type="submit">تأكيد ودفع عبر فودافون كاش</button>
-            <a href="/">العودة للمتجر</a>
+    <head><meta charset="utf-8"><title>تأكيد الطلب</title></head>
+    <body style="background:#03091b;color:white;text-align:center;padding:50px;font-family:Arial;">
+        <form method="POST" style="background:#07132c;padding:30px;border:1px solid #315dff;border-radius:15px;max-width:400px;margin:auto;">
+            <h2>تأكيد عملية الشراء</h2>
+            <p>رصيدك الحالي: <b>{{ user["balance"] }} جنيه</b></p>
+            <button type="submit" style="width:100%;padding:12px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;">خصم من الرصيد واستلام الكود بالبوت</button>
+            <a href="/" style="display:block;margin-top:15px;color:#9db4ff;">إلغاء والعودة للمتجر</a>
         </form>
     </body>
     </html>
-    """)
+    """, user=user)
 
 @app.route("/")
 def home():
