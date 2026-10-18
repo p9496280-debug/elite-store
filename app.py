@@ -26,9 +26,9 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "nova_store.db")
 
 # 📱 ضع رقم فودافون كاش الخاص بك هنا
-ADMIN_VODAFONE_NUMBER = os.environ.get("VODAFONE_NUMBER", "010XXXXXXXX")
+ADMIN_VODAFONE_NUMBER = os.environ.get("VODAFONE_NUMBER", "01011541698")
 
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4")
 
 
 def get_db():
