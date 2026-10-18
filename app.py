@@ -62,11 +62,47 @@ def init_db():
         """)
 
 def send_verification_email(email, code):
-    if not MAIL_USERNAME or not MAIL_PASSWORD or not MAIL_DEFAULT_SENDER:
+    import requests
+
+    api_key = os.environ.get("RESEND_API_KEY")
+    if not api_key:
+        raise RuntimeError("متغير RESEND_API_KEY غير مضبوط.")
+
+    sender = os.environ.get("RESEND_FROM_EMAIL")
+    if not sender:
+        raise RuntimeError("متغير RESEND_FROM_EMAIL غير مضبوط.")
+
+    response = requests.post(
+        "https://api.resend.com/emails",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "from": sender,
+            "to": [email],
+            "subject": "كود التحقق - NOVA STORE",
+            "text": (
+                f"مرحبًا بك في NOVA STORE!\n\n"
+                f"كود التحقق الخاص بك هو: {code}\n\n"
+                "صلاحية الكود 10 دقائق.\n"
+                "لا تشارك هذا الكود مع أي شخص."
+            ),
+        },
+        timeout=20,
+    )
+
+    if not response.ok:
+        app.logger.error(
+            "فشل Resend: HTTP %s - %s",
+            response.status_code,
+            response.text[:500],
+        )
         raise RuntimeError(
-            "إعدادات البريد ناقصة: تحقق من MAIL_USERNAME وMAIL_PASSWORD وMAIL_DEFAULT_SENDER"
+            f"فشل إرسال البريد عبر Resend: HTTP {response.status_code}"
         )
 
+    app.logger.info("تم قبول رسالة التحقق بواسطة Resend.")
     message = EmailMessage()
     message["Subject"] = "كود التحقق - NOVA STORE"
     message["From"] = MAIL_DEFAULT_SENDER
