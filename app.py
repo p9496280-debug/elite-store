@@ -21,8 +21,11 @@ from flask import (
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_store_secret_key")
 
+# 👨‍💻 بريد المطور/الأدمن المخصص للدخول
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@novastore.com")
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
+
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "nova_store.db")
 
 # 📱 ضع رقم فودافون كاش الخاص بك هنا
@@ -75,6 +78,14 @@ def init_db():
             )
         """)
 
+        # إنشاء حساب الأدمن التلقائي إذا لم يكن موجوداً
+        admin_exists = db.execute("SELECT id FROM users WHERE email = ?", (ADMIN_EMAIL,)).fetchone()
+        if not admin_exists:
+            db.execute("""
+                INSERT INTO users (name, email, password_hash, telegram_id, balance, verified, created_at)
+                VALUES (?, ?, ?, ?, 999999.0, 1, ?)
+            """, ("المطور (ADMIN)", ADMIN_EMAIL, generate_password_hash(ADMIN_PASSWORD), "000000", int(time.time())))
+
         # إضافة منتجات افتراضية عند تشغيل القاعدة لأول مرة
         cursor = db.execute("SELECT COUNT(*) as count FROM products")
         if cursor.fetchone()["count"] == 0:
@@ -82,7 +93,7 @@ def init_db():
                 ("Google Play", "بطاقات Google Play الرقمية", 100, "100 جنيه", "GPLAY-9876-XXXX", "▶", "بطاقات الألعاب", "#35eaa1"),
                 ("PlayStation", "بطاقات واشتراكات PlayStation", 250, "250 جنيه", "PSN-5432-XXXX", "PS", "بطاقات الألعاب", "#62a0ff"),
                 ("Steam", "أكواد ومحافظ Steam", 150, "150 جنيه", "STEAM-1122-XXXX", "◉", "بطاقات الألعاب", "#9bb8ff"),
-                ("Xbox", "بطاقات واشتراكات Xbox", 200, "200 جنيه", "XBOX-3344-XXXX", "ⓧ", "بطاقات الألعاب", "#5dff9c"),
+                ("Xbox", "بطاقات وااشتراكات Xbox", 200, "200 جنيه", "XBOX-3344-XXXX", "ⓧ", "بطاقات الألعاب", "#5dff9c"),
                 ("Google Accounts", "حسابات جوجل جاهزة وموثقة", 50, "50 جنيه", "acc_google_2026@gmail.com : Pass123", "G", "حسابات جوجل", "#ffc107"),
             ]
             db.executemany("""
@@ -132,6 +143,7 @@ PAGE = r"""
 
 .nav{min-height:46px;padding:0 5%;display:flex;align-items:center;gap:28px;border-bottom:1px solid #18284a;color:#c4cde3;font-size:13px}.nav a{min-height:46px;display:flex;align-items:center}.nav a.active{color:#7f9dff;border-bottom:2px solid #6953ff}.cart{margin-right:auto;font-size:19px!important}.cart span{background:#2777ff;border-radius:20px;padding:1px 7px;font-size:11px}
 .spin-link{color:#ffc107!important;font-weight:bold;background:#1a1708;padding:4px 12px;border-radius:15px;border:1px solid #ffc10744}
+.admin-link{color:#ff5555!important;font-weight:bold;background:#380b0b;padding:4px 12px;border-radius:15px;border:1px solid #ff555544}
 
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:20px;padding:22px 3.2% 30px}.main-column{min-width:0}
 .hero{min-height:290px;border:1px solid #263f77;border-radius:22px;overflow:hidden;display:grid;grid-template-columns:1fr 1fr;position:relative;background:radial-gradient(ellipse at 70% 50%,#351174 0,transparent 50%),linear-gradient(110deg,#06102b,#080c2c 65%,#100a3b)}.hero:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,#080b2555);pointer-events:none}.hero-copy{padding:28px 32px;z-index:1}.eyebrow{color:#bca0ff;font-size:12px;font-weight:700}.hero h1{font-size:clamp(22px,2.2vw,31px);line-height:1.65;margin:8px 0;font-weight:800}.hero p{color:#c4cce2;font-size:13px;line-height:1.9;max-width:470px;margin:0 0 15px}.hero-btn{display:inline-flex;align-items:center;gap:20px;padding:11px 22px;border-radius:30px;font-size:13px}.trust-row{display:flex;gap:15px;margin-top:20px;color:#dce5ff;font-size:11px;flex-wrap:wrap}
@@ -187,6 +199,10 @@ footer{border-top:1px solid #192b4e;padding:28px 4.2%;display:grid;grid-template
 <nav class="nav">
   <a class="active" href="#">الرئيسية</a>
   <a href="/spin" class="spin-link">🎡 عجلة الحظ</a>
+  {% if is_admin %}
+    <!-- هذا الزر يظهر حصراً وخاصة للمطور والأدمن فقط -->
+    <a href="/admin/dashboard" class="admin-link">⚙️ لوحة المطور</a>
+  {% endif %}
   <a href="#categories">المنتجات</a>
   <a href="#products">العروض</a>
   <a href="#footer">من نحن</a>
@@ -598,7 +614,6 @@ function drawWheel() {
 
 drawWheel();
 
-// نظام الصوت التفاعلي للـ Web Audio API
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function playClickSound() {
   if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -632,7 +647,6 @@ function playWinSound() {
   });
 }
 
-// تأثير القصاصات الملونة (Confetti)
 function startConfetti() {
   const c = document.getElementById('confettiCanvas');
   const cx = c.getContext('2d');
@@ -671,7 +685,6 @@ spinBtn.addEventListener('click', () => {
   const degreesPerItem = 360 / numItems;
   const targetDegree = (360 - (selectedIndex * degreesPerItem) - (degreesPerItem / 2)) + (360 * 5);
   
-  // تفعيل الصوت أثنا الدوران
   let clicks = 0;
   const soundInterval = setInterval(() => {
     playClickSound();
@@ -715,37 +728,6 @@ spinBtn.addEventListener('click', () => {
 
 # ==================== لوحة تحكم الإدارة (Admin Panel) ====================
 
-ADMIN_LOGIN_PAGE = r"""
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>تسجيل دخول الإدارة | NOVA STORE</title>
-<style>
-  body{margin:0;background:#03091b;color:white;font-family:Arial,sans-serif;min-height:100vh;display:grid;place-items:center;padding:20px}
-  form{width:100%;max-width:380px;background:#07132c;padding:28px;border:1px solid #315dff;border-radius:18px;box-sizing:border-box}
-  h1{color:#bc5bff;text-align:center;font-size:22px;margin-bottom:20px}
-  label{display:block;margin-top:12px;color:#a8b7d8;font-size:13px}
-  input{box-sizing:border-box;width:100%;padding:12px;margin-top:5px;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white}
-  button{width:100%;padding:13px;margin-top:20px;border:0;border-radius:10px;background:linear-gradient(110deg,#9b37ff,#315dff);color:white;font-weight:bold;cursor:pointer}
-  .err{color:#ff5555;text-align:center;font-size:13px;margin-top:10px}
-</style>
-</head>
-<body>
-<form method="post">
-  <h1>⚙️ لوحة الإدارة</h1>
-  <label>اسم المستخدم</label>
-  <input name="username" required>
-  <label>كلمة المرور</label>
-  <input type="password" name="password" required>
-  <button type="submit">دخول اللوحة</button>
-  {% if error %}<div class="err">{{ error }}</div>{% endif %}
-</form>
-</body>
-</html>
-"""
-
 ADMIN_DASHBOARD_PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -773,13 +755,12 @@ th{color:#a8b7d8;background:#050d20}
 input,select{padding:8px 12px;background:#03091b;border:1px solid #263d70;border-radius:8px;color:white;font-size:12px}
 .btn{padding:8px 14px;border:0;border-radius:8px;background:#315dff;color:white;font-weight:bold;cursor:pointer;font-size:12px}
 .btn-danger{background:#ff3b3b}
-.logout{color:#ff7777;text-decoration:none;font-weight:bold;font-size:13px}
 </style>
 </head>
 <body>
 <header>
-  <h1>⚙️ لوحة تحكم إدارة NOVA STORE</h1>
-  <a href="/admin/logout" class="logout">تسجيل الخروج ←</a>
+  <h1>⚙️ لوحة تحكم المطور والمدير</h1>
+  <a href="/" class="btn">← العودة للمتجر الرئيسية</a>
 </header>
 
 <div class="stats">
@@ -863,33 +844,16 @@ input,select{padding:8px 12px;background:#03091b;border:1px solid #263d70;border
     </tbody>
   </table>
 </div>
-
-<p style="text-align:center;"><a href="/" style="color:#8198ff;">← العودة للمتجر الرئيسية</a></p>
 </body>
 </html>
 """
 
-@app.route("/admin", methods=["GET", "POST"])
-def admin_login():
-    if session.get("is_admin"):
-        return redirect(url_for("admin_dashboard"))
-
-    error = ""
-    if request.method == "POST":
-        username = request.form.get("username", "")
-        password = request.form.get("password", "")
-
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
-            session["is_admin"] = True
-            return redirect(url_for("admin_dashboard"))
-        error = "اسم المستخدم أو كلمة المرور غير صحيحة!"
-
-    return render_template_string(ADMIN_LOGIN_PAGE, error=error)
-
+# حماية لوحة التحكم: تفتح فقط للمطور/الأدمن
 @app.route("/admin/dashboard")
 def admin_dashboard():
-    if not session.get("is_admin"):
-        return redirect(url_for("admin_login"))
+    email = session.get("user_email")
+    if not email or email != ADMIN_EMAIL:
+        return redirect(url_for("home"))
 
     with get_db() as db:
         users = db.execute("SELECT * FROM users ORDER BY id DESC").fetchall()
@@ -904,8 +868,9 @@ def admin_dashboard():
 
 @app.route("/admin/update_balance", methods=["POST"])
 def admin_update_balance():
-    if not session.get("is_admin"):
-        return redirect(url_for("admin_login"))
+    email = session.get("user_email")
+    if not email or email != ADMIN_EMAIL:
+        return redirect(url_for("home"))
 
     user_id = request.form.get("user_id")
     new_balance = request.form.get("new_balance")
@@ -917,8 +882,9 @@ def admin_update_balance():
 
 @app.route("/admin/add_product", methods=["POST"])
 def admin_add_product():
-    if not session.get("is_admin"):
-        return redirect(url_for("admin_login"))
+    email = session.get("user_email")
+    if not email or email != ADMIN_EMAIL:
+        return redirect(url_for("home"))
 
     name = request.form.get("name")
     description = request.form.get("description")
@@ -939,18 +905,14 @@ def admin_add_product():
 
 @app.route("/admin/delete_product/<int:product_id>")
 def admin_delete_product(product_id):
-    if not session.get("is_admin"):
-        return redirect(url_for("admin_login"))
+    email = session.get("user_email")
+    if not email or email != ADMIN_EMAIL:
+        return redirect(url_for("home"))
 
     with get_db() as db:
         db.execute("DELETE FROM products WHERE id = ?", (product_id,))
 
     return redirect(url_for("admin_dashboard"))
-
-@app.route("/admin/logout")
-def admin_logout():
-    session.pop("is_admin", None)
-    return redirect(url_for("admin_login"))
 
 
 @app.route("/manifest.json")
@@ -1141,6 +1103,8 @@ def account():
     with get_db() as db:
         user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
 
+    is_admin = (email == ADMIN_EMAIL)
+
     return render_template_string("""
     <!doctype html>
     <html lang="ar" dir="rtl">
@@ -1157,6 +1121,7 @@ def account():
       .wallet-box h3 { color: #35eaa1; margin: 0 0 5px; font-size: 18px; }
       a{display:inline-block;margin-top:10px;color:#9db4ff;text-decoration:none;margin-left:5px;padding:8px 14px;background:#0b1734;border:1px solid #263d70;border-radius:10px;font-size:13px;}
       .logout-btn { background: #571010; border-color: #ff5555; color: #ffcccc; }
+      .admin-btn { background: #380b0b; border-color: #ff5555; color: #ff7777; font-weight: bold; }
     </style>
     <main>
       <div class="profile-avatar">{{ user["name"][:1] }}</div>
@@ -1170,13 +1135,16 @@ def account():
       </div>
 
       <div>
+        {% if is_admin %}
+          <a class="admin-btn" href="/admin/dashboard">⚙️ لوحة المطور الخاصة بيك</a>
+        {% endif %}
         <a href="/spin" style="color:#ffc107; font-weight:bold;">🎡 عجلة الحظ</a>
         <a href="/">العودة للمتجر</a>
         <a class="logout-btn" href="/logout">تسجيل الخروج</a>
       </div>
     </main>
     </html>
-    """, user=user)
+    """, user=user, is_admin=is_admin)
 
 @app.route("/spin", methods=["GET", "POST"])
 def spin():
@@ -1257,7 +1225,7 @@ def deposit():
       .notice{background:#180f2d; border:1px solid #754bff; border-radius:9px; padding:10px; font-size:11px; color:#d0c2ff; margin-bottom:15px; text-align:center;}
     </style>
     <form method="POST">
-      <h2>شحن رصيد المحفظة 💳</h2>
+      Describe <h2>شحن رصيد المحفظة 💳</h2>
       <div class="notice">💡 تنبيه: يتم خصم رسوم تحويل بسيطة، الشحن بقيمة 10 جـ يمنحك 7 جـ صافي في المحفظة.</div>
       <p style="font-size:13px; color:#a8b7d8;">حول المبلغ لرقم فودافون كاش التالي:</p>
       <div class="number-box">{{ vodafone_number }}</div>
@@ -1338,12 +1306,14 @@ def checkout():
 def home():
     email = session.get("user_email")
     user = None
+    is_admin = False
     if email:
         with get_db() as db:
             user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        is_admin = (email == ADMIN_EMAIL)
     
     products = get_products()
-    return render_template_string(PAGE, products=products, user=user)
+    return render_template_string(PAGE, products=products, user=user, is_admin=is_admin)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
