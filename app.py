@@ -76,6 +76,7 @@ def init_db():
                 price TEXT NOT NULL,
                 code TEXT NOT NULL,
                 icon TEXT NOT NULL,
+                image_url TEXT DEFAULT '',
                 category TEXT NOT NULL,
                 color TEXT NOT NULL,
                 badge TEXT
@@ -91,6 +92,25 @@ def init_db():
             )
         """)
 
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS reviews (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_name TEXT NOT NULL,
+                rating INTEGER NOT NULL,
+                comment TEXT NOT NULL,
+                created_at INTEGER NOT NULL
+            )
+        """)
+
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS store_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
+
+        db.execute("INSERT OR IGNORE INTO store_settings (key, value) VALUES ('flash_msg', 'عروض الساعات المحدودة! خصومات خاصة تنتهي قريباً')")
+
         admin_user = db.execute("SELECT id FROM users WHERE email = ?", (ADMIN_EMAIL,)).fetchone()
         if not admin_user:
             db.execute("""
@@ -105,17 +125,25 @@ def init_db():
         cursor = db.execute("SELECT COUNT(*) as count FROM products")
         if cursor.fetchone()["count"] == 0:
             default_products = [
-                ("كود جوجل بلاي (10$)", "الولايات المتحدة", 500.00, "500 جـ", "GPLAY-9876", "▶", "بطاقات الألعاب", "#35eaa1", "عروض سريعة 🔥"),
-                ("كود بلايستيشن (20$)", "الولايات المتحدة", 1000.00, "1000 جـ", "PSN-5432", "PS", "بطاقات الألعاب", "#62a0ff", "مميز"),
-                ("كود إكس بوكس (25$)", "الولايات المتحدة", 1250.00, "1250 جـ", "XBOX-3344", "ⓧ", "بطاقات الألعاب", "#5dff9c", None),
-                ("كود ستيم (20$)", "الولايات المتحدة", 1000.00, "1000 جـ", "STEAM-1122", "◉", "بطاقات الألعاب", "#9bb8ff", "عرض خاص"),
-                ("كود آيتونز (15$)", "الولايات المتحدة", 750.00, "750 جـ", "ITUNES-7788", "", "بطاقات الهدايا", "#ffc107", None),
-                ("شحن ببجي 660 شدة", "شحن فوري عن طريق الايدي", 350.00, "350 جـ", "PUBG-660", "🎮", "ألعاب", "#ff3b3b", "شائع 🔥"),
+                ("كود جوجل بلاي (10$)", "الولايات المتحدة", 500.00, "500 جـ", "GPLAY-9876", "▶", "", "بطاقات الألعاب", "#35eaa1", "عروض سريعة 🔥"),
+                ("كود بلايستيشن (20$)", "الولايات المتحدة", 1000.00, "1000 جـ", "PSN-5432", "PS", "", "بطاقات الألعاب", "#62a0ff", "مميز"),
+                ("كود إكس بوكس (25$)", "الولايات المتحدة", 1250.00, "1250 جـ", "XBOX-3344", "ⓧ", "", "بطاقات الألعاب", "#5dff9c", None),
+                ("كود ستيم (20$)", "الولايات المتحدة", 1000.00, "1000 جـ", "STEAM-1122", "◉", "", "بطاقات الألعاب", "#9bb8ff", "عرض خاص"),
+                ("كود آيتونز (15$)", "الولايات المتحدة", 750.00, "750 جـ", "ITUNES-7788", "", "", "بطاقات الهدايا", "#ffc107", None),
+                ("شحن ببجي 660 شدة", "شحن فوري عن طريق الايدي", 350.00, "350 جـ", "PUBG-660", "🎮", "", "ألعاب", "#ff3b3b", "شائع 🔥"),
             ]
             db.executemany("""
-                INSERT INTO products (name, description, price_val, price, code, icon, category, color, badge)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO products (name, description, price_val, price, code, icon, image_url, category, color, badge)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, default_products)
+
+        cursor_rev = db.execute("SELECT COUNT(*) as count FROM reviews")
+        if cursor_rev.fetchone()["count"] == 0:
+            default_reviews = [
+                ("أحمد مصطفى", 5, "متجر ممتاز جداً والتسليم فور تسليم التحويل أنصح بالتعامل معه 🔥", int(time.time())),
+                ("محمود علي", 5, "مصداقية عالية وسرعة في الشحن شكراً للمطور!", int(time.time())),
+            ]
+            db.executemany("INSERT INTO reviews (user_name, rating, comment, created_at) VALUES (?, ?, ?, ?)", default_reviews)
 
         db.execute("INSERT OR IGNORE INTO promo_codes (code, discount_percent) VALUES ('MIDO2026', 10.0)")
 
@@ -143,6 +171,18 @@ def get_products():
         return [dict(row) for row in rows]
 
 
+def get_reviews():
+    with get_db() as db:
+        rows = db.execute("SELECT * FROM reviews ORDER BY id DESC LIMIT 6").fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_setting(key, default=""):
+    with get_db() as db:
+        row = db.execute("SELECT value FROM store_settings WHERE key = ?", (key,)).fetchone()
+        return row["value"] if row else default
+
+
 # ==================== القالب الرئيسي للمتجر ====================
 PAGE = r"""
 <!doctype html>
@@ -156,7 +196,6 @@ PAGE = r"""
 
 <title>NOVA STORE | المتجر الرقمي الشامل لبطاقات الألعاب والدفع</title>
 <meta name="description" content="متجر NOVA STORE هو متجرك الرقمي الأول لشحن بطاقات جوجل بلاي، بلايستيشن، إكس بوكس، وأكواد الألعاب بأفضل الأسعار والدفع عبر فودافون كاش.">
-<meta name="keywords" content="NOVA STORE, متجر نوفا, شحن بطاقات, كود جوجل بلاي, كود بلايستيشن, شحن ببجي, فودافون كاش, بطاقات ألعاب">
 
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
@@ -170,7 +209,7 @@ PAGE = r"""
 .user-profile-badge {display: flex; align-items: center; gap: 10px; background: #0b1734; border: 1px solid #263d70; padding: 6px 14px; border-radius: 30px; text-decoration: none;}
 .user-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #9b37ff, #315dff); display: grid; place-items: center; font-weight: bold; color: white; }
 
-/* شريط الملاحة الرئيسي الأنيق */
+/* شريط الملاحة الرئيسي */
 .nav {
   min-height: 58px;
   padding: 0 4%;
@@ -221,14 +260,8 @@ PAGE = r"""
   border: none !important;
   font-weight: bold;
 }
-.nav-badge-dev {
-  border-color: #38bdf8 !important;
-  color: #38bdf8 !important;
-}
-.nav-badge-tele {
-  border-color: #a855f7 !important;
-  color: #c084fc !important;
-}
+.nav-badge-dev { border-color: #38bdf8 !important; color: #38bdf8 !important; }
+.nav-badge-tele { border-color: #a855f7 !important; color: #c084fc !important; }
 
 .admin-badge { background: #570f0f; color: #ff7777; border: 1px solid #ff5555; padding: 6px 14px; border-radius: 12px; font-weight: bold; text-decoration:none;}
 
@@ -261,8 +294,9 @@ PAGE = r"""
 .product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:15px}
 .product-card{border:1px solid #1b3159;background:linear-gradient(150deg,#08152e,#050c1e);border-radius:14px;padding:12px;position:relative;transition:0.2s}
 .product-card:hover{border-color:#5c52ff;transform:translateY(-3px)}
-.product-visual{height:100px;border-radius:10px;background:radial-gradient(circle at 50% 20%,#1b3159,transparent 70%),#07142c;display:flex;align-items:center;justify-content:center;font-size:36px;position:relative;margin-bottom:10px;}
-.badge-tag{position:absolute;top:8px;right:8px;background:#ff3b3b;color:white;font-size:9px;padding:2px 8px;border-radius:6px;font-weight:bold}
+.product-visual{height:120px;border-radius:10px;background:radial-gradient(circle at 50% 20%,#1b3159,transparent 70%),#07142c;display:flex;align-items:center;justify-content:center;font-size:36px;position:relative;margin-bottom:10px;overflow:hidden;}
+.product-img{width:100%;height:100%;object-fit:cover;border-radius:10px;}
+.badge-tag{position:absolute;top:8px;right:8px;background:#ff3b3b;color:white;font-size:9px;padding:2px 8px;border-radius:6px;font-weight:bold;z-index:2;}
 .badge-tag.memo{background:#315dff}
 .product-card h3{font-size:13px;margin:5px 0 2px;}
 .product-card p{font-size:10px;color:#8fa1c4;margin:0 0 10px}
@@ -274,16 +308,10 @@ PAGE = r"""
 .sidebar-left{display:flex;flex-direction:column;gap:18px;}
 .side-card{border:1px solid #243e75;border-radius:18px;padding:16px;background:linear-gradient(155deg,#081735,#060d22);}
 .side-card h4{margin:0 0 10px;font-size:13px;color:#fff;display:flex;align-items:center;gap:8px;}
-.quick-link-btn{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;background:#091a3e;border:1px solid #1f3769;border-radius:10px;color:#cde0ff;font-size:11px;text-decoration:none;margin-bottom:8px;transition:0.2s;}
-.quick-link-btn:hover{background:#12295a;border-color:#315dff;color:#fff;}
 .wallet-box{background:linear-gradient(135deg,#0e234e,#180b3d);border:1px solid #35eaa166;border-radius:14px;padding:14px;text-align:center;}
 
-.live-sales{display:flex;flex-direction:column;gap:8px;}
-.sale-item{display:flex;align-items:center;gap:10px;background:#050f26;padding:8px 10px;border-radius:10px;border:1px solid #16284d;font-size:10.5px;}
-.sale-icon{font-size:18px;color:#35eaa1;}
-
-.vip-card{background:linear-gradient(135deg,#4c1d95,#1e1b4b);border:1px solid #a855f7;border-radius:14px;padding:14px;text-align:center;}
-.rating-stars{color:#facc15;font-size:14px;margin-bottom:4px;}
+.reviews-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:15px;}
+.review-card {background:#071635;border:1px solid #1e3a6e;padding:12px;border-radius:12px;}
 
 /* Flash Deals Box */
 .flash-box{background:linear-gradient(135deg,#5e0a0a,#2b0808);border:1px solid #ff3b3b;border-radius:14px;padding:12px;margin-bottom:15px;display:flex;align-items:center;justify-content:space-between;}
@@ -294,7 +322,7 @@ PAGE = r"""
 .promo-input-group input{flex:1;padding:8px;background:#03091b;border:1px solid #263d70;border-radius:8px;color:#fff;font-size:11px;}
 .promo-input-group button{padding:8px 12px;background:#315dff;color:#fff;border:0;border-radius:8px;font-weight:bold;cursor:pointer;font-size:11px;}
 
-/* Modal Checkout */
+/* Modal Checkout & Review */
 .checkout-modal{display:none;position:fixed;inset:0;background:rgba(3,9,27,0.85);backdrop-filter:blur(8px);z-index:200;place-items:center;padding:20px;}
 .checkout-box{background:linear-gradient(145deg,#07132c,#0a1a3f);border:1px solid #315dff;border-radius:18px;padding:25px;width:100%;max-width:400px;text-align:center;}
 .checkout-box h3{margin-top:0;color:#fff;}
@@ -342,7 +370,6 @@ footer a:hover{color:#38bdf8;}
   </div> 
 </header>
 
-<!-- القائمة الرئيسية الجديدة بتنسيق احترافي ومميز -->
 <nav class="nav">
   <a href="/" class="active">
     <span>🏠</span> الرئيسية
@@ -356,8 +383,8 @@ footer a:hover{color:#38bdf8;}
   <a href="{{ telegram_channel }}" target="_blank" class="nav-badge-tele">
     <span>📢</span> القناة الرسمية
   </a>
-  <a href="#products">
-    <span>🔥</span> العروض والمنتجات
+  <a href="#reviews">
+    <span>⭐️</span> تقييمات العملاء
   </a>
   <a href="/account">
     <span>👤</span> حسابي والمركز
@@ -381,16 +408,11 @@ footer a:hover{color:#38bdf8;}
       </button>
     </div>
 
-    <!-- مساعد الذكاء الاصطناعي -->
-    <div class="side-card">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-        <div style="width:40px;height:40px;border-radius:50%;background:radial-gradient(circle,#2c8cff,#11175a);display:grid;place-items:center;font-size:20px;">✦</div>
-        <div>
-          <h4 style="margin:0;">مساعد NOVA AI</h4>
-          <span style="font-size:9px;color:#2fe19a;">● متصل الآن</span>
-        </div>
-      </div>
-      <p style="font-size:11px;color:#c4d1ed;line-height:1.6;margin:0;">اختر منتجك واشترِ فوراً بفودافون كاش بكل سهولة وسرعة!</p>
+    <!-- زر تقييم الخدمة -->
+    <div class="side-card" style="border-color:#facc15;">
+      <h4>⭐ رأيك يهمنا في المتجر</h4>
+      <p style="font-size:10px;color:#a8b7d8;margin:0 0 10px;">شاركنا رأيك لزيادة ثقة العملاء واحصل على دعم فوري!</p>
+      <button onclick="openReviewModal()" style="width:100%;padding:9px;background:linear-gradient(110deg,#f59e0b,#d97706);color:white;font-weight:bold;border-radius:8px;border:0;cursor:pointer;font-size:11px;">✍️ إضافة تقييم للخدمة</button>
     </div>
 
     <!-- بطاقة المحفظة والرصيد -->
@@ -401,49 +423,6 @@ footer a:hover{color:#38bdf8;}
         <h2 style="margin:5px 0;color:#35eaa1;">{% if user %}{{ user["balance"] }}{% else %}0.0{% endif %} جـ</h2>
         <a href="https://t.me/{{ admin_telegram }}?text=أريد%20شحن%20رصيد%20محفظتي%20في%20المتجر" target="_blank" style="display:inline-block;margin-top:8px;padding:6px 14px;background:linear-gradient(110deg,#35eaa1,#00b894);color:#03091b;font-weight:bold;font-size:10px;border-radius:6px;text-decoration:none;">＋ شحن الرصيد</a>
       </div>
-    </div>
-
-    <!-- المبيعات المباشرة -->
-    <div class="side-card">
-      <h4>🔥 أحدث المبيعات الشائعة</h4>
-      <div class="live-sales">
-        <div class="sale-item">
-          <span class="sale-icon">✅</span>
-          <div>
-            <b style="color:#fff;display:block;">أحمد المجدي</b>
-            <span style="color:#a8b7d8;">اشترى كود بلايستيشن (20$)</span>
-          </div>
-        </div>
-        <div class="sale-item">
-          <span class="sale-icon">⚡</span>
-          <div>
-            <b style="color:#fff;display:block;">محمود حسن</b>
-            <span style="color:#a8b7d8;">شحن 660 شدة ببجي</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- كارت عضوية VIP -->
-    <div class="side-card" style="border-color:#a855f7;">
-      <div class="vip-card">
-        <span style="font-size:22px;">👑</span>
-        <h4 style="margin:5px 0;color:#f0abfc;">عضوية VIP الخاصة</h4>
-        <p style="font-size:10px;color:#d8b4fe;margin:0 0 10px;">احصل على خصم دائم 5% على كافة البطاقات وأولوية في التسليم الفوري!</p>
-        <a href="https://t.me/{{ admin_telegram }}?text=أريد%20الاشتراك%20في%20عضوية%20VIP" target="_blank" style="display:inline-block;padding:6px 16px;background:linear-gradient(110deg,#c084fc,#9333ea);color:white;font-weight:bold;font-size:10px;border-radius:20px;text-decoration:none;">اشترك الآن ⚡</a>
-      </div>
-    </div>
-
-    <!-- شارك واكسب -->
-    <div class="side-card" style="border-color:#315dff;">
-      <h4 style="color:#60a5fa;">🎁 شارك واكسب رصيد!</h4>
-      <p style="font-size:10px;color:#a8b7d8;margin:0 0 8px;">ادعُ أصدقاءك للشراء من المتجر واكسب 10 جنيه رصيد مجاني!</p>
-      {% if user %}
-        <input readonly value="{{ request.host_url }}register?ref={{ user['ref_code'] }}" style="width:100%;padding:6px;background:#03091b;border:1px solid #1f3769;color:#35eaa1;border-radius:6px;font-size:9px;" onclick="this.select();document.execCommand('copy');alert('تم نسخ رابط الإحالة الخاص بك!')">
-        <small style="display:block;margin-top:4px;color:#94a3b8;font-size:8px;text-align:center;">اضغط على الرابط للنسخ والمشاركة 📲</small>
-      {% else %}
-        <a href="/login" style="font-size:10px;color:#38bdf8;text-decoration:none;display:block;text-align:center;">قم بتسجيل الدخول للحصول على رابطك الخاص</a>
-      {% endif %}
     </div>
 
     <!-- كود الخصم -->
@@ -462,8 +441,7 @@ footer a:hover{color:#38bdf8;}
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:20px;">⚡</span>
         <div>
-          <b style="font-size:12px;color:#fff;display:block;">عروض الساعات المحدودة!</b>
-          <span style="font-size:10px;color:#fca5a5;">خصومات خاصة تنتهي قريباً</span>
+          <b style="font-size:12px;color:#fff;display:block;">{{ flash_msg }}</b>
         </div>
       </div>
       <div class="timer" id="flashTimer">02:45:18</div>
@@ -496,6 +474,24 @@ footer a:hover{color:#38bdf8;}
     </div>
 
     <div class="product-grid" id="productGrid"></div>
+
+    <!-- قسم آراء وتقييمات العملاء للثقة -->
+    <div style="margin-top:40px;" id="reviews">
+      <div class="section-heading">
+        <h2><span>⭐️</span> آراء وتقييمات العملاء (ثقة وأمان)</h2>
+      </div>
+      <div class="reviews-grid">
+        {% for r in reviews %}
+        <div class="review-card">
+          <div style="color:#facc15;font-size:12px;margin-bottom:4px;">
+            {% for i in range(r['rating']) %}★{% endfor %}
+          </div>
+          <b style="font-size:12px;color:#fff;display:block;">{{ r['user_name'] }}</b>
+          <p style="font-size:11px;color:#a8b7d8;margin:5px 0 0;">"{{ r['comment'] }}"</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
   </section>
 </main>
 
@@ -523,6 +519,25 @@ footer a:hover{color:#38bdf8;}
       <a id="teleBuyBtn" target="_blank" style="flex:1;padding:10px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:bold;font-size:12px;">إرسال تأكيد التحويل 💬</a>
       <button onclick="closeCheckout()" style="padding:10px;background:#334155;color:white;border:0;border-radius:8px;cursor:pointer;font-size:12px;">إلغاء</button>
     </div>
+  </div>
+</div>
+
+<!-- مودال تقييم الخدمة -->
+<div class="checkout-modal" id="reviewModal">
+  <div class="checkout-box">
+    <h3>✍️ تقييم الخدمة والافتخار برأيك</h3>
+    <form action="/add_review" method="POST" style="margin-top:15px;">
+      <input name="user_name" placeholder="اسمك الكامل" required style="width:100%;padding:10px;background:#03091b;border:1px solid #263d70;border-radius:8px;color:#fff;margin-bottom:10px;">
+      <select name="rating" style="width:100%;padding:10px;background:#03091b;border:1px solid #263d70;border-radius:8px;color:#fff;margin-bottom:10px;">
+        <option value="5">⭐⭐⭐⭐⭐ ممتاز جداً (5/5)</option>
+        <option value="4">⭐⭐⭐⭐ جيد جداً (4/5)</option>
+      </select>
+      <textarea name="comment" placeholder="اكتب انطباعك ورأيك عن سرعة الشحن والخدمة..." required style="width:100%;height:80px;padding:10px;background:#03091b;border:1px solid #263d70;border-radius:8px;color:#fff;margin-bottom:15px;"></textarea>
+      <div style="display:flex;gap:10px;">
+        <button type="submit" style="flex:1;padding:10px;background:linear-gradient(110deg,#f59e0b,#d97706);color:white;border:0;border-radius:8px;font-weight:bold;cursor:pointer;">إرسال التقييم</button>
+        <button type="button" onclick="closeReviewModal()" style="padding:10px;background:#334155;color:white;border:0;border-radius:8px;cursor:pointer;">إلغاء</button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -590,15 +605,23 @@ function installApp() {
   }
 }
 
+function openReviewModal(){ document.getElementById('reviewModal').style.display = 'grid'; }
+function closeReviewModal(){ document.getElementById('reviewModal').style.display = 'none'; }
+
 function renderProducts(items) {
   productGrid.innerHTML = '';
   items.forEach(p => {
     const card = document.createElement('article');
     card.className = 'product-card';
     let badgeHtml = p.badge ? `<span class="badge-tag ${p.badge==='مميز'?'memo':''}">${p.badge}</span>` : '';
+    
+    let visualHtml = p.image_url 
+      ? `<img src="${p.image_url}" class="product-img" alt="${p.name}">` 
+      : `<span style="color:${p.color};">${p.icon}</span>`;
+
     card.innerHTML = `
       ${badgeHtml}
-      <div class="product-visual" style="color:${p.color};">${p.icon}</div>
+      <div class="product-visual">${visualHtml}</div>
       <h3 style="color:#fff;">${p.name}</h3>
       <p>${p.description}</p>
       <div class="price-row">
@@ -684,7 +707,6 @@ renderProducts(PRODUCTS);
 </html>
 """
 
-# ==================== صفحة تسجيل الدخول والخروج والصفحات الآمنة ====================
 REGISTER_PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -804,33 +826,42 @@ ADMIN_PANEL_PAGE = r"""
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<title>لوحة التحكم | NOVA STORE</title>
+<title>لوحة التحكم الشاملة | NOVA STORE</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
 body{margin:0;background:#03091b;color:white;font-family:'Cairo',sans-serif;padding:30px}
 .box{background:#07132c;border:1px solid #315dff;border-radius:15px;padding:25px;max-width:550px;margin:20px auto;}
-input{width:100%;padding:12px;margin:10px 0;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white;box-sizing:border-box;}
+input, textarea{width:100%;padding:12px;margin:10px 0;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white;box-sizing:border-box;}
 button{width:100%;padding:13px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;}
 </style>
 </head>
 <body>
 <div style="max-width:550px;margin:auto;display:flex;justify-content:space-between;align-items:center;">
-  <h2>⚙️ لوحة تحكم المطور</h2>
+  <h2>⚙️ لوحة تحكم المطور الشاملة</h2>
   <a href="/" style="color:#8198ff;text-decoration:none;">← العودة للمتجر</a>
 </div>
 
 <div class="box">
-  <h3>➕ إضافة منتج جديد</h3>
+  <h3>⚡ التحكم في رسالة العروض العلوية</h3>
+  <form method="POST" action="/admin/update_flash">
+    <input name="flash_msg" value="{{ flash_msg }}" placeholder="نص رسالة العروض والخصومات" required>
+    <button type="submit">تحديث رسالة العروض</button>
+  </form>
+</div>
+
+<div class="box">
+  <h3>➕ إضافة منتج جديد بالصورة والوصف والأسعار</h3>
   <form method="POST" action="/admin/add_product">
-    <input name="name" placeholder="اسم المنتج" required>
-    <input name="description" placeholder="الوصف" required>
-    <input type="number" step="0.01" name="price_val" placeholder="السعر بالجنيه (مثال: 500)" required>
-    <input name="price" placeholder="نص السعر (مثال: 500 جـ)" required>
-    <input name="code" placeholder="الكود الرقمي" required>
-    <input name="icon" placeholder="الأيقونة (مثال: ▶ أو 🎮)" required>
+    <input name="name" placeholder="اسم المنتج (مثال: كود بلايستيشن 20$)" required>
+    <input name="description" placeholder="وصف المنتج (مثال: الولايات المتحدة - تسليم فوري)" required>
+    <input type="number" step="0.01" name="price_val" placeholder="السعر بالجنيه (مثال: 1000)" required>
+    <input name="price" placeholder="نص السعر المكتوب (مثال: 1000 جـ)" required>
+    <input name="code" placeholder="الكود الرقمي للمنتج" required>
+    <input name="image_url" placeholder="رابط صورة المنتج (Image URL - اختياري)">
+    <input name="icon" placeholder="الأيقونة الاحتياطية (مثال: ▶ أو 🎮)" required>
     <input name="category" placeholder="القسم (بطاقات الألعاب / بطاقات الهدايا / ألعاب)" required>
-    <input name="badge" placeholder="الشارة (اختياري)">
-    <button type="submit">إضافة المنتج</button>
+    <input name="badge" placeholder="الشارة (مثال: مميز / عروض سريعة 🔥 - اختياري)">
+    <button type="submit">إضافة المنتج للمتجر</button>
   </form>
 </div>
 </body>
@@ -987,7 +1018,19 @@ def admin_panel():
     email = session.get("user_email")
     if not email or email != ADMIN_EMAIL:
         return redirect(url_for("home"))
-    return render_template_string(ADMIN_PANEL_PAGE)
+    flash_msg = get_setting("flash_msg", "عروض الساعات المحدودة!")
+    return render_template_string(ADMIN_PANEL_PAGE, flash_msg=flash_msg)
+
+@app.route("/admin/update_flash", methods=["POST"])
+def admin_update_flash():
+    email = session.get("user_email")
+    if not email or email != ADMIN_EMAIL:
+        return redirect(url_for("home"))
+    
+    msg = request.form.get("flash_msg", "")
+    with get_db() as db:
+        db.execute("INSERT OR REPLACE INTO store_settings (key, value) VALUES ('flash_msg', ?)", (msg,))
+    return redirect(url_for("admin_panel"))
 
 @app.route("/admin/add_product", methods=["POST"])
 def admin_add_product():
@@ -1000,17 +1043,31 @@ def admin_add_product():
     price_val = float(request.form.get("price_val", 0))
     price = request.form.get("price")
     code = request.form.get("code")
+    image_url = request.form.get("image_url", "").strip()
     icon = request.form.get("icon")
     category = request.form.get("category")
     badge = request.form.get("badge")
 
     with get_db() as db:
         db.execute("""
-            INSERT INTO products (name, description, price_val, price, code, icon, category, color, badge)
-            VALUES (?, ?, ?, ?, ?, ?, ?, '#315dff', ?)
-        """, (name, description, price_val, price, code, icon, category, badge))
+            INSERT INTO products (name, description, price_val, price, code, icon, image_url, category, color, badge)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, '#315dff', ?)
+        """, (name, description, price_val, price, code, icon, image_url, category, badge))
 
     return redirect(url_for("admin_panel"))
+
+
+@app.route("/add_review", methods=["POST"])
+def add_review():
+    user_name = request.form.get("user_name", "عميل المتجر").strip()
+    rating = int(request.form.get("rating", 5))
+    comment = request.form.get("comment", "").strip()
+
+    if comment:
+        with get_db() as db:
+            db.execute("INSERT INTO reviews (user_name, rating, comment, created_at) VALUES (?, ?, ?, ?)",
+                       (user_name, rating, comment, int(time.time())))
+    return redirect(url_for("home"))
 
 
 @app.route("/spin", methods=["GET", "POST"])
@@ -1177,9 +1234,14 @@ def home():
             user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
         is_admin = (email == ADMIN_EMAIL)
     products = get_products()
+    reviews = get_reviews()
+    flash_msg = get_setting("flash_msg", "عروض الساعات المحدودة! خصومات خاصة تنتهي قريباً")
+
     return render_template_string(
         PAGE, 
         products=products, 
+        reviews=reviews,
+        flash_msg=flash_msg,
         user=user, 
         is_admin=is_admin, 
         admin_telegram=ADMIN_TELEGRAM_USERNAME, 
