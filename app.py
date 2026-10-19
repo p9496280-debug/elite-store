@@ -25,7 +25,7 @@ ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "nova_store.db")
 
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN"8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4")
 ADMIN_TELEGRAM_USERNAME = "Mido_M9do"
 TELEGRAM_BOT_USERNAME = "midoassistantAIbot"
 TELEGRAM_CHANNEL_LINK = "https://t.me/Midomsn"
@@ -291,7 +291,7 @@ footer a:hover{color:#38bdf8;}
 
 <main class="layout">
   <aside class="sidebar-left">
-    <!-- بطاقة تنزيل التطبيق المضافة -->
+    <!-- بطاقة تنزيل التطبيق المباشر (تحميل APK فوراً) -->
     <div class="side-card" style="border-color: #35eaa1; background: linear-gradient(135deg, #071f3d, #030d24);">
       <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
         <span style="font-size: 24px;">📱</span>
@@ -300,9 +300,9 @@ footer a:hover{color:#38bdf8;}
           <span style="font-size: 9px; color: #35eaa1;">تصفح أسرع وإشعارات فورية</span>
         </div>
       </div>
-      <p style="font-size: 10px; color: #a8b7d8; margin: 0 0 10px;">حمل التطبيق الآن على هاتفك لشحن البطاقات بضغطة واحدة!</p>
-      <a href="https://t.me/{{ admin_telegram }}?text=أريد%20رابط%20تنزيل%20التطبيق" target="_blank" style="display: block; text-align: center; padding: 8px; background: linear-gradient(110deg, #35eaa1, #00b894); color: #03091b; font-weight: bold; border-radius: 8px; text-decoration: none; font-size: 11px;">
-        ⬇️ تنزيل التطبيق المباشر
+      <p style="font-size: 10px; color: #a8b7d8; margin: 0 0 10px;">اضغط بالأسفل لبدء تنزيل التطبيق على هاتفك مباشرة!</p>
+      <a href="/static/app.apk" download style="display: block; text-align: center; padding: 10px; background: linear-gradient(110deg, #35eaa1, #00b894); color: #03091b; font-weight: bold; border-radius: 8px; text-decoration: none; font-size: 11px;">
+        ⬇️ تنزيل ملف التطبيق (APK)
       </a>
     </div>
 
