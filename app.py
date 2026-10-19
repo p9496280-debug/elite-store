@@ -21,16 +21,16 @@ from flask import (
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_store_secret_key")
 
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@novastore.com")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "nova_store.db")
 
-# بيانات التليجرام وفودافون كاش الحقيقية المحدثة
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4")
+# بيانات التليجرام وفودافون كاش الحقيقية
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 ADMIN_TELEGRAM_USERNAME = "Mido_M9do"
 TELEGRAM_BOT_USERNAME = "midoassistantAIbot"
 TELEGRAM_CHANNEL_LINK = "https://t.me/Midomsn"
-VODAFONE_NUMBER = os.environ.get("VODAFONE_NUMBER", "01011541698")
+VODAFONE_NUMBER = os.environ.get("VODAFONE_NUMBER", "01000000000")
 
 
 def get_db():
@@ -117,7 +117,6 @@ def init_db():
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, default_products)
 
-        # كود خصم تجريبي مضاف
         db.execute("INSERT OR IGNORE INTO promo_codes (code, discount_percent) VALUES ('MIDO2026', 10.0)")
 
 
@@ -151,7 +150,14 @@ PAGE = r"""
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NOVA STORE | المتجر الرقمي الشامل</title>
+
+<!-- كود إثبات ملكية محرك البحث جوجل -->
+<meta name="google-site-verification" content="-cqasmgepuPXVxFHJ53UtVgI4DdfCiGR_MbwjVIVv0M" />
+
+<title>NOVA STORE | المتجر الرقمي الشامل لبطاقات الألعاب والدفع</title>
+<meta name="description" content="متجر NOVA STORE هو متجرك الرقمي الأول لشحن بطاقات جوجل بلاي، بلايستيشن، إكس بوكس، وأكواد الألعاب بأفضل الأسعار والدفع عبر فودافون كاش.">
+<meta name="keywords" content="NOVA STORE, متجر نوفا, شحن بطاقات, كود جوجل بلاي, كود بلايستيشن, شحن ببجي, فودافون كاش, بطاقات ألعاب">
+
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
 :root{--bg:#03091b;--panel:#07132c;--text:#f4f7ff;--blue:#315dff;--purple:#8d38ff;--border:#1b315c}
@@ -213,11 +219,11 @@ PAGE = r"""
 .quick-link-btn:hover{background:#12295a;border-color:#315dff;color:#fff;}
 .wallet-box{background:linear-gradient(135deg,#0e234e,#180b3d);border:1px solid #35eaa166;border-radius:14px;padding:14px;text-align:center;}
 
-/* Flash Deals Box ⚡ (إضافة ربحية 1) */
+/* Flash Deals Box */
 .flash-box{background:linear-gradient(135deg,#5e0a0a,#2b0808);border:1px solid #ff3b3b;border-radius:14px;padding:12px;margin-bottom:15px;display:flex;align-items:center;justify-content:space-between;}
 .timer{font-size:14px;font-weight:bold;color:#facc15;background:#03091b;padding:4px 10px;border-radius:8px;}
 
-/* Promo Box (إضافة ربحية 2) */
+/* Promo Box */
 .promo-input-group{display:flex;gap:6px;margin-top:8px;}
 .promo-input-group input{flex:1;padding:8px;background:#03091b;border:1px solid #263d70;border-radius:8px;color:#fff;font-size:11px;}
 .promo-input-group button{padding:8px 12px;background:#315dff;color:#fff;border:0;border-radius:8px;font-weight:bold;cursor:pointer;font-size:11px;}
@@ -278,9 +284,7 @@ footer a:hover{color:#38bdf8;}
 </nav>
 
 <main class="layout">
-  <!-- الجانب الأيسر المطور -->
   <aside class="sidebar-left">
-    <!-- 1. مساعد الذكاء الاصطناعي -->
     <div class="side-card">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
         <div style="width:40px;height:40px;border-radius:50%;background:radial-gradient(circle,#2c8cff,#11175a);display:grid;place-items:center;font-size:20px;">✦</div>
@@ -292,7 +296,6 @@ footer a:hover{color:#38bdf8;}
       <p style="font-size:11px;color:#c4d1ed;line-height:1.6;margin:0;">اختر منتجك واشترِ فوراً بفودافون كاش بكل سهولة وسرعة!</p>
     </div>
 
-    <!-- 2. بطاقة المحفظة والرصيد -->
     <div class="side-card">
       <h4>💳 محفظتك الرقمية</h4>
       <div class="wallet-box">
@@ -302,7 +305,6 @@ footer a:hover{color:#38bdf8;}
       </div>
     </div>
 
-    <!-- 3. نظام الإحالة والربح "شارك واكسب" (إضافة 1) -->
     <div class="side-card" style="border-color:#315dff;">
       <h4 style="color:#60a5fa;">🎁 شارك واكسب رصيد!</h4>
       <p style="font-size:10px;color:#a8b7d8;margin:0 0 8px;">ادعُ أصدقاءك للشراء من المتجر واكسب 10 جنيه رصيد مجاني!</p>
@@ -314,7 +316,6 @@ footer a:hover{color:#38bdf8;}
       {% endif %}
     </div>
 
-    <!-- 4. كود الخصم والبروموكود (إضافة 2) -->
     <div class="side-card">
       <h4>🏷️ هل لديك كود خصم؟</h4>
       <div class="promo-input-group">
@@ -324,7 +325,6 @@ footer a:hover{color:#38bdf8;}
       <small id="promoMsg" style="display:block;margin-top:6px;font-size:10px;"></small>
     </div>
 
-    <!-- 5. روابط سريعة -->
     <div class="side-card">
       <h4>⚡ خدمات سريعة</h4>
       <a href="/account" class="quick-link-btn"><span>👤</span> تعديل الحساب واللوجو</a>
@@ -334,9 +334,7 @@ footer a:hover{color:#38bdf8;}
     </div>
   </aside>
 
-  <!-- الجزء الأيمن المحتوي على المنتجات والعروض -->
   <section class="main-column">
-    <!-- العداد التنازلي للعروض السريعة (إضافة 3) -->
     <div class="flash-box">
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:20px;">⚡</span>
@@ -378,7 +376,6 @@ footer a:hover{color:#38bdf8;}
   </section>
 </main>
 
-<!-- نافذة الدفع والشراء بفودافون كاش -->
 <div class="checkout-modal" id="checkoutModal">
   <div class="checkout-box">
     <h3 id="modalProdName">شراء المنتج</h3>
@@ -406,7 +403,6 @@ footer a:hover{color:#38bdf8;}
   </div>
 </div>
 
-<!-- الفوتر المطور المحتوي على الروابط والروابط الحقيقية -->
 <footer id="footer">
   <div>
     <a class="brand" href="/" style="margin-bottom:10px;"><span class="brand-mark" style="width:28px;height:28px;font-size:22px;">N</span><span>NOVA <b>STORE</b></span></a>
@@ -518,7 +514,6 @@ function applyPromo() {
   }
 }
 
-// عداد العروض التنازلي
 let sec = 9918;
 setInterval(() => {
   if (sec <= 0) return;
@@ -546,7 +541,7 @@ renderProducts(PRODUCTS);
 </html>
 """
 
-# ==================== باقي المسارات والصفحات ====================
+# ==================== باقي مسارات التطبيق ====================
 REGISTER_PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -834,7 +829,11 @@ spinBtn.addEventListener('click', () => {
 </html>
 """
 
-# ==================== المسارات العامة ====================
+# ==================== مسارات الروت ====================
+
+@app.route('/robots.txt')
+def robots():
+    return "User-agent: *\nAllow: /", 200, {'Content-Type': 'text/plain'}
 
 @app.route("/admin")
 def admin_panel():
@@ -950,7 +949,6 @@ def register():
                         VALUES (?, ?, ?, ?, 0.0, 1, ?, ?, ?)
                     """, (temp["name"], temp["email"], temp["password"], temp["telegram_id"], my_ref, temp.get("ref"), int(time.time())))
                     
-                    # مكافأة دعوة الأصدقاء
                     if temp.get("ref"):
                         db.execute("UPDATE users SET balance = balance + 10.0 WHERE ref_code = ?", (temp.get("ref"),))
 
