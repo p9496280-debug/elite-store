@@ -25,11 +25,11 @@ ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@novastore.com")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "nova_store.db")
 
-# بيانات التليجرام وفودافون كاش الخاصة بك
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4")
 ADMIN_TELEGRAM_USERNAME = os.environ.get("ADMIN_TELEGRAM", "@Mido_M9do")
+TELEGRAM_BOT_USERNAME = os.environ.get("TELEGRAM_BOT_USER", "@midoassistantAIbot")
 TELEGRAM_CHANNEL_LINK = os.environ.get("TELEGRAM_CHANNEL", "https://t.me/Midomsn")
-VODAFONE_NUMBER = os.environ.get("VODAFONE_NUMBER", "01011541698")  # ضع رقمك هنا
+VODAFONE_NUMBER = os.environ.get("VODAFONE_NUMBER", "01011541698")
 
 
 def get_db():
@@ -129,7 +129,7 @@ def get_products():
         return [dict(row) for row in rows]
 
 
-# ==================== قالب المتجر الأساسي المطور ====================
+# ==================== قالب المتجر الأساسي المطور مع الفوتر الأنيق ====================
 PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -153,7 +153,7 @@ PAGE = r"""
 .nav a:hover, .nav a.active{background:#1a2f5a;color:#fff}
 .admin-badge { background: #570f0f; color: #ff7777; border: 1px solid #ff5555; padding: 6px 14px; border-radius: 12px; font-weight: bold; text-decoration:none;}
 
-.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:22px;padding:22px 4%}
+.layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:22px;padding:22px 4%}
 .main-column{min-width:0}
 
 /* Hero Section */
@@ -190,11 +190,13 @@ PAGE = r"""
 .price{font-size:13.5px;font-weight:800;color:#35eaa1}
 .add-btn{padding:7px 12px;border:0;border-radius:8px;background:linear-gradient(100deg,#933aff,#315dff);font-size:11px;font-weight:700;color:white;cursor:pointer}
 
-/* AI Assistant Panel */
-.ai-panel{border:1px solid #344b88;border-radius:18px;padding:16px;height:max-content;background:linear-gradient(155deg,#081735,#060d22);position:sticky;top:95px}
-.ai-heading{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-.bot-avatar{width:46px;height:46px;display:grid;place-items:center;border-radius:50%;font-size:22px;background:radial-gradient(circle at 35% 25%,#2c8cff,#11175a 65%);border:1px solid #466bff}
-.ai-message{border:1px solid #1e3c75;border-radius:12px;background:#0a1b42;padding:12px;font-size:11px;line-height:1.7;color:#c4d1ed}
+/* Sidebar Left */
+.sidebar-left{display:flex;flex-direction:column;gap:18px;}
+.side-card{border:1px solid #243e75;border-radius:18px;padding:16px;background:linear-gradient(155deg,#081735,#060d22);}
+.side-card h4{margin:0 0 10px;font-size:13px;color:#fff;display:flex;align-items:center;gap:8px;}
+.quick-link-btn{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;background:#091a3e;border:1px solid #1f3769;border-radius:10px;color:#cde0ff;font-size:11px;text-decoration:none;margin-bottom:8px;transition:0.2s;}
+.quick-link-btn:hover{background:#12295a;border-color:#315dff;color:#fff;}
+.wallet-box{background:linear-gradient(135deg,#0e234e,#180b3d);border:1px solid #35eaa166;border-radius:14px;padding:14px;text-align:center;}
 
 /* Modal Checkout */
 .checkout-modal{display:none;position:fixed;inset:0;background:rgba(3,9,27,0.85);backdrop-filter:blur(8px);z-index:200;place-items:center;padding:20px;}
@@ -202,8 +204,16 @@ PAGE = r"""
 .checkout-box h3{margin-top:0;color:#fff;}
 .vodafone-card{background:#e11d48;color:white;padding:12px;border-radius:10px;margin:15px 0;font-weight:bold;font-size:13px;}
 
-footer{border-top:1px solid #192b4e;padding:25px 4%;display:grid;grid-template-columns:1.5fr 1fr 1fr 1.4fr;gap:20px;color:#aab9d8;font-size:11px;margin-top:40px;background:#030714}
-footer h4{color:#f4f7ff;margin:0 0 10px;font-size:12px}footer a{display:block;margin:5px 0;color:#aab8d0;text-decoration:none}
+/* Footer الشيك الجديد */
+footer{border-top:1px solid #192b4e;padding:30px 4%;display:grid;grid-template-columns:1.5fr 1fr 1fr 1.2fr;gap:25px;color:#aab9d8;font-size:11px;margin-top:40px;background:#030714}
+footer h4{color:#f4f7ff;margin:0 0 12px;font-size:13px;border-right:3px solid #315dff;padding-right:8px;}
+footer a{display:block;margin:6px 0;color:#aab8d0;text-decoration:none;transition:0.2s;}
+footer a:hover{color:#38bdf8;}
+.footer-dev-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:10px;background:linear-gradient(110deg,#9b37ff,#315dff);color:white;font-weight:bold;border-radius:10px;text-decoration:none;font-size:11.5px;box-shadow:0 4px 15px rgba(49,93,255,0.3);transition:0.2s;margin-top:6px;}
+.footer-dev-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(155,55,255,0.5);}
+.footer-link-box{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
+.footer-btn-item{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#091632;border:1px solid #1c3563;border-radius:8px;color:#e2ebf8;text-decoration:none;font-size:11px;transition:0.2s;}
+.footer-btn-item:hover{border-color:#38bdf8;background:#0e2047;color:#fff;}
 </style>
 </head>
 <body>
@@ -244,6 +254,38 @@ footer h4{color:#f4f7ff;margin:0 0 10px;font-size:12px}footer a{display:block;ma
 </nav>
 
 <main class="layout">
+  <!-- الجانب الأيسر -->
+  <aside class="sidebar-left">
+    <div class="side-card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <div style="width:40px;height:40px;border-radius:50%;background:radial-gradient(circle,#2c8cff,#11175a);display:grid;place-items:center;font-size:20px;">✦</div>
+        <div>
+          <h4 style="margin:0;">مساعد NOVA AI</h4>
+          <span style="font-size:9px;color:#2fe19a;">● متصل الآن</span>
+        </div>
+      </div>
+      <p style="font-size:11px;color:#c4d1ed;line-height:1.6;margin:0;">يمكنك تصفح المنتجات والشراء فوراً بفودافون كاش دون انتظار!</p>
+    </div>
+
+    <div class="side-card">
+      <h4>💳 محفظتك الرقمية</h4>
+      <div class="wallet-box">
+        <span style="font-size:11px;color:#a8b7d8;">الرصيد المتاح</span>
+        <h2 style="margin:5px 0;color:#35eaa1;">{% if user %}{{ user["balance"] }}{% else %}0.0{% endif %} جـ</h2>
+        <a href="https://t.me/{{ admin_telegram }}?text=أريد%20شحن%20رصيد%20محفظتي%20في%20المتجر" target="_blank" style="display:inline-block;margin-top:8px;padding:6px 14px;background:linear-gradient(110deg,#35eaa1,#00b894);color:#03091b;font-weight:bold;font-size:10px;border-radius:6px;text-decoration:none;">＋ شحن الرصيد</a>
+      </div>
+    </div>
+
+    <div class="side-card">
+      <h4>⚡ خدمات سريعة</h4>
+      <a href="/account" class="quick-link-btn"><span>👤</span> تعديل الحساب واللوجو</a>
+      <a href="/spin" class="quick-link-btn"><span>🎡</span> تجربة عجلة الحظ</a>
+      <a href="https://t.me/{{ admin_telegram }}" target="_blank" class="quick-link-btn"><span>💬</span> الدعم والمساعدة الفورية</a>
+      <a href="{{ telegram_channel }}" target="_blank" class="quick-link-btn"><span>📢</span> انضم لقناتنا على تليجرام</a>
+    </div>
+  </aside>
+
+  <!-- الجزء الأيمن المحتوي على المنتجات -->
   <section class="main-column">
     <div class="hero">
       <div>
@@ -273,20 +315,6 @@ footer h4{color:#f4f7ff;margin:0 0 10px;font-size:12px}footer a{display:block;ma
 
     <div class="product-grid" id="productGrid"></div>
   </section>
-
-  <aside class="ai-panel">
-    <div class="ai-heading">
-      <div class="bot-avatar">✦</div>
-      <div>
-        <h3 style="margin:0 0 2px;font-size:13px;color:#a99bff;">مساعد NOVA AI</h3>
-        <span style="font-size:9px;color:#2fe19a;">● متصل الآن</span>
-      </div>
-    </div>
-    <div class="ai-message">
-      <b>أهلاً بك! 👋</b>
-      <p style="margin:4px 0 0;">يمكنك اختيار أي منتج للشراء الفوري عبر فودافون كاش بنفسك بسهولة وسرعة!</p>
-    </div>
-  </aside>
 </main>
 
 <!-- نافذة الدفع والشراء بفودافون كاش -->
@@ -316,24 +344,41 @@ footer h4{color:#f4f7ff;margin:0 0 10px;font-size:12px}footer a{display:block;ma
   </div>
 </div>
 
+<!-- الفوتر المطور المحتوي على الأزرار الشيك -->
 <footer id="footer">
   <div>
     <a class="brand" href="/" style="margin-bottom:10px;"><span class="brand-mark" style="width:28px;height:28px;font-size:22px;">N</span><span>NOVA <b>STORE</b></span></a>
-    <p style="line-height:1.7;margin:0;">متجرك الرقمي الأول لبطاقات الدفع وأكواد الألعاب.</p>
+    <p style="line-height:1.7;margin:0 0 12px;">متجرك الرقمي الأول لبطاقات الدفع وأكواد الألعاب بأمان وسرعة.</p>
+    <a href="https://t.me/{{ admin_telegram }}" target="_blank" class="footer-dev-btn">
+      👨‍💻 التواصل المباشر مع المطور
+    </a>
   </div>
+
   <div>
     <h4>روابط سريعة</h4>
     <a href="/">الرئيسية</a>
-    <a href="/spin">عجلة الحظ</a>
-    <a href="https://t.me/{{ admin_telegram }}" target="_blank">تواصل مع المطور</a>
+    <a href="/spin">عجلة الحظ اليومية</a>
+    <a href="/account">حسابي والشخصية</a>
   </div>
+
   <div>
-    <h4>الدعم والمساعدة</h4>
-    <a href="{{ telegram_channel }}" target="_blank">قناة التليجرام</a>
+    <h4>الدعم والتليجرام</h4>
+    <div class="footer-link-box">
+      <a href="https://t.me/{{ telegram_bot }}" target="_blank" class="footer-btn-item">
+        <span>🤖</span> بوت تليجرام الخدمة
+      </a>
+      <a href="{{ telegram_channel }}" target="_blank" class="footer-btn-item">
+        <span>📢</span> قناة التليجرام الرسمية
+      </a>
+      <a href="https://t.me/{{ admin_telegram }}" target="_blank" class="footer-btn-item">
+        <span>🎧</span> الدعم الفني 24/7
+      </a>
+    </div>
   </div>
+
   <div>
     <h4>وسائل الدفع</h4>
-    <div style="font-size:20px;margin-top:10px;letter-spacing:5px;">📱 فودافون كاش</div>
+    <div style="font-size:18px;margin-top:8px;color:#35eaa1;font-weight:bold;">📱 فودافون كاش</div>
     <small style="display:block;margin-top:15px;color:#8194ba;">© 2026 NOVA STORE جميع الحقوق محفوظة</small>
   </div>
 </footer>
@@ -367,7 +412,6 @@ function openCheckout(prodId) {
   if (!p) return;
   
   const basePrice = p.price_val;
-  // رسوم التحويل: 3 جنيه لكل 10 جنيه
   const fee = Math.ceil(basePrice / 10) * 3;
   const total = basePrice + fee;
 
@@ -375,7 +419,7 @@ function openCheckout(prodId) {
   document.getElementById('modalProdDesc').textContent = p.description;
   document.getElementById('basePrice').textContent = basePrice;
   document.getElementById('feePrice').textContent = fee;
-  document.getElementById('totalPrice').textContent = total;
+  document.getElementById('totalPrice').textContent = totalPrice = total;
 
   const msg = encodeURIComponent(`مرحباً، أود شراء المنتج: (${p.name})\nالمبلغ المحول شامل الرسوم: ${total} جنيه على رقم فودافون كاش.`);
   document.getElementById('teleBuyBtn').href = `https://t.me/${adminTelegram}?text=${msg}`;
@@ -403,7 +447,7 @@ renderProducts(PRODUCTS);
 </html>
 """
 
-# ==================== باقي الصفحات (تسجيل الدخول والبروفايل وعجلة الحظ) ====================
+# ==================== باقي الصفحات ====================
 REGISTER_PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -691,7 +735,7 @@ spinBtn.addEventListener('click', () => {
 </html>
 """
 
-# ==================== المسارات والتحكم ====================
+# ==================== المسارات العامة ====================
 
 @app.route("/admin")
 def admin_panel():
@@ -887,6 +931,7 @@ def home():
         user=user, 
         is_admin=is_admin, 
         admin_telegram=ADMIN_TELEGRAM_USERNAME, 
+        telegram_bot=TELEGRAM_BOT_USERNAME,
         telegram_channel=TELEGRAM_CHANNEL_LINK,
         vodafone_number=VODAFONE_NUMBER
     )
