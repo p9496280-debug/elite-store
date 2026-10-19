@@ -23,7 +23,6 @@ from flask import (
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_store_secret_key")
 
-# مجلدات حفظ الصور المرفوعة
 UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads')
 AVATARS_FOLDER = os.path.join(app.root_path, 'static', 'avatars')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -279,7 +278,6 @@ PAGE = r"""
 @media (max-width:850px){ .layout{grid-template-columns:1fr;} }
 .main-column{min-width:0}
 
-/* Hero Section */
 .hero{min-height:280px;border:1px solid #263f77;border-radius:22px;overflow:hidden;display:grid;grid-template-columns:1fr 1fr;position:relative;background:radial-gradient(ellipse at 70% 50%,#351174 0,transparent 50%),linear-gradient(110deg,#06102b,#080c2c 65%,#100a3b);padding:25px;align-items:center;}
 .hero h1{font-size:clamp(20px,2vw,28px);line-height:1.6;margin:0 0 10px;font-weight:800}
 .hero p{color:#c4cce2;font-size:12px;line-height:1.8;margin:0 0 15px}
@@ -291,7 +289,6 @@ PAGE = r"""
 .gift-card.playstation{right:28%;top:20px;transform:rotate(6deg);background:linear-gradient(145deg,#0759dd,#111342)}
 .gift-card.steam{right:10%;top:30px;transform:rotate(12deg);background:linear-gradient(125deg,#122b54,#050c1c)}
 
-/* Personal Deal Banner */
 .personal-deal-box {
   background: linear-gradient(135deg, #1e0938, #0a1128);
   border: 1px solid #a855f7;
@@ -313,14 +310,12 @@ PAGE = r"""
   font-size: 13px;
 }
 
-/* Categories Grid */
 .categories{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin:20px 0}
 .category{border:1px solid #172d53;border-radius:12px;background:linear-gradient(150deg,#07152e,#050d20);padding:14px 8px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;cursor:pointer;transition:0.2s}
 .category:hover{border-color:#5a54ff;transform:translateY(-2px)}
 .category span{font-size:22px;color:#65baff}
 .category b{font-size:11px}
 
-/* Products Section */
 .section-heading{display:flex;align-items:center;justify-content:space-between;margin:25px 0 12px}
 .section-heading h2{font-size:18px;margin:0;display:flex;align-items:center;gap:8px}
 .product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:15px}
@@ -334,9 +329,9 @@ PAGE = r"""
 .product-card p{font-size:10px;color:#8fa1c4;margin:0 0 10px}
 .price-row{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
 .price{font-size:13.5px;font-weight:800;color:#35eaa1}
+.old-price{font-size:11px;color:#8fa1c4;text-decoration:line-through;margin-left:5px;}
 .add-btn{padding:7px 12px;border:0;border-radius:8px;background:linear-gradient(100deg,#933aff,#315dff);font-size:11px;font-weight:700;color:white;cursor:pointer}
 
-/* Sidebar Left */
 .sidebar-left{display:flex;flex-direction:column;gap:18px;}
 .side-card{border:1px solid #243e75;border-radius:18px;padding:16px;background:linear-gradient(155deg,#081735,#060d22);}
 .side-card h4{margin:0 0 10px;font-size:13px;color:#fff;display:flex;align-items:center;gap:8px;}
@@ -345,22 +340,18 @@ PAGE = r"""
 .reviews-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:15px;}
 .review-card {background:#071635;border:1px solid #1e3a6e;padding:12px;border-radius:12px;}
 
-/* Flash Deals Box */
 .flash-box{background:linear-gradient(135deg,#5e0a0a,#2b0808);border:1px solid #ff3b3b;border-radius:14px;padding:12px;margin-bottom:15px;display:flex;align-items:center;justify-content:space-between;}
 .timer{font-size:14px;font-weight:bold;color:#facc15;background:#03091b;padding:4px 10px;border-radius:8px;}
 
-/* Promo Box */
 .promo-input-group{display:flex;gap:6px;margin-top:8px;}
 .promo-input-group input{flex:1;padding:8px;background:#03091b;border:1px solid #263d70;border-radius:8px;color:#fff;font-size:11px;}
 .promo-input-group button{padding:8px 12px;background:#315dff;color:#fff;border:0;border-radius:8px;font-weight:bold;cursor:pointer;font-size:11px;}
 
-/* Modal Checkout & Review */
 .checkout-modal{display:none;position:fixed;inset:0;background:rgba(3,9,27,0.85);backdrop-filter:blur(8px);z-index:200;place-items:center;padding:20px;}
 .checkout-box{background:linear-gradient(145deg,#07132c,#0a1a3f);border:1px solid #315dff;border-radius:18px;padding:25px;width:100%;max-width:400px;text-align:center;}
 .checkout-box h3{margin-top:0;color:#fff;}
 .vodafone-card{background:#e11d48;color:white;padding:12px;border-radius:10px;margin:15px 0;font-weight:bold;font-size:13px;}
 
-/* Footer */
 footer{border-top:1px solid #192b4e;padding:30px 4%;display:grid;grid-template-columns:1.5fr 1fr 1fr 1.2fr;gap:25px;color:#aab9d8;font-size:11px;margin-top:40px;background:#030714}
 footer h4{color:#f4f7ff;margin:0 0 12px;font-size:13px;border-right:3px solid #315dff;padding-right:8px;}
 footer a{display:block;margin:6px 0;color:#aab8d0;text-decoration:none;transition:0.2s;}
@@ -485,7 +476,7 @@ footer a:hover{color:#38bdf8;}
         <span style="font-size:28px;">🎁</span>
         <div>
           <b style="color:#c084fc;font-size:13px;display:block;">عرض مخصص لك حصرياً!</b>
-          <span style="font-size:11px;color:#cbd5e1;">احصل على خصم 15% على أي بطاقة عبر كود <b style="color:#facc15;">MIDO2026</b></span>
+          <span style="font-size:11px;color:#cbd5e1;">احصل على خصم 10% على أي بطاقة عبر كود <b style="color:#facc15;">MIDO2026</b></span>
         </div>
       </div>
       <div class="deal-timer" id="personalTimer">19:59</div>
@@ -551,8 +542,8 @@ footer a:hover{color:#38bdf8;}
 
     <div style="background:#03091b;padding:12px;border-radius:10px;text-align:right;font-size:12px;margin-bottom:15px;line-height:1.8;">
       <div>سعر المنتج الأصلي: <b id="basePrice" style="color:#fff;">0</b> جـ</div>
-      <div>رسوم التحويل (3 جـ لكل 10 جـ): <b id="feePrice" style="color:#ff7777;">0</b> جـ</div>
       <div id="discountRow" style="display:none;color:#35eaa1;">خصم الكود التطبيقي: <b id="discountVal">0</b> جـ</div>
+      <div>رسوم التحويل (3 جـ لكل 10 جـ): <b id="feePrice" style="color:#ff7777;">0</b> جـ</div>
       <hr style="border-color:#1b315c;margin:6px 0;">
       <div>المبلغ الإجمالي المطلوب تحويله: <b id="totalPrice" style="color:#35eaa1;font-size:15px;">0</b> جـ</div>
     </div>
@@ -627,6 +618,7 @@ const PRODUCTS = {{ products|tojson }};
 const productGrid = document.getElementById('productGrid');
 const adminTelegram = "{{ admin_telegram }}";
 let activeDiscountPercent = 0;
+let currentFilteredProducts = PRODUCTS;
 
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -652,6 +644,7 @@ function openReviewModal(){ document.getElementById('reviewModal').style.display
 function closeReviewModal(){ document.getElementById('reviewModal').style.display = 'none'; }
 
 function renderProducts(items) {
+  currentFilteredProducts = items;
   productGrid.innerHTML = '';
   items.forEach(p => {
     const card = document.createElement('article');
@@ -662,13 +655,21 @@ function renderProducts(items) {
       ? `<img src="${p.image_url}" class="product-img" alt="${p.name}">` 
       : `<span style="color:${p.color};">${p.icon}</span>`;
 
+    let priceHtml = '';
+    if (activeDiscountPercent > 0) {
+      let discountedPrice = (p.price_val * (1 - activeDiscountPercent / 100)).toFixed(0);
+      priceHtml = `<span class="price">${discountedPrice} جـ</span><span class="old-price">${p.price_val} جـ</span>`;
+    } else {
+      priceHtml = `<span class="price">${p.price}</span>`;
+    }
+
     card.innerHTML = `
       ${badgeHtml}
       <div class="product-visual">${visualHtml}</div>
       <h3 style="color:#fff;">${p.name}</h3>
       <p>${p.description}</p>
       <div class="price-row">
-        <span class="price">${p.price}</span>
+        <div>${priceHtml}</div>
         <button class="add-btn" onclick="openCheckout(${p.id})">شراء بفودافون كاش</button>
       </div>`;
     productGrid.appendChild(card);
@@ -700,7 +701,7 @@ function openCheckout(prodId) {
   document.getElementById('feePrice').textContent = fee;
   document.getElementById('totalPrice').textContent = total.toFixed(1);
 
-  const msg = encodeURIComponent(`مرحباً، أود شراء المنتج: (${p.name})\nالمبلغ المحول شامل الرسوم: ${total.toFixed(1)} جنيه على رقم فودافون كاش.`);
+  const msg = encodeURIComponent(`مرحباً، أود شراء المنتج: (${p.name})\nالمبلغ المحول شامل الرسوم والخصم: ${total.toFixed(1)} جنيه على رقم فودافون كاش.`);
   document.getElementById('teleBuyBtn').href = `https://t.me/${adminTelegram}?text=${msg}`;
 
   document.getElementById('checkoutModal').style.display = 'grid';
@@ -711,16 +712,31 @@ function closeCheckout() {
 }
 
 function applyPromo() {
-  const code = document.getElementById('promoCodeInput').value.trim().toUpperCase();
+  const codeInput = document.getElementById('promoCodeInput').value.trim().toUpperCase();
   const msg = document.getElementById('promoMsg');
-  if (code === 'MIDO2026') {
-    activeDiscountPercent = 10;
-    msg.style.color = '#35eaa1';
-    msg.textContent = '🎉 تم تطبيق كود الخصم 10% بنجاح!';
-  } else {
+  if (!codeInput) return;
+
+  fetch('/apply_promo', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({code: codeInput})
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.status === 'success') {
+      activeDiscountPercent = data.discount_percent;
+      msg.style.color = '#35eaa1';
+      msg.textContent = `🎉 ${data.message}`;
+      renderProducts(currentFilteredProducts);
+    } else {
+      msg.style.color = '#ff7777';
+      msg.textContent = `❌ ${data.message}`;
+    }
+  })
+  .catch(() => {
     msg.style.color = '#ff7777';
-    msg.textContent = '❌ كود الخصم غير صحيح أو منتهي.';
-  }
+    msg.textContent = '❌ حدث خطأ أثناء التحقق من كود الخصم.';
+  });
 }
 
 // Flash timer
@@ -755,6 +771,13 @@ function filterProducts() {
   const query = document.getElementById('searchInput').value.toLowerCase();
   renderProducts(PRODUCTS.filter(x => x.name.toLowerCase().includes(query)));
 }
+
+// فحص الخصم من السيشن إن وجد (مثل خصم عجلة الحظ)
+{% if session.get('active_discount') %}
+  activeDiscountPercent = {{ session.get('active_discount') }};
+  document.getElementById('promoMsg').style.color = '#35eaa1';
+  document.getElementById('promoMsg').textContent = '🎉 تم تطبيق الخصم الحصري بنجاح!';
+{% endif %}
 
 renderProducts(PRODUCTS);
 </script>
@@ -799,7 +822,6 @@ button{padding:12px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;
   <h2 style="margin:0 0 4px;">{{ user["name"] }}</h2>
   <span style="color:#35eaa1;font-weight:800;font-size:12px;display:block;">{{ user["status_title"] }} | الرصيد: {{ user["balance"] }} جـ</span>
 
-  <!-- شارات الإنجازات -->
   <div class="badges-row">
     {% if user["spin_count"] and user["spin_count"] > 0 %}
       <span class="badge-item" style="border-color:#f59e0b;color:#facc15;">🎡 صائد الحظ</span>
@@ -851,7 +873,6 @@ function setAvatar(emoji) {
 </html>
 """
 
-# بقية القوالب ومسارات الروت
 REGISTER_PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -1099,7 +1120,7 @@ canvas{width:100%;height:100%;border-radius:50%;transition: transform 6s cubic-b
     <div style="font-size:50px;">🎁</div>
     <h2 id="prizeTitle" style="color:#35eaa1;margin:5px 0;">مبروك!</h2>
     <p id="prizeDesc" style="color:#a8b7d8;font-size:13px;"></p>
-    <button onclick="location.reload()" style="margin-top:15px;padding:10px 20px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;">حسناً</button>
+    <button onclick="location.href='/'" style="margin-top:15px;padding:10px 20px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;">التوجه للمتجر للشراء بالخصم 🔥</button>
   </div>
 </div>
 
@@ -1125,12 +1146,12 @@ const spinBtn = document.getElementById('spinBtn');
 const resultModal = document.getElementById('resultModal');
 
 const items = [
-  { label: '5 جنيه 💰', color: '#8d38ff', amount: 5 },
-  { label: 'حظ أوفر 😅', color: '#1b2a4a', amount: 0 },
-  { label: '10 جنيه 💳', color: '#315dff', amount: 10 },
-  { label: 'خصم 20% 🏷️', color: '#00c853', amount: 0 },
-  { label: '20 جنيه 🎁', color: '#ff9100', amount: 20 },
-  { label: 'حظ أوفر 😅', color: '#263d70', amount: 0 }
+  { label: '5 جنيه 💰', color: '#8d38ff', amount: 5, discount: 0 },
+  { label: 'حظ أوفر 😅', color: '#1b2a4a', amount: 0, discount: 0 },
+  { label: '10 جنيه 💳', color: '#315dff', amount: 10, discount: 0 },
+  { label: 'خصم 20% 🏷️', color: '#00c853', amount: 0, discount: 20 },
+  { label: '20 جنيه 🎁', color: '#ff9100', amount: 20, discount: 0 },
+  { label: 'حظ أوفر 😅', color: '#263d70', amount: 0, discount: 0 }
 ];
 
 const numItems = items.length;
@@ -1184,7 +1205,7 @@ spinBtn.addEventListener('click', () => {
 
     setTimeout(() => {
       isSpinning = false;
-      document.getElementById('prizeTitle').textContent = prize.amount > 0 ? '🎉 مبروك!' : '😅 حظ أوفر!';
+      document.getElementById('prizeTitle').textContent = (prize.amount > 0 || prize.discount > 0) ? '🎉 مبروك!' : '😅 حظ أوفر!';
       document.getElementById('prizeDesc').textContent = data.msg;
       resultModal.style.display = 'grid';
     }, 6000);
@@ -1204,6 +1225,25 @@ def manifest():
 @app.route('/robots.txt')
 def robots():
     return "User-agent: *\nAllow: /", 200, {'Content-Type': 'text/plain'}
+
+@app.route("/apply_promo", methods=["POST"])
+def apply_promo():
+    data = request.get_json() or {}
+    code_input = data.get("code", "").strip().upper()
+    if not code_input:
+        return jsonify({"status": "error", "message": "يرجى إدخال كود الخصم."})
+
+    with get_db() as db:
+        promo = db.execute("SELECT * FROM promo_codes WHERE code = ? AND active = 1", (code_input,)).fetchone()
+        if promo:
+            session['active_discount'] = promo["discount_percent"]
+            return jsonify({
+                "status": "success",
+                "discount_percent": promo["discount_percent"],
+                "message": f"تم تطبيق كود الخصم ({promo['discount_percent']}%) بنجاح وتم تحديث الأسعار!"
+            })
+        else:
+            return jsonify({"status": "error", "message": "كود الخصم غير صحيح أو منتهي الصلاحية."})
 
 @app.route("/admin")
 def admin_panel():
@@ -1336,12 +1376,12 @@ def spin():
 
         selectedIndex = secrets.randbelow(6)
         prizes = [
-            {'label': '5 جنيه 💰', 'amount': 5},
-            {'label': 'حظ أوفر 😅', 'amount': 0},
-            {'label': '10 جنيه 💳', 'amount': 10},
-            {'label': 'خصم 20% 🏷️', 'amount': 0},
-            {'label': '20 جنيه 🎁', 'amount': 20},
-            {'label': 'حظ أوفر 😅', 'amount': 0}
+            {'label': '5 جنيه 💰', 'amount': 5, 'discount': 0},
+            {'label': 'حظ أوفر 😅', 'amount': 0, 'discount': 0},
+            {'label': '10 جنيه 💳', 'amount': 10, 'discount': 0},
+            {'label': 'خصم 20% 🏷️', 'amount': 0, 'discount': 20},
+            {'label': '20 جنيه 🎁', 'amount': 20, 'discount': 0},
+            {'label': 'حظ أوفر 😅', 'amount': 0, 'discount': 0}
         ]
         prize = prizes[selectedIndex]
 
@@ -1351,7 +1391,14 @@ def spin():
             else:
                 db.execute("UPDATE users SET last_spin_date = ?, spin_count = spin_count + 1 WHERE email = ?", (today_str, email))
 
-        msg = f"مبروك! فزت بـ ({prize['label']}) وأضيفت لمحفظتك." if prize['amount'] > 0 else "حاول مجدداً غداً."
+        if prize['discount'] > 0:
+            session['active_discount'] = prize['discount']
+            msg = f"مبروك! فزت بـ ({prize['label']}) وتم خفض جميع أسعار المتجر فوراً بنسبة {prize['discount']}%!"
+        elif prize['amount'] > 0:
+            msg = f"مبروك! فزت بـ ({prize['label']}) وأضيفت لمحفظتك."
+        else:
+            msg = "حاول مجدداً غداً."
+
         return jsonify({"status": "success", "index": selectedIndex, "msg": msg})
 
     return render_template_string(SPIN_PAGE)
