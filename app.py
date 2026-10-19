@@ -30,7 +30,6 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8377094717:AAEb-H7GhA
 ADMIN_TELEGRAM_USERNAME = "Mido_M9do"
 TELEGRAM_BOT_USERNAME = "midoassistantAIbot"
 TELEGRAM_CHANNEL_LINK = "https://t.me/Midomsn"
-VODAFONE_NUMBER = os.environ.get("VODAFONE_NUMBER", "01011541698")
 
 
 def get_db():
@@ -110,6 +109,7 @@ def init_db():
         """)
 
         db.execute("INSERT OR IGNORE INTO store_settings (key, value) VALUES ('flash_msg', 'عروض الساعات المحدودة! خصومات خاصة تنتهي قريباً')")
+        db.execute("INSERT OR IGNORE INTO store_settings (key, value) VALUES ('vodafone_number', '01000000000')")
 
         admin_user = db.execute("SELECT id FROM users WHERE email = ?", (ADMIN_EMAIL,)).fetchone()
         if not admin_user:
@@ -209,7 +209,6 @@ PAGE = r"""
 .user-profile-badge {display: flex; align-items: center; gap: 10px; background: #0b1734; border: 1px solid #263d70; padding: 6px 14px; border-radius: 30px; text-decoration: none;}
 .user-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #9b37ff, #315dff); display: grid; place-items: center; font-weight: bold; color: white; }
 
-/* شريط الملاحة الرئيسي */
 .nav {
   min-height: 58px;
   padding: 0 4%;
@@ -393,7 +392,7 @@ footer a:hover{color:#38bdf8;}
 
 <main class="layout">
   <aside class="sidebar-left">
-    <!-- بطاقة التثبيت الفوري للـ PWA -->
+    <!-- PWA -->
     <div class="side-card" style="border-color: #35eaa1; background: linear-gradient(135deg, #071f3d, #030d24);">
       <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
         <span style="font-size: 24px;">📱</span>
@@ -415,7 +414,7 @@ footer a:hover{color:#38bdf8;}
       <button onclick="openReviewModal()" style="width:100%;padding:9px;background:linear-gradient(110deg,#f59e0b,#d97706);color:white;font-weight:bold;border-radius:8px;border:0;cursor:pointer;font-size:11px;">✍️ إضافة تقييم للخدمة</button>
     </div>
 
-    <!-- بطاقة المحفظة والرصيد -->
+    <!-- المحفظة -->
     <div class="side-card">
       <h4>💳 محفظتك الرقمية</h4>
       <div class="wallet-box">
@@ -475,7 +474,7 @@ footer a:hover{color:#38bdf8;}
 
     <div class="product-grid" id="productGrid"></div>
 
-    <!-- قسم آراء وتقييمات العملاء للثقة -->
+    <!-- تقييمات العملاء -->
     <div style="margin-top:40px;" id="reviews">
       <div class="section-heading">
         <h2><span>⭐️</span> آراء وتقييمات العملاء (ثقة وأمان)</h2>
@@ -522,7 +521,6 @@ footer a:hover{color:#38bdf8;}
   </div>
 </div>
 
-<!-- مودال تقييم الخدمة -->
 <div class="checkout-modal" id="reviewModal">
   <div class="checkout-box">
     <h3>✍️ تقييم الخدمة والافتخار برأيك</h3>
@@ -821,6 +819,7 @@ button{padding:10px 20px;background:#315dff;border:0;border-radius:8px;color:whi
 </html>
 """
 
+# ==================== لوحة التحكم الشاملة الكاملة ====================
 ADMIN_PANEL_PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -829,40 +828,110 @@ ADMIN_PANEL_PAGE = r"""
 <title>لوحة التحكم الشاملة | NOVA STORE</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
-body{margin:0;background:#03091b;color:white;font-family:'Cairo',sans-serif;padding:30px}
-.box{background:#07132c;border:1px solid #315dff;border-radius:15px;padding:25px;max-width:550px;margin:20px auto;}
-input, textarea{width:100%;padding:12px;margin:10px 0;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white;box-sizing:border-box;}
-button{width:100%;padding:13px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;}
+body{margin:0;background:#03091b;color:white;font-family:'Cairo',sans-serif;padding:20px;}
+.admin-container{max-width:900px;margin:auto;}
+.box{background:#07132c;border:1px solid #315dff;border-radius:15px;padding:20px;margin-bottom:20px;}
+h3{margin-top:0;color:#35eaa1;}
+input, select, textarea{width:100%;padding:10px;margin:6px 0 12px;background:#03091b;border:1px solid #263d70;border-radius:8px;color:white;box-sizing:border-box;}
+button{width:100%;padding:11px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:8px;color:white;font-weight:bold;cursor:pointer;}
+.table-style{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;}
+.table-style th, .table-style td{border:1px solid #1f3769;padding:8px;text-align:center;}
+.table-style th{background:#0a1a3f;}
+.btn-del{background:#e11d48;color:white;border:0;padding:5px 10px;border-radius:6px;cursor:pointer;}
 </style>
 </head>
 <body>
-<div style="max-width:550px;margin:auto;display:flex;justify-content:space-between;align-items:center;">
-  <h2>⚙️ لوحة تحكم المطور الشاملة</h2>
-  <a href="/" style="color:#8198ff;text-decoration:none;">← العودة للمتجر</a>
-</div>
+<div class="admin-container">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <h2>⚙️ لوحة تحكم المطور الشاملة</h2>
+    <a href="/" style="color:#8198ff;text-decoration:none;font-weight:bold;">← العودة للمتجر الرئيسية</a>
+  </div>
 
-<div class="box">
-  <h3>⚡ التحكم في رسالة العروض العلوية</h3>
-  <form method="POST" action="/admin/update_flash">
-    <input name="flash_msg" value="{{ flash_msg }}" placeholder="نص رسالة العروض والخصومات" required>
-    <button type="submit">تحديث رسالة العروض</button>
-  </form>
-</div>
+  <!-- 1. تغيير رقم فودافون كاش -->
+  <div class="box">
+    <h3>📲 رقم فودافون كاش لتحويل الأموال</h3>
+    <form method="POST" action="/admin/update_vodafone">
+      <input name="vodafone_number" value="{{ vodafone_number }}" placeholder="أدخل رقم فودافون كاش الجديد" required>
+      <button type="submit">تحديث رقم فودافون كاش</button>
+    </form>
+  </div>
 
-<div class="box">
-  <h3>➕ إضافة منتج جديد بالصورة والوصف والأسعار</h3>
-  <form method="POST" action="/admin/add_product">
-    <input name="name" placeholder="اسم المنتج (مثال: كود بلايستيشن 20$)" required>
-    <input name="description" placeholder="وصف المنتج (مثال: الولايات المتحدة - تسليم فوري)" required>
-    <input type="number" step="0.01" name="price_val" placeholder="السعر بالجنيه (مثال: 1000)" required>
-    <input name="price" placeholder="نص السعر المكتوب (مثال: 1000 جـ)" required>
-    <input name="code" placeholder="الكود الرقمي للمنتج" required>
-    <input name="image_url" placeholder="رابط صورة المنتج (Image URL - اختياري)">
-    <input name="icon" placeholder="الأيقونة الاحتياطية (مثال: ▶ أو 🎮)" required>
-    <input name="category" placeholder="القسم (بطاقات الألعاب / بطاقات الهدايا / ألعاب)" required>
-    <input name="badge" placeholder="الشارة (مثال: مميز / عروض سريعة 🔥 - اختياري)">
-    <button type="submit">إضافة المنتج للمتجر</button>
-  </form>
+  <!-- 2. التحكم في العروض -->
+  <div class="box">
+    <h3>⚡ التحكم في شريط العروض والخصومات العلوي</h3>
+    <form method="POST" action="/admin/update_flash">
+      <input name="flash_msg" value="{{ flash_msg }}" placeholder="نص رسالة العروض والخصومات" required>
+      <button type="submit">تحديث رسالة العروض</button>
+    </form>
+  </div>
+
+  <!-- 3. إضافة منتج جديد -->
+  <div class="box">
+    <h3>➕ إضافة منتج جديد بالصورة والأسعار</h3>
+    <form method="POST" action="/admin/add_product">
+      <input name="name" placeholder="اسم المنتج (مثال: كود بلايستيشن 20$)" required>
+      <input name="description" placeholder="وصف المنتج (مثال: الولايات المتحدة - تسليم فوري)" required>
+      <input type="number" step="0.01" name="price_val" placeholder="السعر بالجنيه (مثال: 1000)" required>
+      <input name="price" placeholder="نص السعر المكتوب (مثال: 1000 جـ)" required>
+      <input name="code" placeholder="الكود الرقمي للمنتج" required>
+      <input name="image_url" placeholder="رابط صورة المنتج (Image URL - اختياري)">
+      <input name="icon" placeholder="الأيقونة الاحتياطية (مثال: ▶ أو 🎮)" required>
+      <input name="category" placeholder="القسم (بطاقات الألعاب / بطاقات الهدايا / ألعاب)" required>
+      <input name="badge" placeholder="الشارة (مثال: مميز / عروض سريعة 🔥 - اختياري)">
+      <button type="submit">إضافة المنتج للمتجر</button>
+    </form>
+  </div>
+
+  <!-- 4. إدارة وحذف المنتجات الحالية -->
+  <div class="box">
+    <h3>📦 المنتجات المتاحة حالياً في المتجر (إدارة وحذف)</h3>
+    <table class="table-style">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>اسم المنتج</th>
+          <th>السعر</th>
+          <th>القسم</th>
+          <th>حذف</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in products %}
+        <tr>
+          <td>{{ p['id'] }}</td>
+          <td>{{ p['name'] }}</td>
+          <td>{{ p['price'] }}</td>
+          <td>{{ p['category'] }}</td>
+          <td>
+            <a href="/admin/delete_product/{{ p['id'] }}" onclick="return confirm('هل أنت تأكد من حذف المنتج؟')">
+              <button class="btn-del">حذف</button>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 5. شحن/تعديل رصيد المستخدمين -->
+  <div class="box">
+    <h3>💳 تعديل شحن رصيد مستخدم</h3>
+    <form method="POST" action="/admin/update_user_balance">
+      <input type="email" name="user_email" placeholder="البريد الإلكتروني للعميل" required>
+      <input type="number" step="0.01" name="new_balance" placeholder="الرصيد الجديد بالجنيه" required>
+      <button type="submit">تحديث رصيد الحساب</button>
+    </form>
+  </div>
+
+  <!-- 6. أكواد الخصم والبروموكود -->
+  <div class="box">
+    <h3>🏷️ إضافة كود خصم جديد (بروموكود)</h3>
+    <form method="POST" action="/admin/add_promo">
+      <input name="code" placeholder="كود الخصم (مثال: MIDO2026)" required>
+      <input type="number" step="0.1" name="discount_percent" placeholder="نسبة الخصم % (مثال: 10)" required>
+      <button type="submit">إضافة كود الخصم</button>
+    </form>
+  </div>
 </div>
 </body>
 </html>
@@ -1019,7 +1088,20 @@ def admin_panel():
     if not email or email != ADMIN_EMAIL:
         return redirect(url_for("home"))
     flash_msg = get_setting("flash_msg", "عروض الساعات المحدودة!")
-    return render_template_string(ADMIN_PANEL_PAGE, flash_msg=flash_msg)
+    vodafone_number = get_setting("vodafone_number", "01000000000")
+    products = get_products()
+    return render_template_string(ADMIN_PANEL_PAGE, flash_msg=flash_msg, vodafone_number=vodafone_number, products=products)
+
+@app.route("/admin/update_vodafone", methods=["POST"])
+def admin_update_vodafone():
+    email = session.get("user_email")
+    if not email or email != ADMIN_EMAIL:
+        return redirect(url_for("home"))
+    
+    num = request.form.get("vodafone_number", "").strip()
+    with get_db() as db:
+        db.execute("INSERT OR REPLACE INTO store_settings (key, value) VALUES ('vodafone_number', ?)", (num,))
+    return redirect(url_for("admin_panel"))
 
 @app.route("/admin/update_flash", methods=["POST"])
 def admin_update_flash():
@@ -1054,6 +1136,42 @@ def admin_add_product():
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, '#315dff', ?)
         """, (name, description, price_val, price, code, icon, image_url, category, badge))
 
+    return redirect(url_for("admin_panel"))
+
+@app.route("/admin/delete_product/<int:prod_id>")
+def admin_delete_product(prod_id):
+    email = session.get("user_email")
+    if not email or email != ADMIN_EMAIL:
+        return redirect(url_for("home"))
+    
+    with get_db() as db:
+        db.execute("DELETE FROM products WHERE id = ?", (prod_id,))
+    return redirect(url_for("admin_panel"))
+
+@app.route("/admin/update_user_balance", methods=["POST"])
+def admin_update_user_balance():
+    email = session.get("user_email")
+    if not email or email != ADMIN_EMAIL:
+        return redirect(url_for("home"))
+
+    u_email = request.form.get("user_email", "").strip().lower()
+    new_bal = float(request.form.get("new_balance", 0))
+
+    with get_db() as db:
+        db.execute("UPDATE users SET balance = ? WHERE email = ?", (new_bal, u_email))
+    return redirect(url_for("admin_panel"))
+
+@app.route("/admin/add_promo", methods=["POST"])
+def admin_add_promo():
+    email = session.get("user_email")
+    if not email or email != ADMIN_EMAIL:
+        return redirect(url_for("home"))
+
+    code = request.form.get("code", "").strip().upper()
+    discount = float(request.form.get("discount_percent", 10.0))
+
+    with get_db() as db:
+        db.execute("INSERT OR REPLACE INTO promo_codes (code, discount_percent) VALUES (?, ?)", (code, discount))
     return redirect(url_for("admin_panel"))
 
 
@@ -1236,6 +1354,7 @@ def home():
     products = get_products()
     reviews = get_reviews()
     flash_msg = get_setting("flash_msg", "عروض الساعات المحدودة! خصومات خاصة تنتهي قريباً")
+    vodafone_number = get_setting("vodafone_number", "01000000000")
 
     return render_template_string(
         PAGE, 
@@ -1247,7 +1366,7 @@ def home():
         admin_telegram=ADMIN_TELEGRAM_USERNAME, 
         telegram_bot=TELEGRAM_BOT_USERNAME,
         telegram_channel=TELEGRAM_CHANNEL_LINK,
-        vodafone_number=VODAFONE_NUMBER
+        vodafone_number=vodafone_number
     )
 
 
