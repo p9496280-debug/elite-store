@@ -102,6 +102,17 @@ def init_db():
         """)
 
         db.execute("""
+            CREATE TABLE IF NOT EXISTS posts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                content TEXT NOT NULL,
+                image_url TEXT DEFAULT '',
+                link_url TEXT DEFAULT '',
+                created_at INTEGER NOT NULL
+            )
+        """)
+
+        db.execute("""
             CREATE TABLE IF NOT EXISTS reviews (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_name TEXT NOT NULL,
@@ -186,6 +197,18 @@ def get_products():
 def get_reviews():
     with get_db() as db:
         rows = db.execute("SELECT * FROM reviews ORDER BY id DESC LIMIT 6").fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_posts():
+    with get_db() as db:
+        rows = db.execute("SELECT * FROM posts ORDER BY id DESC").fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_promo_codes():
+    with get_db() as db:
+        rows = db.execute("SELECT * FROM promo_codes ORDER BY id DESC").fetchall()
         return [dict(row) for row in rows]
 
 
@@ -338,6 +361,12 @@ PAGE = r"""
 .side-card{border:1px solid #243e75;border-radius:18px;padding:16px;background:linear-gradient(155deg,#081735,#060d22);}
 .side-card h4{margin:0 0 10px;font-size:13px;color:#fff;display:flex;align-items:center;gap:8px;}
 .wallet-box{background:linear-gradient(135deg,#0e234e,#180b3d);border:1px solid #35eaa166;border-radius:14px;padding:14px;text-align:center;}
+
+.posts-feed {display:flex;flex-direction:column;gap:15px;margin-bottom:25px;}
+.post-card {background:linear-gradient(145deg,#0b1938,#07122b);border:1px solid #315dff;border-radius:16px;padding:16px;box-shadow:0 4px 20px rgba(49,93,255,0.15);}
+.post-card h3 {margin:0 0 8px;font-size:15px;color:#38bdf8;display:flex;align-items:center;gap:8px;}
+.post-card p {font-size:12px;color:#cbd5e1;line-height:1.7;margin:0 0 10px;}
+.post-card img {width:100%;max-height:260px;object-fit:cover;border-radius:12px;margin-bottom:10px;border:1px solid #1f3a70;}
 
 .reviews-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:15px;}
 .review-card {background:#071635;border:1px solid #1e3a6e;padding:12px;border-radius:12px;}
@@ -499,6 +528,28 @@ footer a:hover{color:#38bdf8;}
         <div class="gift-card steam"><span style="color:#9bb8ff;font-size:22px;">◉</span><b>STEAM</b></div>
       </div>
     </div>
+
+    {% if posts %}
+    <div style="margin-top:25px;">
+      <div class="section-heading">
+        <h2><span>📢</span> أخبار وإعلانات المطور المباشرة</h2>
+      </div>
+      <div class="posts-feed">
+        {% for post in posts %}
+        <div class="post-card">
+          <h3>👑 {{ post['title'] }}</h3>
+          <p>{{ post['content'] }}</p>
+          {% if post['image_url'] %}
+            <img src="{{ post['image_url'] }}" alt="Post image">
+          {% endif %}
+          {% if post['link_url'] %}
+            <a href="{{ post['link_url'] }}" target="_blank" style="display:inline-block;padding:6px 14px;background:#315dff;color:#fff;border-radius:8px;font-size:11px;font-weight:bold;text-decoration:none;">🔗 اضغط هنا للانتقال للرابط المرفق</a>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
 
     <div class="categories">
       <div class="category" onclick="filterCat('الكل')"><span>▦</span><b>الكل</b></div>
@@ -1049,6 +1100,82 @@ button{width:100%;padding:11px;background:linear-gradient(110deg,#9b37ff,#315dff
   </div>
 
   <div class="box">
+    <h3>🏷️ إنشاء كود خصم جديد (Promo Codes)</h3>
+    <form method="POST" action="/admin/add_promo">
+      <label>رمز الكود (باللغة الإنجليزية):</label>
+      <input name="code" placeholder="مثال: DISCOUNT20" required style="text-transform:uppercase;">
+      <label>نسبة الخصم (%):</label>
+      <input type="number" step="0.1" name="discount_percent" placeholder="مثال: 15" required>
+      <button type="submit">إنشاء وتفعيل كود الخصم</button>
+    </form>
+
+    <h4 style="margin-top:15px;color:#fff;">الأكواد المتاحة حالياً:</h4>
+    <table class="table-style">
+      <thead>
+        <tr>
+          <th>الكود</th>
+          <th>نسبة الخصم</th>
+          <th>الحالة</th>
+          <th>إجراء</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in promo_codes %}
+        <tr>
+          <td><b>{{ p['code'] }}</b></td>
+          <td>{{ p['discount_percent'] }}%</td>
+          <td>{% if p['active'] %}مفعل ✅{% else %}معطل ❌{% endif %}</td>
+          <td>
+            <a href="/admin/delete_promo/{{ p['id'] }}" onclick="return confirm('هل أنت تأكد من حذف كود الخصم؟')">
+              <button class="btn-del">حذف</button>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="box">
+    <h3>📢 نشر خبر / إعلان / منشور جديد لجميع المستخدمين</h3>
+    <form method="POST" action="/admin/add_post" enctype="multipart/form-data">
+      <label>عنوان المنشور / الإعلان:</label>
+      <input name="title" placeholder="مثال: 🚀 توفرت كميات جديدة من بطاقات جوجل بلاي!" required>
+      <label>محتوى ونشره النصي:</label>
+      <textarea name="content" placeholder="اكتب تفاصيل الإعلان هنا..." required style="height:70px;"></textarea>
+      <label>صورة مرفقة مع المنشور (اختياري):</label>
+      <input type="file" name="image_file" accept="image/*" style="background:#0a1a3f;padding:8px;">
+      <label>رابط إلكتروني خارجي لتوجيه المستخدمين (اختياري):</label>
+      <input name="link_url" placeholder="https://t.me/Midomsn">
+      <button type="submit">نشر الإعلان فوراً في التطبيق المتجر</button>
+    </form>
+
+    <h4 style="margin-top:15px;color:#fff;">المنشورات المنشورة سابقاً:</h4>
+    <table class="table-style">
+      <thead>
+        <tr>
+          <th>العنوان</th>
+          <th>النص</th>
+          <th>حذف</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for post in posts %}
+        <tr>
+          <td>{{ post['title'] }}</td>
+          <td>{{ post['content'][:40] }}...</td>
+          <td>
+            <a href="/admin/delete_post/{{ post['id'] }}" onclick="return confirm('حذف المنشور؟')">
+              <button class="btn-del">حذف</button>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="box">
     <h3>📲 رقم فودافون كاش لتحويل الأموال والأرباح</h3>
     <form method="POST" action="/admin/update_vodafone">
       <input name="vodafone_number" value="{{ vodafone_number }}" placeholder="أدخل رقم فودافون كاش الجديد" required>
@@ -1302,7 +1429,74 @@ def admin_panel():
     flash_msg = get_setting("flash_msg", "عروض الساعات المحدودة!")
     vodafone_number = get_setting("vodafone_number", "01000000000")
     products = get_products()
-    return render_template_string(ADMIN_PANEL_PAGE, flash_msg=flash_msg, vodafone_number=vodafone_number, products=products)
+    posts = get_posts()
+    promo_codes = get_promo_codes()
+    return render_template_string(
+        ADMIN_PANEL_PAGE, 
+        flash_msg=flash_msg, 
+        vodafone_number=vodafone_number, 
+        products=products,
+        posts=posts,
+        promo_codes=promo_codes
+    )
+
+@app.route("/admin/add_promo", methods=["POST"])
+def admin_add_promo():
+    email = session.get("user_email")
+    if not email or email != ADMIN_EMAIL:
+        return redirect(url_for("home"))
+    code = request.form.get("code", "").strip().upper()
+    discount_percent = float(request.form.get("discount_percent", 0))
+    if code and discount_percent > 0:
+        with get_db() as db:
+            db.execute("INSERT OR REPLACE INTO promo_codes (code, discount_percent, active) VALUES (?, ?, 1)", (code, discount_percent))
+    return redirect(url_for("admin_panel"))
+
+@app.route("/admin/delete_promo/<int:promo_id>")
+def admin_delete_promo(promo_id):
+    email = session.get("user_email")
+    if not email or email != ADMIN_EMAIL:
+        return redirect(url_for("home"))
+    with get_db() as db:
+        db.execute("DELETE FROM promo_codes WHERE id = ?", (promo_id,))
+    return redirect(url_for("admin_panel"))
+
+@app.route("/admin/add_post", methods=["POST"])
+def admin_add_post():
+    email = session.get("user_email")
+    if not email or email != ADMIN_EMAIL:
+        return redirect(url_for("home"))
+
+    title = request.form.get("title", "").strip()
+    content = request.form.get("content", "").strip()
+    link_url = request.form.get("link_url", "").strip()
+
+    image_url = ""
+    file = request.files.get("image_file")
+    if file and file.filename != '':
+        filename = secure_filename(file.filename)
+        unique_filename = f"post_{int(time.time())}_{filename}"
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+        file.save(filepath)
+        image_url = f"/static/uploads/{unique_filename}"
+
+    if title and content:
+        with get_db() as db:
+            db.execute("""
+                INSERT INTO posts (title, content, image_url, link_url, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            """, (title, content, image_url, link_url, int(time.time())))
+
+    return redirect(url_for("admin_panel"))
+
+@app.route("/admin/delete_post/<int:post_id>")
+def admin_delete_post(post_id):
+    email = session.get("user_email")
+    if not email or email != ADMIN_EMAIL:
+        return redirect(url_for("home"))
+    with get_db() as db:
+        db.execute("DELETE FROM posts WHERE id = ?", (post_id,))
+    return redirect(url_for("admin_panel"))
 
 @app.route("/admin/update_vodafone", methods=["POST"])
 def admin_update_vodafone():
@@ -1526,6 +1720,7 @@ def home():
         is_admin = (email == ADMIN_EMAIL)
     products = get_products()
     reviews = get_reviews()
+    posts = get_posts()
     flash_msg = get_setting("flash_msg", "عروض الساعات المحدودة!")
     vodafone_number = get_setting("vodafone_number", "01000000000")
 
@@ -1533,6 +1728,7 @@ def home():
         PAGE, 
         products=products, 
         reviews=reviews,
+        posts=posts,
         flash_msg=flash_msg,
         user=user, 
         is_admin=is_admin, 
