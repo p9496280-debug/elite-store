@@ -3,9 +3,9 @@ import json
 import time
 import secrets
 import sqlite3
+import math
 import requests
 
-from pywebpush import webpush, WebPushException
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import (
     Flask,
@@ -23,10 +23,13 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_store_secret_key")
 
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@novastore.com")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
-
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "nova_store.db")
-VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "BEl62iUYgUivxIkv69yViEuiBIa45fMplTfdM35C5m_9JffA9R2E1j8bQ2y_6f40_8gR")
-VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "A1B2C3D4E5F6G7H8I9J0")
+
+# بيانات التليجرام وفودافون كاش الخاصة بك
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4")
+ADMIN_TELEGRAM_USERNAME = os.environ.get("ADMIN_TELEGRAM", "@Mido_M9do")
+TELEGRAM_CHANNEL_LINK = os.environ.get("TELEGRAM_CHANNEL", "https://t.me/Midomsn")
+VODAFONE_NUMBER = os.environ.get("VODAFONE_NUMBER", "01011541698")  # ضع رقمك هنا
 
 
 def get_db():
@@ -46,6 +49,8 @@ def init_db():
                 telegram_id TEXT NOT NULL,
                 balance REAL NOT NULL DEFAULT 0.0,
                 verified INTEGER NOT NULL DEFAULT 0,
+                avatar TEXT DEFAULT '🤖',
+                status_title TEXT DEFAULT 'عضو مميز',
                 last_spin_date TEXT,
                 created_at INTEGER NOT NULL
             )
@@ -74,20 +79,11 @@ def init_db():
             )
         """)
 
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS push_subscriptions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_email TEXT,
-                subscription_info TEXT NOT NULL UNIQUE,
-                created_at INTEGER NOT NULL
-            )
-        """)
-
         admin_user = db.execute("SELECT id FROM users WHERE email = ?", (ADMIN_EMAIL,)).fetchone()
         if not admin_user:
             db.execute("""
-                INSERT INTO users (name, email, password_hash, telegram_id, balance, verified, created_at)
-                VALUES (?, ?, ?, ?, 999999.0, 1, ?)
+                INSERT INTO users (name, email, password_hash, telegram_id, balance, verified, avatar, status_title, created_at)
+                VALUES (?, ?, ?, ?, 999999.0, 1, '👑', 'المطور الرئيسي', ?)
             """, ("المطور (ADMIN)", ADMIN_EMAIL, generate_password_hash(ADMIN_PASSWORD), "000000", int(time.time())))
         else:
             db.execute("""
@@ -97,12 +93,12 @@ def init_db():
         cursor = db.execute("SELECT COUNT(*) as count FROM products")
         if cursor.fetchone()["count"] == 0:
             default_products = [
-                ("كود جوجل بلاي (10$)", "الولايات المتحدة", 10.00, "$10.00", "GPLAY-9876-XXXX", "▶", "بطاقات الألعاب", "#35eaa1", "الأكثر مبيعاً"),
-                ("كود بلايستيشن (20$)", "الولايات المتحدة", 20.00, "$20.00", "PSN-5432-XXXX", "PS", "بطاقات الألعاب", "#62a0ff", "مميز"),
-                ("كود إكس بوكس (25$)", "الولايات المتحدة", 25.00, "$25.00", "XBOX-3344-XXXX", "ⓧ", "بطاقات الألعاب", "#5dff9c", None),
-                ("كود ستيم (20$)", "الولايات المتحدة", 20.00, "$20.00", "STEAM-1122-XXXX", "◉", "بطاقات الألعاب", "#9bb8ff", None),
-                ("كود آيتونز (15$)", "الولايات المتحدة", 15.00, "$15.00", "ITUNES-7788-XXXX", "", "بطاقات الهدايا", "#ffc107", None),
-                ("بطاقة دفع مسبقة (50$)", "عالمية", 50.00, "$50.00", "VISA-5544-XXXX", "💳", "بطاقات الدفع", "#ff3b3b", "شائع"),
+                ("كود جوجل بلاي (10$)", "الولايات المتحدة", 500.00, "500 جـ", "GPLAY-9876", "▶", "بطاقات الألعاب", "#35eaa1", "الأكثر مبيعاً"),
+                ("كود بلايستيشن (20$)", "الولايات المتحدة", 1000.00, "1000 جـ", "PSN-5432", "PS", "بطاقات الألعاب", "#62a0ff", "مميز"),
+                ("كود إكس بوكس (25$)", "الولايات المتحدة", 1250.00, "1250 جـ", "XBOX-3344", "ⓧ", "بطاقات الألعاب", "#5dff9c", None),
+                ("كود ستيم (20$)", "الولايات المتحدة", 1000.00, "1000 جـ", "STEAM-1122", "◉", "بطاقات الألعاب", "#9bb8ff", None),
+                ("كود آيتونز (15$)", "الولايات المتحدة", 750.00, "750 جـ", "ITUNES-7788", "", "بطاقات الهدايا", "#ffc107", None),
+                ("شحن ببجي 660 شدة", "شحن فوري عن طريق الايدي", 350.00, "350 جـ", "PUBG-660", "🎮", "ألعاب", "#ff3b3b", "شائع"),
             ]
             db.executemany("""
                 INSERT INTO products (name, description, price_val, price, code, icon, category, color, badge)
@@ -113,22 +109,18 @@ def init_db():
 init_db()
 
 
-def broadcast_push_notification(title, body):
-    with get_db() as db:
-        subs = db.execute("SELECT subscription_info FROM push_subscriptions").fetchall()
-    
-    payload = json.dumps({"title": title, "body": body, "icon": "/static/icon.png"})
-    for s in subs:
-        try:
-            sub_info = json.loads(s["subscription_info"])
-            webpush(
-                subscription_info=sub_info,
-                data=payload,
-                vapid_private_key=VAPID_PRIVATE_KEY,
-                vapid_claims={"sub": "mailto:admin@novastore.com"}
-            )
-        except Exception:
-            pass
+def send_telegram_code(chat_id, code):
+    if TELEGRAM_BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
+        return
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": f"🔐 كود التحقق الخاص بك في متجر NOVA STORE هو: {code}\nصالح لمدة 5 دقائق فقط."
+    }
+    try:
+        requests.post(url, json=payload, timeout=5)
+    except Exception:
+        pass
 
 
 def get_products():
@@ -137,31 +129,16 @@ def get_products():
         return [dict(row) for row in rows]
 
 
-@app.route("/subscribe_push", methods=["POST"])
-def subscribe_push():
-    data = request.get_json() or {}
-    sub_info = json.dumps(data.get("subscription"))
-    email = session.get("user_email")
-    if sub_info:
-        with get_db() as db:
-            db.execute("""
-                INSERT OR REPLACE INTO push_subscriptions (user_email, subscription_info, created_at)
-                VALUES (?, ?, ?)
-            """, (email, sub_info, int(time.time())))
-        return jsonify({"status": "success"})
-    return jsonify({"status": "error"}), 400
-
-
-# ==================== صفحة المتجر الرئيسية الأصلية تماماً + وضع الصيانة ====================
+# ==================== قالب المتجر الأساسي المطور ====================
 PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NOVA STORE | متجرك الرقمي</title>
+<title>NOVA STORE | المتجر الرقمي الشامل</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
 :root{--bg:#03091b;--panel:#07132c;--text:#f4f7ff;--blue:#315dff;--purple:#8d38ff;--border:#1b315c}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 70% 0%,#10133e 0,transparent 36%),var(--bg);color:var(--text);font-family:'Cairo',sans-serif}
 .topbar{min-height:78px;display:flex;align-items:center;gap:20px;padding:12px 4%;border-bottom:1px solid #18284a;position:sticky;top:0;background:#040a1bed;backdrop-filter:blur(16px);z-index:10}
@@ -171,47 +148,46 @@ PAGE = r"""
 .header-actions{display:flex;align-items:center;gap:10px;margin-right:auto}
 .user-profile-badge {display: flex; align-items: center; gap: 10px; background: #0b1734; border: 1px solid #263d70; padding: 6px 14px; border-radius: 30px; text-decoration: none;}
 .user-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #9b37ff, #315dff); display: grid; place-items: center; font-weight: bold; color: white; }
-.nav{min-height:46px;padding:0 4%;display:flex;align-items:center;gap:28px;border-bottom:1px solid #18284a;font-size:13px}
-.nav a{color:#c4cde3;text-decoration:none;cursor:pointer}.nav a:hover{color:#7f9dff}
+.nav{min-height:50px;padding:0 4%;display:flex;align-items:center;gap:20px;border-bottom:1px solid #18284a;font-size:13px;background:#061028;overflow-x:auto;}
+.nav a{color:#c4cde3;text-decoration:none;padding:6px 14px;border-radius:10px;transition:0.2s;white-space:nowrap;display:flex;align-items:center;gap:6px;}
+.nav a:hover, .nav a.active{background:#1a2f5a;color:#fff}
 .admin-badge { background: #570f0f; color: #ff7777; border: 1px solid #ff5555; padding: 6px 14px; border-radius: 12px; font-weight: bold; text-decoration:none;}
 
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:22px;padding:22px 4%}
 .main-column{min-width:0}
 
 /* Hero Section */
-.hero{min-height:290px;border:1px solid #263f77;border-radius:22px;overflow:hidden;display:grid;grid-template-columns:1fr 1fr;position:relative;background:radial-gradient(ellipse at 70% 50%,#351174 0,transparent 50%),linear-gradient(110deg,#06102b,#080c2c 65%,#100a3b);padding:25px;align-items:center;}
+.hero{min-height:280px;border:1px solid #263f77;border-radius:22px;overflow:hidden;display:grid;grid-template-columns:1fr 1fr;position:relative;background:radial-gradient(ellipse at 70% 50%,#351174 0,transparent 50%),linear-gradient(110deg,#06102b,#080c2c 65%,#100a3b);padding:25px;align-items:center;}
 .hero h1{font-size:clamp(20px,2vw,28px);line-height:1.6;margin:0 0 10px;font-weight:800}
 .hero p{color:#c4cce2;font-size:12px;line-height:1.8;margin:0 0 15px}
 .hero-btn{display:inline-flex;align-items:center;gap:10px;padding:10px 22px;border-radius:30px;font-size:12px;background:linear-gradient(110deg,#9b37ff,#315dff);color:white;text-decoration:none;font-weight:bold;cursor:pointer;}
 .trust-row{display:flex;gap:15px;margin-top:15px;color:#dce5ff;font-size:10px}
-.hero-art{position:relative;height:240px;display:flex;align-items:center;justify-content:center}
-.gift-card{position:absolute;width:95px;height:135px;border:1px solid #66bfff;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-size:11px;background:linear-gradient(145deg,#063c9e,#09132e);box-shadow:0 0 20px #168dff55;cursor:pointer;}
+.hero-art{position:relative;height:220px;display:flex;align-items:center;justify-content:center}
+.gift-card{position:absolute;width:90px;height:125px;border:1px solid #66bfff;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-size:11px;background:linear-gradient(145deg,#063c9e,#09132e);box-shadow:0 0 20px #168dff55;}
 .gift-card.google{right:45%;transform:rotate(-12deg);background:linear-gradient(145deg,#113e83,#11153c);border-color:#35eaa1}
 .gift-card.playstation{right:28%;top:20px;transform:rotate(6deg);background:linear-gradient(145deg,#0759dd,#111342)}
 .gift-card.steam{right:10%;top:30px;transform:rotate(12deg);background:linear-gradient(125deg,#122b54,#050c1c)}
-.gift-card.xbox{right:0;top:70px;transform:rotate(18deg);background:linear-gradient(145deg,#076b38,#09271f);width:85px;height:120px}
 
 /* Categories Grid */
-.categories{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;margin:20px 0}
+.categories{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin:20px 0}
 .category{border:1px solid #172d53;border-radius:12px;background:linear-gradient(150deg,#07152e,#050d20);padding:14px 8px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;cursor:pointer;transition:0.2s}
 .category:hover{border-color:#5a54ff;transform:translateY(-2px)}
 .category span{font-size:22px;color:#65baff}
 .category b{font-size:11px}
-.category small{font-size:9px;color:#9eafd0}
 
 /* Products Section */
 .section-heading{display:flex;align-items:center;justify-content:space-between;margin:25px 0 12px}
 .section-heading h2{font-size:18px;margin:0;display:flex;align-items:center;gap:8px}
-.product-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+.product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:15px}
 .product-card{border:1px solid #1b3159;background:linear-gradient(150deg,#08152e,#050c1e);border-radius:14px;padding:12px;position:relative;transition:0.2s}
 .product-card:hover{border-color:#5c52ff;transform:translateY(-3px)}
-.product-visual{height:100px;border-radius:10px;background:radial-gradient(circle at 50% 20%,#1b3159,transparent 70%),#07142c;display:flex;align-items:center;justify-content:center;font-size:36px;position:relative;margin-bottom:10px;cursor:pointer;}
+.product-visual{height:100px;border-radius:10px;background:radial-gradient(circle at 50% 20%,#1b3159,transparent 70%),#07142c;display:flex;align-items:center;justify-content:center;font-size:36px;position:relative;margin-bottom:10px;}
 .badge-tag{position:absolute;top:8px;right:8px;background:#ff3b3b;color:white;font-size:9px;padding:2px 8px;border-radius:6px;font-weight:bold}
 .badge-tag.memo{background:#315dff}
-.product-card h3{font-size:13px;margin:5px 0 2px;cursor:pointer;}
+.product-card h3{font-size:13px;margin:5px 0 2px;}
 .product-card p{font-size:10px;color:#8fa1c4;margin:0 0 10px}
 .price-row{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
-.price{font-size:14px;font-weight:800;color:#fff}
+.price{font-size:13.5px;font-weight:800;color:#35eaa1}
 .add-btn{padding:7px 12px;border:0;border-radius:8px;background:linear-gradient(100deg,#933aff,#315dff);font-size:11px;font-weight:700;color:white;cursor:pointer}
 
 /* AI Assistant Panel */
@@ -219,43 +195,38 @@ PAGE = r"""
 .ai-heading{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .bot-avatar{width:46px;height:46px;display:grid;place-items:center;border-radius:50%;font-size:22px;background:radial-gradient(circle at 35% 25%,#2c8cff,#11175a 65%);border:1px solid #466bff}
 .ai-message{border:1px solid #1e3c75;border-radius:12px;background:#0a1b42;padding:12px;font-size:11px;line-height:1.7;color:#c4d1ed}
-.ai-quick{display:grid;gap:7px;margin-top:12px}
-.ai-quick button{border:1px solid #244b91;border-radius:9px;background:#0b2050;padding:8px;font-size:10px;text-align:right;color:#fff;cursor:pointer}
-.ai-input{display:flex;gap:6px;align-items:center;border:1px solid #294b91;border-radius:25px;padding:4px 10px;margin-top:15px;background:#081a3c}
-.ai-input input{width:100%;border:0;outline:0;background:transparent;color:white;font-size:11px}
-.ai-input button{width:28px;height:28px;border:0;border-radius:50%;background:#4d55ff;color:white;cursor:pointer}
 
-/* Toast Maintenance */
-.maintenance-toast{position:fixed;bottom:25px;left:50%;transform:translateX(-50%) translateY(100px);background:linear-gradient(135deg,#07132c,#1b0b3d);border:2px solid #ff9100;color:white;padding:14px 26px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,0.8);z-index:1000;transition:0.3s;display:flex;align-items:center;gap:12px;font-size:13px;opacity:0;}
-.maintenance-toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+/* Modal Checkout */
+.checkout-modal{display:none;position:fixed;inset:0;background:rgba(3,9,27,0.85);backdrop-filter:blur(8px);z-index:200;place-items:center;padding:20px;}
+.checkout-box{background:linear-gradient(145deg,#07132c,#0a1a3f);border:1px solid #315dff;border-radius:18px;padding:25px;width:100%;max-width:400px;text-align:center;}
+.checkout-box h3{margin-top:0;color:#fff;}
+.vodafone-card{background:#e11d48;color:white;padding:12px;border-radius:10px;margin:15px 0;font-weight:bold;font-size:13px;}
 
-/* Footer */
 footer{border-top:1px solid #192b4e;padding:25px 4%;display:grid;grid-template-columns:1.5fr 1fr 1fr 1.4fr;gap:20px;color:#aab9d8;font-size:11px;margin-top:40px;background:#030714}
-footer h4{color:#f4f7ff;margin:0 0 10px;font-size:12px}footer a{display:block;margin:5px 0;color:#aab8d0;text-decoration:none;cursor:pointer}
+footer h4{color:#f4f7ff;margin:0 0 10px;font-size:12px}footer a{display:block;margin:5px 0;color:#aab8d0;text-decoration:none}
 </style>
 </head>
 <body>
-<div class="maintenance-toast" id="maintToast">
-  <span style="font-size:22px;">🛠️</span>
-  <div>
-    <b>عذراً عزيزي المستخدم!</b>
-    <div style="font-size:11px;color:#cbd5e1;margin-top:2px;">المتجر وأقسامه في حالة صيانة وتحديث حالياً. عودوا قريباً!</div>
-  </div>
-</div>
 
 <header class="topbar">
   <a class="brand" href="/"><span class="brand-mark">N</span><span>NOVA <b>STORE</b></span></a>
-  <label class="search"><span>⌕</span><input id="searchInput" type="search" placeholder="ابحث عن أي منتج..." onfocus="showMaintenance()"></label>
+  <label class="search"><span>⌕</span><input id="searchInput" type="search" placeholder="ابحث عن أي منتج..." onkeyup="filterProducts()"></label>
   <div class="header-actions">
     {% if is_admin %}
       <a href="/admin" class="admin-badge">⚙️ لوحة المطور</a>
     {% endif %}
     {% if user %}
       <a href="/account" class="user-profile-badge">
-        <div class="user-avatar">{{ user["name"][:1] }}</div>
+        <div class="user-avatar">
+          {% if user["avatar"].startswith('http') or user["avatar"].startswith('/') %}
+            <img src="{{ user['avatar'] }}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
+          {% else %}
+            {{ user["avatar"] }}
+          {% endif %}
+        </div>
         <div>
           <span style="font-size:11px;font-weight:bold;display:block;">{{ user["name"] }}</span>
-          <span style="font-size:9px;color:#35eaa1;">{{ user["balance"] }} جـ</span>
+          <span style="font-size:9px;color:#35eaa1;">{{ user["status_title"] }} | {{ user["balance"] }} جـ</span>
         </div>
       </a>
     {% else %}
@@ -266,44 +237,38 @@ footer h4{color:#f4f7ff;margin:0 0 10px;font-size:12px}footer a{display:block;ma
 </header>
 
 <nav class="nav">
-  <a href="/" style="color:#7f9dff;font-weight:bold;">الرئيسية</a>
-  <a href="/spin" style="color:#ffc107;font-weight:bold;">🎡 عجلة الحظ (لفة يومياً)</a>
-  <a onclick="showMaintenance()">المنتجات</a>
-  <a onclick="showMaintenance()">من نحن</a>
-  <a onclick="showMaintenance()">الدعم</a>
+  <a href="/" class="active">🏠 الرئيسية</a>
+  <a href="/spin" style="color:#ffc107;font-weight:bold;">🎡 عجلة الحظ</a>
+  <a href="https://t.me/{{ admin_telegram }}" target="_blank" style="color:#38bdf8;">💬 التواصل مع المطور والدعم</a>
+  <a href="{{ telegram_channel }}" target="_blank" style="color:#a855f7;">📢 قناة التليجرام</a>
 </nav>
 
 <main class="layout">
   <section class="main-column">
     <div class="hero">
       <div>
-        <span style="color:#bca0ff;font-size:11px;font-weight:bold;">عالمك الرقمي في مكان واحد</span>
-        <h1>كل ما تحتاجه من بطاقات الدفع وأكواد الألعاب في مكان واحد!</h1>
-        <p>بطاقات رقمية آمنة وسريعة. شحن الألعاب، أكواد المتاجر العالمية والمزيد من المتجات الرقمية المميزة.</p>
-        <a class="hero-btn" onclick="showMaintenance()">تسوق الآن ←</a>
-        <div class="trust-row"><span>♧ دفع آمن 100%</span><span>◷ تسليم سريع</span><span>دعم على مدار الساعة</span></div>
+        <span style="color:#bca0ff;font-size:11px;font-weight:bold;">عالمك الرقمي الأول</span>
+        <h1>شحن بطاقات وأكواد الألعاب بأفضل الأسعار والتسليم الفوري!</h1>
+        <p>اختر منتجك المفضل واشترِ الآن باستخدام فودافون كاش بسهولة وأمان.</p>
+        <a class="hero-btn" href="#products">تسوق الآن ←</a>
+        <div class="trust-row"><span>♧ دفع آمن 100%</span><span>◷ تسليم سريع</span><span>دعم 24/7</span></div>
       </div>
       <div class="hero-art">
-        <div class="gift-card google" onclick="showMaintenance()"><span style="color:#35eaa1;font-size:26px;">▶</span><b>Google Play</b></div>
-        <div class="gift-card playstation" onclick="showMaintenance()"><span style="color:#62a0ff;font-size:22px;">PSN</span><b>PlayStation</b></div>
-        <div class="gift-card steam" onclick="showMaintenance()"><span style="color:#9bb8ff;font-size:22px;">◉</span><b>STEAM</b></div>
-        <div class="gift-card xbox" onclick="showMaintenance()"><span style="color:#5dff9c;font-size:22px;">ⓧ</span><b>Xbox</b></div>
+        <div class="gift-card google"><span style="color:#35eaa1;font-size:26px;">▶</span><b>Google Play</b></div>
+        <div class="gift-card playstation"><span style="color:#62a0ff;font-size:22px;">PSN</span><b>PlayStation</b></div>
+        <div class="gift-card steam"><span style="color:#9bb8ff;font-size:22px;">◉</span><b>STEAM</b></div>
       </div>
     </div>
 
     <div class="categories">
-      <div class="category" onclick="showMaintenance()"><span>▦</span><b>المنتجات الرقمية</b><small>المزيد من الخدمات</small></div>
-      <div class="category" onclick="showMaintenance()"><span style="color:#35eaa1;">▶</span><b>Google Play</b><small>أكواد جوجل بلاي</small></div>
-      <div class="category" onclick="showMaintenance()"><span style="color:#62a0ff;">▤</span><b>PlayStation</b><small>بطاقات وإاشتراكات</small></div>
-      <div class="category" onclick="showMaintenance()"><span style="color:#5dff9c;">ⓧ</span><b>Xbox</b><small>بطاقات وإاشتراكات</small></div>
-      <div class="category" onclick="showMaintenance()"><span style="color:#9bb8ff;">◉</span><b>Steam</b><small>أكواد ومحافظ ستيم</small></div>
-      <div class="category" onclick="showMaintenance()"><span style="color:#ffc107;">💳</span><b>بطاقات الدفع</b><small>بطاقات مسبقة الدفع</small></div>
-      <div class="category" onclick="showMaintenance()"><span style="color:#bc5bff;">🎁</span><b>بطاقات الهدايا</b><small>هدايا رقمية مميزة</small></div>
+      <div class="category" onclick="filterCat('الكل')"><span>▦</span><b>الكل</b></div>
+      <div class="category" onclick="filterCat('بطاقات الألعاب')"><span style="color:#35eaa1;">▶</span><b>بطاقات الألعاب</b></div>
+      <div class="category" onclick="filterCat('بطاقات الهدايا')"><span style="color:#bc5bff;">🎁</span><b>بطاقات الهدايا</b></div>
+      <div class="category" onclick="filterCat('ألعاب')"><span style="color:#ff3b3b;">🎮</span><b>الألعاب والشحن</b></div>
     </div>
 
     <div class="section-heading" id="products">
       <h2><span>🔥</span> أحدث المنتجات</h2>
-      <a onclick="showMaintenance()" style="font-size:11px;color:#8198ff;cursor:pointer;">عرض الكل ←</a>
     </div>
 
     <div class="product-grid" id="productGrid"></div>
@@ -314,24 +279,42 @@ footer h4{color:#f4f7ff;margin:0 0 10px;font-size:12px}footer a{display:block;ma
       <div class="bot-avatar">✦</div>
       <div>
         <h3 style="margin:0 0 2px;font-size:13px;color:#a99bff;">مساعد NOVA AI</h3>
-        <span style="font-size:9px;color:#2fe19a;display:flex;align-items:center;gap:4px;"><i style="width:5px;height:5px;background:#2fe19a;border-radius:50%;display:inline-block;"></i> متصل الآن</span>
+        <span style="font-size:9px;color:#2fe19a;">● متصل الآن</span>
       </div>
     </div>
     <div class="ai-message">
-      <b>مرحباً! 👋</b>
-      <p style="margin:4px 0 0;">أنا مساعد NOVA AI. يمكنني مساعدتك في البحث عن المنتجات والإجابة على استفساراتك.</p>
-    </div>
-    <div class="ai-quick">
-      <button onclick="showMaintenance()">📦 عرض المنتجات المتاحة</button>
-      <button onclick="showMaintenance()">💳 مساعدة في الشراء</button>
-      <button onclick="showMaintenance()">📞 معلومات عن المتجر</button>
-    </div>
-    <div class="ai-input">
-      <input placeholder="اكتب رسالتك هنا..." autocomplete="off" onfocus="showMaintenance()">
-      <button onclick="showMaintenance()">➤</button>
+      <b>أهلاً بك! 👋</b>
+      <p style="margin:4px 0 0;">يمكنك اختيار أي منتج للشراء الفوري عبر فودافون كاش بنفسك بسهولة وسرعة!</p>
     </div>
   </aside>
 </main>
+
+<!-- نافذة الدفع والشراء بفودافون كاش -->
+<div class="checkout-modal" id="checkoutModal">
+  <div class="checkout-box">
+    <h3 id="modalProdName">شراء المنتج</h3>
+    <p style="font-size:12px;color:#a8b7d8;" id="modalProdDesc"></p>
+    
+    <div class="vodafone-card">
+      📲 رقم تحويل فودافون كاش:<br>
+      <span style="font-size:18px;letter-spacing:1px;">{{ vodafone_number }}</span>
+    </div>
+
+    <div style="background:#03091b;padding:12px;border-radius:10px;text-align:right;font-size:12px;margin-bottom:15px;line-height:1.8;">
+      <div>سعر المنتج الأصلي: <b id="basePrice" style="color:#fff;">0</b> جـ</div>
+      <div>رسوم التحويل (3 جـ لكل 10 جـ): <b id="feePrice" style="color:#ff7777;">0</b> جـ</div>
+      <hr style="border-color:#1b315c;margin:6px 0;">
+      <div>المبلغ الإجمالي المطلوب تحويله: <b id="totalPrice" style="color:#35eaa1;font-size:15px;">0</b> جـ</div>
+    </div>
+
+    <p style="font-size:11px;color:#cbd5e1;margin-bottom:15px;">قم بتحويل المبلغ الإجمالي إلى الرقم أعلاه ثم تواصل مع المطور لاستلام كود الشحن فوراً!</p>
+
+    <div style="display:flex;gap:10px;">
+      <a id="teleBuyBtn" target="_blank" style="flex:1;padding:10px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:bold;font-size:12px;">إرسال تأكيد التحويل 💬</a>
+      <button onclick="closeCheckout()" style="padding:10px;background:#334155;color:white;border:0;border-radius:8px;cursor:pointer;font-size:12px;">إلغاء</button>
+    </div>
+  </div>
+</div>
 
 <footer id="footer">
   <div>
@@ -340,83 +323,212 @@ footer h4{color:#f4f7ff;margin:0 0 10px;font-size:12px}footer a{display:block;ma
   </div>
   <div>
     <h4>روابط سريعة</h4>
-    <a onclick="showMaintenance()">الرئيسية</a>
+    <a href="/">الرئيسية</a>
     <a href="/spin">عجلة الحظ</a>
-    <a onclick="showMaintenance()">المنتجات</a>
+    <a href="https://t.me/{{ admin_telegram }}" target="_blank">تواصل مع المطور</a>
   </div>
   <div>
     <h4>الدعم والمساعدة</h4>
-    <a onclick="showMaintenance()">مركز المساعدة</a>
-    <a onclick="showMaintenance()">سياسة الخصوصية</a>
-    <a onclick="showMaintenance()">تواصل معنا</a>
+    <a href="{{ telegram_channel }}" target="_blank">قناة التليجرام</a>
   </div>
   <div>
-    <h4>وسائل الدفع المتاحة</h4>
-    <div style="font-size:22px;margin-top:10px;letter-spacing:8px;">💳 🅿 🟡 🅕</div>
+    <h4>وسائل الدفع</h4>
+    <div style="font-size:20px;margin-top:10px;letter-spacing:5px;">📱 فودافون كاش</div>
     <small style="display:block;margin-top:15px;color:#8194ba;">© 2026 NOVA STORE جميع الحقوق محفوظة</small>
   </div>
 </footer>
 
 <script>
-function showMaintenance() {
-  const toast = document.getElementById('maintToast');
-  toast.classList.add('show');
-  setTimeout(() => {
-    toast.classList.remove('show');
-  }, 3500);
-}
-
 const PRODUCTS = {{ products|tojson }};
 const productGrid = document.getElementById('productGrid');
-function renderProducts() {
+const adminTelegram = "{{ admin_telegram }}";
+
+function renderProducts(items) {
   productGrid.innerHTML = '';
-  PRODUCTS.forEach(p => {
+  items.forEach(p => {
     const card = document.createElement('article');
     card.className = 'product-card';
-    let badgeHtml = p.badge ? `<span class="badge-tag ${p.badge==='مميز'?'memo':''}" >${p.badge}</span>` : '';
+    let badgeHtml = p.badge ? `<span class="badge-tag ${p.badge==='مميز'?'memo':''}">${p.badge}</span>` : '';
     card.innerHTML = `
       ${badgeHtml}
-      <div class="product-visual" style="color:${p.color};" onclick="showMaintenance()">${p.icon}</div>
-      <h3 style="color:#fff;" onclick="showMaintenance()">${p.name}</h3>
-      <p onclick="showMaintenance()">${p.description}</p>
+      <div class="product-visual" style="color:${p.color};">${p.icon}</div>
+      <h3 style="color:#fff;">${p.name}</h3>
+      <p>${p.description}</p>
       <div class="price-row">
         <span class="price">${p.price}</span>
-        <button class="add-btn" onclick="showMaintenance()">＋ أضف للسلة</button>
+        <button class="add-btn" onclick="openCheckout(${p.id})">شراء بفودافون كاش</button>
       </div>`;
     productGrid.appendChild(card);
   });
 }
-renderProducts();
 
-if ('serviceWorker' in navigator && 'PushManager' in window) {
-  navigator.serviceWorker.register('/sw.js').then(reg => {
-    Notification.requestPermission().then(permission => {
-      if (permission === 'granted') {
-        reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: '{{ vapid_public_key }}' }).then(sub => {
-          fetch('/subscribe_push', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ subscription: sub }) });
-        });
-      }
-    });
-  });
+function openCheckout(prodId) {
+  const p = PRODUCTS.find(x => x.id === prodId);
+  if (!p) return;
+  
+  const basePrice = p.price_val;
+  // رسوم التحويل: 3 جنيه لكل 10 جنيه
+  const fee = Math.ceil(basePrice / 10) * 3;
+  const total = basePrice + fee;
+
+  document.getElementById('modalProdName').textContent = p.name;
+  document.getElementById('modalProdDesc').textContent = p.description;
+  document.getElementById('basePrice').textContent = basePrice;
+  document.getElementById('feePrice').textContent = fee;
+  document.getElementById('totalPrice').textContent = total;
+
+  const msg = encodeURIComponent(`مرحباً، أود شراء المنتج: (${p.name})\nالمبلغ المحول شامل الرسوم: ${total} جنيه على رقم فودافون كاش.`);
+  document.getElementById('teleBuyBtn').href = `https://t.me/${adminTelegram}?text=${msg}`;
+
+  document.getElementById('checkoutModal').style.display = 'grid';
 }
+
+function closeCheckout() {
+  document.getElementById('checkoutModal').style.display = 'none';
+}
+
+function filterCat(cat) {
+  if (cat === 'الكل') renderProducts(PRODUCTS);
+  else renderProducts(PRODUCTS.filter(x => x.category === cat));
+}
+
+function filterProducts() {
+  const query = document.getElementById('searchInput').value.toLowerCase();
+  renderProducts(PRODUCTS.filter(x => x.name.toLowerCase().includes(query)));
+}
+
+renderProducts(PRODUCTS);
 </script>
 </body>
 </html>
 """
 
-# ==================== صفحة لوحة المطور ====================
+# ==================== باقي الصفحات (تسجيل الدخول والبروفايل وعجلة الحظ) ====================
+REGISTER_PAGE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>إنشاء حساب | NOVA STORE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+body{margin:0;background:#03091b;color:white;font-family:'Cairo',sans-serif;display:grid;place-items:center;min-height:100vh;}
+.box{background:#07132c;padding:30px;border:1px solid #315dff;border-radius:15px;width:360px;}
+input{width:100%;padding:12px;margin:8px 0;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white;box-sizing:border-box;}
+button{width:100%;padding:13px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>إنشاء حساب جديد</h2>
+  {% if step == 1 %}
+  <form method="post">
+    <input name="name" placeholder="الاسم الكامل" required>
+    <input type="email" name="email" placeholder="البريد الإلكتروني" required>
+    <input type="password" name="password" placeholder="كلمة المرور" required>
+    <input name="telegram_id" placeholder="Telegram Chat ID (لاستلام كود التحقق)" required>
+    <button type="submit">إرسال كود التحقق عبر التليجرام</button>
+  </form>
+  <a href="/login_google" style="display:block;text-align:center;padding:12px;border-radius:10px;color:white;text-decoration:none;font-weight:bold;background:#db4437;margin-top:10px;">التسجيل بحساب جوجل 🌐</a>
+  {% else %}
+  <form method="post">
+    <p style="color:#35eaa1;font-size:12px;">تم إرسال كود التحقق إلى بوت التليجرام الخاص بك!</p>
+    <input name="code" placeholder="أدخل كود التحقق" required>
+    <button type="submit">تأكيد التسجيل</button>
+  </form>
+  {% endif %}
+  {% if error %}<p style="color:#ff7777;font-size:12px;margin-top:10px;">{{ error }}</p>{% endif %}
+  <a href="/login" style="color:#8198ff;display:block;margin-top:15px;text-align:center;font-size:12px;text-decoration:none;">تسجيل الدخول</a>
+</div>
+</body>
+</html>
+"""
+
+LOGIN_PAGE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>تسجيل الدخول | NOVA STORE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+body{margin:0;background:#03091b;color:white;font-family:'Cairo',sans-serif;display:grid;place-items:center;min-height:100vh;}
+.box{background:#07132c;padding:30px;border:1px solid #315dff;border-radius:15px;width:360px;}
+input{width:100%;padding:12px;margin:8px 0;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white;box-sizing:border-box;}
+button{width:100%;padding:13px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>تسجيل الدخول</h2>
+  <form method="post">
+    <input type="email" name="email" placeholder="البريد الإلكتروني" required>
+    <input type="password" name="password" placeholder="كلمة المرور" required>
+    <button type="submit">دخول</button>
+  </form>
+  <a href="/login_google" style="display:block;text-align:center;padding:12px;border-radius:10px;color:white;text-decoration:none;font-weight:bold;background:#db4437;margin-top:10px;">الدخول بحساب جوجل 🌐</a>
+  {% if error %}<p style="color:#ff7777;font-size:12px;margin-top:10px;">{{ error }}</p>{% endif %}
+  <a href="/register" style="color:#8198ff;display:block;margin-top:15px;text-align:center;font-size:12px;text-decoration:none;">إنشاء حساب جديد</a>
+</div>
+</body>
+</html>
+"""
+
+ACCOUNT_PAGE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>حسابي | NOVA STORE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+body{margin:0;background:#03091b;color:white;font-family:'Cairo',sans-serif;display:grid;place-items:center;min-height:100vh;padding:20px;}
+.box{background:#07132c;padding:30px;border:1px solid #315dff;border-radius:18px;text-align:center;width:400px;}
+input{width:100%;padding:10px;margin:8px 0;background:#03091b;border:1px solid #263d70;border-radius:8px;color:white;box-sizing:border-box;}
+button{padding:10px 20px;background:#315dff;border:0;border-radius:8px;color:white;font-weight:bold;cursor:pointer;margin-top:10px;}
+.avatar-preview{width:70px;height:70px;border-radius:50%;margin:0 auto 10px;background:linear-gradient(135deg,#9b37ff,#315dff);display:grid;place-items:center;font-size:28px;overflow:hidden;border:2px solid #35eaa1;}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="avatar-preview">
+    {% if user["avatar"].startswith('http') or user["avatar"].startswith('/') %}
+      <img src="{{ user['avatar'] }}" style="width:100%;height:100%;object-fit:cover;">
+    {% else %}
+      {{ user["avatar"] }}
+    {% endif %}
+  </div>
+  <h2>{{ user["name"] }}</h2>
+  <p style="color:#35eaa1;font-weight:bold;margin:5px 0;">الحالة: {{ user["status_title"] }} | الرصيد: {{ user["balance"] }} جـ</p>
+  
+  <form method="POST" action="/update_profile" style="margin-top:20px;text-align:right;">
+    <label style="font-size:11px;color:#a8b7d8;">تعديل اللوجو / رابط الصورة:</label>
+    <input name="avatar" value="{{ user['avatar'] }}" placeholder="أدخل رابط صورة أو إيموجي" required>
+    <label style="font-size:11px;color:#a8b7d8;">تعديل حالة الحساب:</label>
+    <input name="status_title" value="{{ user['status_title'] }}" placeholder="مثال: VIP / عضو ممتاز" required>
+    <button type="submit" style="width:100%;">حفظ التعديلات</button>
+  </form>
+
+  <div style="margin-top:20px;display:flex;justify-content:space-between;">
+    <a href="/" style="color:#9db4ff;text-decoration:none;font-size:12px;">← الرئيسية</a>
+    <a href="/logout" style="color:#ff7777;text-decoration:none;font-size:12px;">تسجيل الخروج</a>
+  </div>
+</div>
+</body>
+</html>
+"""
+
 ADMIN_PANEL_PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>لوحة المطور | NOVA STORE</title>
+<title>لوحة التحكم | NOVA STORE</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
 body{margin:0;background:#03091b;color:white;font-family:'Cairo',sans-serif;padding:30px}
 .box{background:#07132c;border:1px solid #315dff;border-radius:15px;padding:25px;max-width:550px;margin:20px auto;}
-input, textarea {width:100%;padding:12px;margin:10px 0;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white;box-sizing:border-box;}
+input{width:100%;padding:12px;margin:10px 0;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white;box-sizing:border-box;}
 button{width:100%;padding:13px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;}
 </style>
 </head>
@@ -429,55 +541,44 @@ button{width:100%;padding:13px;background:linear-gradient(110deg,#9b37ff,#315dff
 <div class="box">
   <h3>➕ إضافة منتج جديد</h3>
   <form method="POST" action="/admin/add_product">
-    <input name="name" placeholder="اسم المنتج (مثال: كود جوجل بلاي)" required>
-    <input name="description" placeholder="الوصف (مثال: الولايات المتحدة)" required>
-    <input type="number" step="0.01" name="price_val" placeholder="السعر (مثال: 10)" required>
-    <input name="price" placeholder="نص السعر (مثال: $10.00)" required>
+    <input name="name" placeholder="اسم المنتج" required>
+    <input name="description" placeholder="الوصف" required>
+    <input type="number" step="0.01" name="price_val" placeholder="السعر بالجنيه (مثال: 500)" required>
+    <input name="price" placeholder="نص السعر (مثال: 500 جـ)" required>
     <input name="code" placeholder="الكود الرقمي" required>
-    <input name="icon" placeholder="الأيقونة (مثال: ▶)" required>
-    <input name="category" placeholder="القسم" required>
-    <input name="badge" placeholder="الشارة (مثال: الأكثر مبيعاً أو فارغ)">
-    <button type="submit">إضافة المنتج للمتجر</button>
-  </form>
-</div>
-
-<div class="box">
-  <h3>📢 إرسال إشعار عام لهواتف المستخدمين</h3>
-  <form method="POST" action="/admin/send_announcement">
-    <input name="title" placeholder="عنوان الإشعار (مثال: عروض حصرية!)" required>
-    <textarea name="message" placeholder="اكتب تفاصيل الإشعار هنا..." rows="3" required></textarea>
-    <button type="submit" style="background:linear-gradient(110deg,#ff9100,#ff3b3b);">إرسال الإشعار الآن</button>
+    <input name="icon" placeholder="الأيقونة (مثال: ▶ أو 🎮)" required>
+    <input name="category" placeholder="القسم (بطاقات الألعاب / بطاقات الهدايا / ألعاب)" required>
+    <input name="badge" placeholder="الشارة (اختياري)">
+    <button type="submit">إضافة المنتج</button>
   </form>
 </div>
 </body>
 </html>
 """
 
-# ==================== صفحة عجلة الحظ النيون ====================
 SPIN_PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>عجلة الحظ اليومية | NOVA STORE</title>
+<title>عجلة الحظ السينمائية | NOVA STORE</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
 *{box-sizing:border-box}
-body{margin:0;background:radial-gradient(ellipse at center,#0f1c3f 0%,#03091b 100%);color:#fff;font-family:'Cairo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
+body{margin:0;background:radial-gradient(ellipse at center,#0f1c3f 0%,#03091b 100%);color:#fff;font-family:'Cairo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;overflow:hidden;}
 .wheel-container{position:relative;width:340px;height:340px;display:flex;align-items:center;justify-content:center;margin:20px 0;}
-.wheel-outer-ring{position:absolute;inset:-12px;border-radius:50%;border:4px solid #315dff;box-shadow:0 0 35px #8d38ffaa;pointer-events:none;z-index:2;}
-.pointer{position:absolute;top:-22px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-top:28px solid #ff3b3b;z-index:10;}
-canvas{width:100%;height:100%;border-radius:50%;transition: transform 5s cubic-bezier(0.15, 0.99, 0.24, 0.99);}
-.spin-btn{position:absolute;width:75px;height:75px;border-radius:50%;background:radial-gradient(circle,#9b37ff,#315dff);border:3px solid #fff;color:#fff;font-weight:900;font-size:16px;cursor:pointer;z-index:5;}
-.modal{display:none;position:fixed;inset:0;background:#03091bee;backdrop-filter:blur(10px);z-index:100;place-items:center;padding:20px;}
+.wheel-outer-ring{position:absolute;inset:-15px;border-radius:50%;border:5px dashed #315dff;box-shadow:0 0 50px #8d38ff;pointer-events:none;z-index:2;}
+.pointer{position:absolute;top:-25px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:18px solid transparent;border-right:18px solid transparent;border-top:32px solid #ff3b3b;z-index:10;}
+canvas{width:100%;height:100%;border-radius:50%;transition: transform 6s cubic-bezier(0.1, 0.9, 0.1, 1);}
+.spin-btn{position:absolute;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle,#9b37ff,#315dff);border:4px solid #fff;color:#fff;font-weight:900;font-size:16px;cursor:pointer;z-index:5;}
+.modal{display:none;position:fixed;inset:0;background:#03091bee;backdrop-filter:blur(12px);z-index:100;place-items:center;padding:20px;}
 .modal-content{background:linear-gradient(145deg,#07132c,#0b1e47);border:2px solid #35eaa1;border-radius:20px;padding:30px;text-align:center;max-width:360px;width:100%;}
 </style>
 </head>
 <body>
 <div style="text-align:center;margin-bottom:15px;">
-  <h1 style="font-size:26px;margin:0;background:linear-gradient(110deg,#bc5bff,#315dff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">🎡 عجلة الحظ النيون</h1>
-  <p style="color:#a8b7d8;font-size:12px;">متاحة مرة واحدة فقط كل يوم!</p>
+  <h1 style="font-size:28px;margin:0;background:linear-gradient(110deg,#bc5bff,#315dff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">🎡 عجلة الحظ السينمائية</h1>
+  <p style="color:#a8b7d8;font-size:12px;">متاحة لفة واحدة كل يوم مجهزة بمؤثرات وصوت!</p>
 </div>
 
 <div class="wheel-container">
@@ -499,6 +600,21 @@ canvas{width:100%;height:100%;border-radius:50%;transition: transform 5s cubic-b
 </div>
 
 <script>
+function playSpinSound() {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(300, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 5);
+  gain.gain.setValueAtTime(0.1, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 5);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + 5);
+}
+
 const canvas = document.getElementById('wheel');
 const ctx = canvas.getContext('2d');
 const spinBtn = document.getElementById('spinBtn');
@@ -544,6 +660,7 @@ spinBtn.addEventListener('click', () => {
   if (isSpinning) return;
   isSpinning = true;
   spinBtn.disabled = true;
+  playSpinSound();
 
   fetch('/spin', {method: 'POST'}).then(res => res.json()).then(data => {
     if (data.status === 'error') {
@@ -557,7 +674,7 @@ spinBtn.addEventListener('click', () => {
 
     const selectedIndex = data.index;
     const prize = items[selectedIndex];
-    const targetDegree = (360 - (selectedIndex * (360 / numItems)) - ((360 / numItems) / 2)) + (360 * 5);
+    const targetDegree = (360 - (selectedIndex * (360 / numItems)) - ((360 / numItems) / 2)) + (360 * 6);
     
     canvas.style.transform = `rotate(${targetDegree}deg)`;
 
@@ -566,13 +683,15 @@ spinBtn.addEventListener('click', () => {
       document.getElementById('prizeTitle').textContent = prize.amount > 0 ? '🎉 مبروك!' : '😅 حظ أوفر!';
       document.getElementById('prizeDesc').textContent = data.msg;
       resultModal.style.display = 'grid';
-    }, 5000);
+    }, 6000);
   });
 });
 </script>
 </body>
 </html>
 """
+
+# ==================== المسارات والتحكم ====================
 
 @app.route("/admin")
 def admin_panel():
@@ -604,18 +723,6 @@ def admin_add_product():
 
     return redirect(url_for("admin_panel"))
 
-@app.route("/admin/send_announcement", methods=["POST"])
-def admin_send_announcement():
-    email = session.get("user_email")
-    if not email or email != ADMIN_EMAIL:
-        return redirect(url_for("home"))
-
-    title = request.form.get("title")
-    message = request.form.get("message")
-    
-    broadcast_push_notification(title, message)
-    return redirect(url_for("admin_panel"))
-
 
 @app.route("/spin", methods=["GET", "POST"])
 def spin():
@@ -630,7 +737,7 @@ def spin():
 
     if request.method == "POST":
         if user["last_spin_date"] == today_str:
-            return jsonify({"status": "error", "message": "لقد استخدمت محاولتك اليومية لعجلة الحظ! عُد غداً للفة جديدة 🎁"})
+            return jsonify({"status": "error", "message": "لقد استخدمت محاولتك اليومية! عُد غداً لفرصة جديدة 🎁"})
 
         selectedIndex = secrets.randbelow(6)
         prizes = [
@@ -649,63 +756,62 @@ def spin():
             else:
                 db.execute("UPDATE users SET last_spin_date = ? WHERE email = ?", (today_str, email))
 
-        msg = f"لقد فزت بـ ({prize['label']}) وتمت إضافة المبلغ لمحفظتك!" if prize['amount'] > 0 else "حاول مرة أخرى في المرة القادمة."
+        msg = f"مبروك! فزت بـ ({prize['label']}) وأضيفت لمحفظتك." if prize['amount'] > 0 else "حاول مجدداً غداً."
         return jsonify({"status": "success", "index": selectedIndex, "msg": msg})
 
     return render_template_string(SPIN_PAGE)
 
 
-@app.route("/sw.js")
-def service_worker():
-    sw_code = """
-    self.addEventListener('push', function(event) {
-        const data = event.data ? event.data.json() : { title: 'NOVA STORE', body: 'إشعار جديد!' };
-        event.waitUntil(
-            self.registration.showNotification(data.title, { body: data.body, icon: data.icon || '/static/icon.png' })
-        );
-    });
-    """
-    response = make_response(sw_code)
-    response.headers["Content-Type"] = "application/javascript"
-    return response
-
-
 @app.route("/register", methods=["GET", "POST"])
 def register():
     error = ""
+    step = 1
     if request.method == "POST":
-        name = request.form.get("name", "").strip()
-        email = request.form.get("email", "").strip().lower()
-        password = request.form.get("password", "")
-        telegram_id = request.form.get("telegram_id", "").strip()
+        if "code" not in request.form:
+            name = request.form.get("name", "").strip()
+            email = request.form.get("email", "").strip().lower()
+            password = request.form.get("password", "")
+            telegram_id = request.form.get("telegram_id", "").strip()
 
-        if not name or "@" not in email or len(password) < 6 or not telegram_id:
-            error = "يرجى ملء جميع البيانات بشكل صحيح."
+            if not name or "@" not in email or len(password) < 6 or not telegram_id:
+                error = "يرجى ملء جميع البيانات بشكل صحيح."
+            else:
+                with get_db() as db:
+                    existing = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+                    if existing:
+                        error = "هذا البريد مسجل مسبقاً."
+                    else:
+                        code = str(secrets.randbelow(900000) + 100000)
+                        db.execute("INSERT OR REPLACE INTO email_codes (email, code, expires_at) VALUES (?, ?, ?)",
+                                   (email, code, int(time.time()) + 300))
+                        
+                        send_telegram_code(telegram_id, code)
+                        
+                        session["temp_reg"] = {
+                            "name": name, "email": email, "password": generate_password_hash(password), "telegram_id": telegram_id
+                        }
+                        step = 2
         else:
+            entered_code = request.form.get("code", "").strip()
+            temp = session.get("temp_reg")
+            if not temp:
+                return redirect(url_for("register"))
+            
             with get_db() as db:
-                existing = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
-                if existing:
-                    error = "هذا البريد مسجل مسبقاً."
-                else:
+                record = db.execute("SELECT * FROM email_codes WHERE email = ?", (temp["email"],)).fetchone()
+                if record and record["code"] == entered_code:
                     db.execute("""
                         INSERT INTO users (name, email, password_hash, telegram_id, balance, verified, created_at)
                         VALUES (?, ?, ?, ?, 0.0, 1, ?)
-                    """, (name, email, generate_password_hash(password), telegram_id, int(time.time())))
-                    session["user_email"] = email
+                    """, (temp["name"], temp["email"], temp["password"], temp["telegram_id"], int(time.time())))
+                    session["user_email"] = temp["email"]
+                    session.pop("temp_reg", None)
                     return redirect(url_for("account"))
-    return render_template_string("""
-    <body style="background:#03091b;color:white;font-family:Arial;display:grid;place-items:center;min-height:100vh;">
-      <form method="post" style="background:#07132c;padding:25px;border:1px solid #315dff;border-radius:15px;width:320px;">
-        <h2>إنشاء حساب</h2>
-        <input name="name" placeholder="الاسم" required style="width:100%;padding:10px;margin:8px 0;background:#03091b;border:1px solid #263d70;color:white;">
-        <input type="email" name="email" placeholder="البريد الإلكتروني" required style="width:100%;padding:10px;margin:8px 0;background:#03091b;border:1px solid #263d70;color:white;">
-        <input type="password" name="password" placeholder="كلمة المرور" required style="width:100%;padding:10px;margin:8px 0;background:#03091b;border:1px solid #263d70;color:white;">
-        <input name="telegram_id" placeholder="Telegram Chat ID" required style="width:100%;padding:10px;margin:8px 0;background:#03091b;border:1px solid #263d70;color:white;">
-        <button style="width:100%;padding:12px;background:#315dff;color:white;border:0;border-radius:8px;font-weight:bold;">تسجيل</button>
-        {% if error %}<p style="color:#ff7777;">{{ error }}</p>{% endif %}
-      </form>
-    </body>
-    """, error=error)
+                else:
+                    error = "كود التحقق غير صحيح."
+                    step = 2
+
+    return render_template_string(REGISTER_PAGE, error=error, step=step)
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -720,17 +826,21 @@ def login():
             session["user_email"] = email
             return redirect(url_for("account"))
         error = "بيانات الدخول غير صحيحة."
-    return render_template_string("""
-    <body style="background:#03091b;color:white;font-family:Arial;display:grid;place-items:center;min-height:100vh;">
-      <form method="post" style="background:#07132c;padding:25px;border:1px solid #315dff;border-radius:15px;width:320px;">
-        <h2>تسجيل الدخول</h2>
-        <input type="email" name="email" placeholder="البريد الإلكتروني" required style="width:100%;padding:10px;margin:8px 0;background:#03091b;border:1px solid #263d70;color:white;">
-        <input type="password" name="password" placeholder="كلمة المرور" required style="width:100%;padding:10px;margin:8px 0;background:#03091b;border:1px solid #263d70;color:white;">
-        <button style="width:100%;padding:12px;background:#315dff;color:white;border:0;border-radius:8px;font-weight:bold;">دخول</button>
-        {% if error %}<p style="color:#ff7777;">{{ error }}</p>{% endif %}
-      </form>
-    </body>
-    """, error=error)
+    return render_template_string(LOGIN_PAGE, error=error)
+
+
+@app.route("/login_google")
+def login_google():
+    google_email = "google_user_" + str(secrets.randbelow(10000)) + "@gmail.com"
+    with get_db() as db:
+        user = db.execute("SELECT * FROM users WHERE email = ?", (google_email,)).fetchone()
+        if not user:
+            db.execute("""
+                INSERT INTO users (name, email, password_hash, telegram_id, balance, verified, avatar, status_title, created_at)
+                VALUES (?, ?, ?, 'google_user', 0.0, 1, '🌐', 'عضو جوجل', ?)
+            """, ("مستخدم جوجل", google_email, generate_password_hash("google123"), int(time.time())))
+    session["user_email"] = google_email
+    return redirect(url_for("account"))
 
 
 @app.route("/account")
@@ -740,16 +850,19 @@ def account():
         return redirect(url_for("login"))
     with get_db() as db:
         user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
-    return render_template_string("""
-    <body style="background:#03091b;color:white;font-family:Arial;display:grid;place-items:center;min-height:100vh;">
-      <div style="background:#07132c;padding:30px;border:1px solid #315dff;border-radius:15px;text-align:center;width:350px;">
-        <h2>{{ user["name"] }}</h2>
-        <p style="color:#35eaa1;font-weight:bold;">الرصيد: {{ user["balance"] }} جنيه</p>
-        <a href="/" style="color:#9db4ff;display:block;margin:10px;text-decoration:none;">الرئيسية</a>
-        <a href="/logout" style="color:#ff7777;display:block;margin:10px;text-decoration:none;">تسجيل الخروج</a>
-      </div>
-    </body>
-    """, user=user)
+    return render_template_string(ACCOUNT_PAGE, user=user)
+
+
+@app.route("/update_profile", methods=["POST"])
+def update_profile():
+    email = session.get("user_email")
+    if not email:
+        return redirect(url_for("login"))
+    avatar = request.form.get("avatar", "🤖").strip()
+    status_title = request.form.get("status_title", "عضو مميز").strip()
+    with get_db() as db:
+        db.execute("UPDATE users SET avatar = ?, status_title = ? WHERE email = ?", (avatar, status_title, email))
+    return redirect(url_for("account"))
 
 
 @app.route("/logout")
@@ -768,7 +881,15 @@ def home():
             user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
         is_admin = (email == ADMIN_EMAIL)
     products = get_products()
-    return render_template_string(PAGE, products=products, user=user, is_admin=is_admin, vapid_public_key=VAPID_PUBLIC_KEY)
+    return render_template_string(
+        PAGE, 
+        products=products, 
+        user=user, 
+        is_admin=is_admin, 
+        admin_telegram=ADMIN_TELEGRAM_USERNAME, 
+        telegram_channel=TELEGRAM_CHANNEL_LINK,
+        vodafone_number=VODAFONE_NUMBER
+    )
 
 
 if __name__ == "__main__":
