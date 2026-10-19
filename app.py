@@ -21,14 +21,15 @@ from flask import (
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_store_secret_key")
 
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@novastore.com")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "nova_store.db")
 
+# بيانات التليجرام وفودافون كاش الحقيقية المحدثة
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4")
-ADMIN_TELEGRAM_USERNAME = os.environ.get("ADMIN_TELEGRAM", "@Mido_M9do")
-TELEGRAM_BOT_USERNAME = os.environ.get("TELEGRAM_BOT_USER", "@midoassistantAIbot")
-TELEGRAM_CHANNEL_LINK = os.environ.get("TELEGRAM_CHANNEL", "https://t.me/Midomsn")
+ADMIN_TELEGRAM_USERNAME = "Mido_M9do"
+TELEGRAM_BOT_USERNAME = "midoassistantAIbot"
+TELEGRAM_CHANNEL_LINK = "https://t.me/Midomsn"
 VODAFONE_NUMBER = os.environ.get("VODAFONE_NUMBER", "01011541698")
 
 
@@ -51,6 +52,8 @@ def init_db():
                 verified INTEGER NOT NULL DEFAULT 0,
                 avatar TEXT DEFAULT '🤖',
                 status_title TEXT DEFAULT 'عضو مميز',
+                ref_code TEXT UNIQUE,
+                referred_by TEXT,
                 last_spin_date TEXT,
                 created_at INTEGER NOT NULL
             )
@@ -79,11 +82,20 @@ def init_db():
             )
         """)
 
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS promo_codes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                code TEXT UNIQUE NOT NULL,
+                discount_percent REAL NOT NULL,
+                active INTEGER DEFAULT 1
+            )
+        """)
+
         admin_user = db.execute("SELECT id FROM users WHERE email = ?", (ADMIN_EMAIL,)).fetchone()
         if not admin_user:
             db.execute("""
-                INSERT INTO users (name, email, password_hash, telegram_id, balance, verified, avatar, status_title, created_at)
-                VALUES (?, ?, ?, ?, 999999.0, 1, '👑', 'المطور الرئيسي', ?)
+                INSERT INTO users (name, email, password_hash, telegram_id, balance, verified, avatar, status_title, ref_code, created_at)
+                VALUES (?, ?, ?, ?, 999999.0, 1, '👑', 'المطور الرئيسي', 'ADMINREF', ?)
             """, ("المطور (ADMIN)", ADMIN_EMAIL, generate_password_hash(ADMIN_PASSWORD), "000000", int(time.time())))
         else:
             db.execute("""
@@ -93,17 +105,20 @@ def init_db():
         cursor = db.execute("SELECT COUNT(*) as count FROM products")
         if cursor.fetchone()["count"] == 0:
             default_products = [
-                ("كود جوجل بلاي (10$)", "الولايات المتحدة", 500.00, "500 جـ", "GPLAY-9876", "▶", "بطاقات الألعاب", "#35eaa1", "الأكثر مبيعاً"),
+                ("كود جوجل بلاي (10$)", "الولايات المتحدة", 500.00, "500 جـ", "GPLAY-9876", "▶", "بطاقات الألعاب", "#35eaa1", "عروض سريعة 🔥"),
                 ("كود بلايستيشن (20$)", "الولايات المتحدة", 1000.00, "1000 جـ", "PSN-5432", "PS", "بطاقات الألعاب", "#62a0ff", "مميز"),
                 ("كود إكس بوكس (25$)", "الولايات المتحدة", 1250.00, "1250 جـ", "XBOX-3344", "ⓧ", "بطاقات الألعاب", "#5dff9c", None),
-                ("كود ستيم (20$)", "الولايات المتحدة", 1000.00, "1000 جـ", "STEAM-1122", "◉", "بطاقات الألعاب", "#9bb8ff", None),
+                ("كود ستيم (20$)", "الولايات المتحدة", 1000.00, "1000 جـ", "STEAM-1122", "◉", "بطاقات الألعاب", "#9bb8ff", "عرض خاص"),
                 ("كود آيتونز (15$)", "الولايات المتحدة", 750.00, "750 جـ", "ITUNES-7788", "", "بطاقات الهدايا", "#ffc107", None),
-                ("شحن ببجي 660 شدة", "شحن فوري عن طريق الايدي", 350.00, "350 جـ", "PUBG-660", "🎮", "ألعاب", "#ff3b3b", "شائع"),
+                ("شحن ببجي 660 شدة", "شحن فوري عن طريق الايدي", 350.00, "350 جـ", "PUBG-660", "🎮", "ألعاب", "#ff3b3b", "شائع 🔥"),
             ]
             db.executemany("""
                 INSERT INTO products (name, description, price_val, price, code, icon, category, color, badge)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, default_products)
+
+        # كود خصم تجريبي مضاف
+        db.execute("INSERT OR IGNORE INTO promo_codes (code, discount_percent) VALUES ('MIDO2026', 10.0)")
 
 
 init_db()
@@ -129,7 +144,7 @@ def get_products():
         return [dict(row) for row in rows]
 
 
-# ==================== قالب المتجر الأساسي المطور مع الفوتر الأنيق ====================
+# ==================== القالب الرئيسي للمتجر ====================
 PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -198,13 +213,22 @@ PAGE = r"""
 .quick-link-btn:hover{background:#12295a;border-color:#315dff;color:#fff;}
 .wallet-box{background:linear-gradient(135deg,#0e234e,#180b3d);border:1px solid #35eaa166;border-radius:14px;padding:14px;text-align:center;}
 
+/* Flash Deals Box ⚡ (إضافة ربحية 1) */
+.flash-box{background:linear-gradient(135deg,#5e0a0a,#2b0808);border:1px solid #ff3b3b;border-radius:14px;padding:12px;margin-bottom:15px;display:flex;align-items:center;justify-content:space-between;}
+.timer{font-size:14px;font-weight:bold;color:#facc15;background:#03091b;padding:4px 10px;border-radius:8px;}
+
+/* Promo Box (إضافة ربحية 2) */
+.promo-input-group{display:flex;gap:6px;margin-top:8px;}
+.promo-input-group input{flex:1;padding:8px;background:#03091b;border:1px solid #263d70;border-radius:8px;color:#fff;font-size:11px;}
+.promo-input-group button{padding:8px 12px;background:#315dff;color:#fff;border:0;border-radius:8px;font-weight:bold;cursor:pointer;font-size:11px;}
+
 /* Modal Checkout */
 .checkout-modal{display:none;position:fixed;inset:0;background:rgba(3,9,27,0.85);backdrop-filter:blur(8px);z-index:200;place-items:center;padding:20px;}
 .checkout-box{background:linear-gradient(145deg,#07132c,#0a1a3f);border:1px solid #315dff;border-radius:18px;padding:25px;width:100%;max-width:400px;text-align:center;}
 .checkout-box h3{margin-top:0;color:#fff;}
 .vodafone-card{background:#e11d48;color:white;padding:12px;border-radius:10px;margin:15px 0;font-weight:bold;font-size:13px;}
 
-/* Footer الشيك الجديد */
+/* Footer */
 footer{border-top:1px solid #192b4e;padding:30px 4%;display:grid;grid-template-columns:1.5fr 1fr 1fr 1.2fr;gap:25px;color:#aab9d8;font-size:11px;margin-top:40px;background:#030714}
 footer h4{color:#f4f7ff;margin:0 0 12px;font-size:13px;border-right:3px solid #315dff;padding-right:8px;}
 footer a{display:block;margin:6px 0;color:#aab8d0;text-decoration:none;transition:0.2s;}
@@ -254,8 +278,9 @@ footer a:hover{color:#38bdf8;}
 </nav>
 
 <main class="layout">
-  <!-- الجانب الأيسر -->
+  <!-- الجانب الأيسر المطور -->
   <aside class="sidebar-left">
+    <!-- 1. مساعد الذكاء الاصطناعي -->
     <div class="side-card">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
         <div style="width:40px;height:40px;border-radius:50%;background:radial-gradient(circle,#2c8cff,#11175a);display:grid;place-items:center;font-size:20px;">✦</div>
@@ -264,9 +289,10 @@ footer a:hover{color:#38bdf8;}
           <span style="font-size:9px;color:#2fe19a;">● متصل الآن</span>
         </div>
       </div>
-      <p style="font-size:11px;color:#c4d1ed;line-height:1.6;margin:0;">يمكنك تصفح المنتجات والشراء فوراً بفودافون كاش دون انتظار!</p>
+      <p style="font-size:11px;color:#c4d1ed;line-height:1.6;margin:0;">اختر منتجك واشترِ فوراً بفودافون كاش بكل سهولة وسرعة!</p>
     </div>
 
+    <!-- 2. بطاقة المحفظة والرصيد -->
     <div class="side-card">
       <h4>💳 محفظتك الرقمية</h4>
       <div class="wallet-box">
@@ -276,6 +302,29 @@ footer a:hover{color:#38bdf8;}
       </div>
     </div>
 
+    <!-- 3. نظام الإحالة والربح "شارك واكسب" (إضافة 1) -->
+    <div class="side-card" style="border-color:#315dff;">
+      <h4 style="color:#60a5fa;">🎁 شارك واكسب رصيد!</h4>
+      <p style="font-size:10px;color:#a8b7d8;margin:0 0 8px;">ادعُ أصدقاءك للشراء من المتجر واكسب 10 جنيه رصيد مجاني!</p>
+      {% if user %}
+        <input readonly value="{{ request.host_url }}register?ref={{ user['ref_code'] }}" style="width:100%;padding:6px;background:#03091b;border:1px solid #1f3769;color:#35eaa1;border-radius:6px;font-size:9px;" onclick="this.select();document.execCommand('copy');alert('تم نسخ رابط الإحالة الخاص بك!')">
+        <small style="display:block;margin-top:4px;color:#94a3b8;font-size:8px;text-align:center;">اضغط على الرابط للنسخ والمشاركة 📲</small>
+      {% else %}
+        <a href="/login" style="font-size:10px;color:#38bdf8;text-decoration:none;display:block;text-align:center;">قم بتسجيل الدخول للحصول على رابطك الخاص</a>
+      {% endif %}
+    </div>
+
+    <!-- 4. كود الخصم والبروموكود (إضافة 2) -->
+    <div class="side-card">
+      <h4>🏷️ هل لديك كود خصم؟</h4>
+      <div class="promo-input-group">
+        <input id="promoCodeInput" placeholder="أدخل كود الخصم">
+        <button onclick="applyPromo()">تطبيق</button>
+      </div>
+      <small id="promoMsg" style="display:block;margin-top:6px;font-size:10px;"></small>
+    </div>
+
+    <!-- 5. روابط سريعة -->
     <div class="side-card">
       <h4>⚡ خدمات سريعة</h4>
       <a href="/account" class="quick-link-btn"><span>👤</span> تعديل الحساب واللوجو</a>
@@ -285,8 +334,20 @@ footer a:hover{color:#38bdf8;}
     </div>
   </aside>
 
-  <!-- الجزء الأيمن المحتوي على المنتجات -->
+  <!-- الجزء الأيمن المحتوي على المنتجات والعروض -->
   <section class="main-column">
+    <!-- العداد التنازلي للعروض السريعة (إضافة 3) -->
+    <div class="flash-box">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:20px;">⚡</span>
+        <div>
+          <b style="font-size:12px;color:#fff;display:block;">عروض الساعات المحدودة!</b>
+          <span style="font-size:10px;color:#fca5a5;">خصومات خاصة تنتهي قريباً</span>
+        </div>
+      </div>
+      <div class="timer" id="flashTimer">02:45:18</div>
+    </div>
+
     <div class="hero">
       <div>
         <span style="color:#bca0ff;font-size:11px;font-weight:bold;">عالمك الرقمي الأول</span>
@@ -331,6 +392,7 @@ footer a:hover{color:#38bdf8;}
     <div style="background:#03091b;padding:12px;border-radius:10px;text-align:right;font-size:12px;margin-bottom:15px;line-height:1.8;">
       <div>سعر المنتج الأصلي: <b id="basePrice" style="color:#fff;">0</b> جـ</div>
       <div>رسوم التحويل (3 جـ لكل 10 جـ): <b id="feePrice" style="color:#ff7777;">0</b> جـ</div>
+      <div id="discountRow" style="display:none;color:#35eaa1;">خصم الكود التطبيقي: <b id="discountVal">0</b> جـ</div>
       <hr style="border-color:#1b315c;margin:6px 0;">
       <div>المبلغ الإجمالي المطلوب تحويله: <b id="totalPrice" style="color:#35eaa1;font-size:15px;">0</b> جـ</div>
     </div>
@@ -344,13 +406,13 @@ footer a:hover{color:#38bdf8;}
   </div>
 </div>
 
-<!-- الفوتر المطور المحتوي على الأزرار الشيك -->
+<!-- الفوتر المطور المحتوي على الروابط والروابط الحقيقية -->
 <footer id="footer">
   <div>
     <a class="brand" href="/" style="margin-bottom:10px;"><span class="brand-mark" style="width:28px;height:28px;font-size:22px;">N</span><span>NOVA <b>STORE</b></span></a>
     <p style="line-height:1.7;margin:0 0 12px;">متجرك الرقمي الأول لبطاقات الدفع وأكواد الألعاب بأمان وسرعة.</p>
     <a href="https://t.me/{{ admin_telegram }}" target="_blank" class="footer-dev-btn">
-      👨‍💻 التواصل المباشر مع المطور
+      👨‍💻 التواصل المباشر مع المطور (@{{ admin_telegram }})
     </a>
   </div>
 
@@ -365,13 +427,13 @@ footer a:hover{color:#38bdf8;}
     <h4>الدعم والتليجرام</h4>
     <div class="footer-link-box">
       <a href="https://t.me/{{ telegram_bot }}" target="_blank" class="footer-btn-item">
-        <span>🤖</span> بوت تليجرام الخدمة
+        <span>🤖</span> بوت تليجرام الخدمة (@{{ telegram_bot }})
       </a>
       <a href="{{ telegram_channel }}" target="_blank" class="footer-btn-item">
         <span>📢</span> قناة التليجرام الرسمية
       </a>
       <a href="https://t.me/{{ admin_telegram }}" target="_blank" class="footer-btn-item">
-        <span>🎧</span> الدعم الفني 24/7
+        <span>🎧</span> الدعم الفني المباشر 24/7
       </a>
     </div>
   </div>
@@ -387,6 +449,7 @@ footer a:hover{color:#38bdf8;}
 const PRODUCTS = {{ products|tojson }};
 const productGrid = document.getElementById('productGrid');
 const adminTelegram = "{{ admin_telegram }}";
+let activeDiscountPercent = 0;
 
 function renderProducts(items) {
   productGrid.innerHTML = '';
@@ -411,17 +474,28 @@ function openCheckout(prodId) {
   const p = PRODUCTS.find(x => x.id === prodId);
   if (!p) return;
   
-  const basePrice = p.price_val;
+  let basePrice = p.price_val;
+  let discountVal = 0;
+
+  if (activeDiscountPercent > 0) {
+    discountVal = (basePrice * activeDiscountPercent) / 100;
+    basePrice = basePrice - discountVal;
+    document.getElementById('discountRow').style.display = 'block';
+    document.getElementById('discountVal').textContent = discountVal.toFixed(1);
+  } else {
+    document.getElementById('discountRow').style.display = 'none';
+  }
+
   const fee = Math.ceil(basePrice / 10) * 3;
   const total = basePrice + fee;
 
   document.getElementById('modalProdName').textContent = p.name;
   document.getElementById('modalProdDesc').textContent = p.description;
-  document.getElementById('basePrice').textContent = basePrice;
+  document.getElementById('basePrice').textContent = p.price_val;
   document.getElementById('feePrice').textContent = fee;
-  document.getElementById('totalPrice').textContent = totalPrice = total;
+  document.getElementById('totalPrice').textContent = total.toFixed(1);
 
-  const msg = encodeURIComponent(`مرحباً، أود شراء المنتج: (${p.name})\nالمبلغ المحول شامل الرسوم: ${total} جنيه على رقم فودافون كاش.`);
+  const msg = encodeURIComponent(`مرحباً، أود شراء المنتج: (${p.name})\nالمبلغ المحول شامل الرسوم: ${total.toFixed(1)} جنيه على رقم فودافون كاش.`);
   document.getElementById('teleBuyBtn').href = `https://t.me/${adminTelegram}?text=${msg}`;
 
   document.getElementById('checkoutModal').style.display = 'grid';
@@ -430,6 +504,31 @@ function openCheckout(prodId) {
 function closeCheckout() {
   document.getElementById('checkoutModal').style.display = 'none';
 }
+
+function applyPromo() {
+  const code = document.getElementById('promoCodeInput').value.trim().toUpperCase();
+  const msg = document.getElementById('promoMsg');
+  if (code === 'MIDO2026') {
+    activeDiscountPercent = 10;
+    msg.style.color = '#35eaa1';
+    msg.textContent = '🎉 تم تطبيق كود الخصم 10% بنجاح!';
+  } else {
+    msg.style.color = '#ff7777';
+    msg.textContent = '❌ كود الخصم غير صحيح أو منتهي.';
+  }
+}
+
+// عداد العروض التنازلي
+let sec = 9918;
+setInterval(() => {
+  if (sec <= 0) return;
+  sec--;
+  let h = Math.floor(sec / 3600);
+  let m = Math.floor((sec % 3600) / 60);
+  let s = sec % 60;
+  document.getElementById('flashTimer').textContent = 
+    `${h < 10 ? '0'+h : h}:${m < 10 ? '0'+m : m}:${s < 10 ? '0'+s : s}`;
+}, 1000);
 
 function filterCat(cat) {
   if (cat === 'الكل') renderProducts(PRODUCTS);
@@ -447,7 +546,7 @@ renderProducts(PRODUCTS);
 </html>
 """
 
-# ==================== باقي الصفحات ====================
+# ==================== باقي المسارات والصفحات ====================
 REGISTER_PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -810,6 +909,7 @@ def spin():
 def register():
     error = ""
     step = 1
+    ref = request.args.get("ref", "")
     if request.method == "POST":
         if "code" not in request.form:
             name = request.form.get("name", "").strip()
@@ -832,7 +932,7 @@ def register():
                         send_telegram_code(telegram_id, code)
                         
                         session["temp_reg"] = {
-                            "name": name, "email": email, "password": generate_password_hash(password), "telegram_id": telegram_id
+                            "name": name, "email": email, "password": generate_password_hash(password), "telegram_id": telegram_id, "ref": ref
                         }
                         step = 2
         else:
@@ -844,10 +944,16 @@ def register():
             with get_db() as db:
                 record = db.execute("SELECT * FROM email_codes WHERE email = ?", (temp["email"],)).fetchone()
                 if record and record["code"] == entered_code:
+                    my_ref = "REF" + str(secrets.randbelow(899999) + 100000)
                     db.execute("""
-                        INSERT INTO users (name, email, password_hash, telegram_id, balance, verified, created_at)
-                        VALUES (?, ?, ?, ?, 0.0, 1, ?)
-                    """, (temp["name"], temp["email"], temp["password"], temp["telegram_id"], int(time.time())))
+                        INSERT INTO users (name, email, password_hash, telegram_id, balance, verified, ref_code, referred_by, created_at)
+                        VALUES (?, ?, ?, ?, 0.0, 1, ?, ?, ?)
+                    """, (temp["name"], temp["email"], temp["password"], temp["telegram_id"], my_ref, temp.get("ref"), int(time.time())))
+                    
+                    # مكافأة دعوة الأصدقاء
+                    if temp.get("ref"):
+                        db.execute("UPDATE users SET balance = balance + 10.0 WHERE ref_code = ?", (temp.get("ref"),))
+
                     session["user_email"] = temp["email"]
                     session.pop("temp_reg", None)
                     return redirect(url_for("account"))
@@ -876,13 +982,14 @@ def login():
 @app.route("/login_google")
 def login_google():
     google_email = "google_user_" + str(secrets.randbelow(10000)) + "@gmail.com"
+    my_ref = "REF" + str(secrets.randbelow(899999) + 100000)
     with get_db() as db:
         user = db.execute("SELECT * FROM users WHERE email = ?", (google_email,)).fetchone()
         if not user:
             db.execute("""
-                INSERT INTO users (name, email, password_hash, telegram_id, balance, verified, avatar, status_title, created_at)
-                VALUES (?, ?, ?, 'google_user', 0.0, 1, '🌐', 'عضو جوجل', ?)
-            """, ("مستخدم جوجل", google_email, generate_password_hash("google123"), int(time.time())))
+                INSERT INTO users (name, email, password_hash, telegram_id, balance, verified, avatar, status_title, ref_code, created_at)
+                VALUES (?, ?, ?, 'google_user', 0.0, 1, '🌐', 'عضو جوجل', ?, ?)
+            """, ("مستخدم جوجل", google_email, generate_password_hash("google123"), my_ref, int(time.time())))
     session["user_email"] = google_email
     return redirect(url_for("account"))
 
