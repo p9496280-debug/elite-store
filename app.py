@@ -7,6 +7,7 @@ import math
 import requests
 
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from flask import (
     Flask,
     render_template_string,
@@ -21,6 +22,11 @@ from flask import (
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_store_secret_key")
+
+# مجلد حفظ الصور المرفوعة
+UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
@@ -832,7 +838,8 @@ body{margin:0;background:#03091b;color:white;font-family:'Cairo',sans-serif;padd
 .admin-container{max-width:900px;margin:auto;}
 .box{background:#07132c;border:1px solid #315dff;border-radius:15px;padding:20px;margin-bottom:20px;}
 h3{margin-top:0;color:#35eaa1;}
-input, select, textarea{width:100%;padding:10px;margin:6px 0 12px;background:#03091b;border:1px solid #263d70;border-radius:8px;color:white;box-sizing:border-box;}
+label{font-size:11px;color:#a8b7d8;display:block;margin-top:8px;}
+input, select, textarea{width:100%;padding:10px;margin:4px 0 10px;background:#03091b;border:1px solid #263d70;border-radius:8px;color:white;box-sizing:border-box;}
 button{width:100%;padding:11px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:8px;color:white;font-weight:bold;cursor:pointer;}
 .table-style{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;}
 .table-style th, .table-style td{border:1px solid #1f3769;padding:8px;text-align:center;}
@@ -865,20 +872,38 @@ button{width:100%;padding:11px;background:linear-gradient(110deg,#9b37ff,#315dff
     </form>
   </div>
 
-  <!-- 3. إضافة منتج جديد -->
+  <!-- 3. إضافة منتج جديد مع زر اختيار الصورة من الهاتف/الجهاز -->
   <div class="box">
     <h3>➕ إضافة منتج جديد بالصورة والأسعار</h3>
-    <form method="POST" action="/admin/add_product">
-      <input name="name" placeholder="اسم المنتج (مثال: كود بلايستيشن 20$)" required>
-      <input name="description" placeholder="وصف المنتج (مثال: الولايات المتحدة - تسليم فوري)" required>
-      <input type="number" step="0.01" name="price_val" placeholder="السعر بالجنيه (مثال: 1000)" required>
-      <input name="price" placeholder="نص السعر المكتوب (مثال: 1000 جـ)" required>
-      <input name="code" placeholder="الكود الرقمي للمنتج" required>
-      <input name="image_url" placeholder="رابط صورة المنتج (Image URL - اختياري)">
-      <input name="icon" placeholder="الأيقونة الاحتياطية (مثال: ▶ أو 🎮)" required>
-      <input name="category" placeholder="القسم (بطاقات الألعاب / بطاقات الهدايا / ألعاب)" required>
-      <input name="badge" placeholder="الشارة (مثال: مميز / عروض سريعة 🔥 - اختياري)">
-      <button type="submit">إضافة المنتج للمتجر</button>
+    <form method="POST" action="/admin/add_product" enctype="multipart/form-data">
+      <label>اسم المنتج:</label>
+      <input name="name" placeholder="مثال: كود بلايستيشن 20$" required>
+      
+      <label>وصف المنتج:</label>
+      <input name="description" placeholder="مثال: الولايات المتحدة - تسليم فوري" required>
+      
+      <label>السعر الرقمي (بالجنيه):</label>
+      <input type="number" step="0.01" name="price_val" placeholder="مثال: 1000" required>
+      
+      <label>نص السعر المكتوب:</label>
+      <input name="price" placeholder="مثال: 1000 جـ" required>
+      
+      <label>الكود الرقمي للمنتج:</label>
+      <input name="code" placeholder="أدخل الكود الرقمي" required>
+      
+      <label style="color:#35eaa1;font-weight:bold;">📸 اختر صورة المنتج مباشرة من جهازك:</label>
+      <input type="file" name="image_file" accept="image/*" style="background:#0a1a3f;padding:8px;">
+      
+      <label>الأيقونة الاحتياطية (في حال عدم رفع صورة):</label>
+      <input name="icon" placeholder="مثال: ▶ أو 🎮" required>
+      
+      <label>القسم:</label>
+      <input name="category" placeholder="بطاقات الألعاب / بطاقات الهدايا / ألعاب" required>
+      
+      <label>الشارة (اختياري):</label>
+      <input name="badge" placeholder="مثال: مميز / عروض سريعة 🔥">
+      
+      <button type="submit" style="margin-top:10px;">إضافة المنتج للمتجر</button>
     </form>
   </div>
 
@@ -889,6 +914,7 @@ button{width:100%;padding:11px;background:linear-gradient(110deg,#9b37ff,#315dff
       <thead>
         <tr>
           <th>ID</th>
+          <th>الصورة / الأيقونة</th>
           <th>اسم المنتج</th>
           <th>السعر</th>
           <th>القسم</th>
@@ -899,6 +925,13 @@ button{width:100%;padding:11px;background:linear-gradient(110deg,#9b37ff,#315dff
         {% for p in products %}
         <tr>
           <td>{{ p['id'] }}</td>
+          <td>
+            {% if p['image_url'] %}
+              <img src="{{ p['image_url'] }}" style="width:30px;height:30px;object-fit:cover;border-radius:4px;">
+            {% else %}
+              {{ p['icon'] }}
+            {% endif %}
+          </td>
           <td>{{ p['name'] }}</td>
           <td>{{ p['price'] }}</td>
           <td>{{ p['category'] }}</td>
@@ -1125,10 +1158,18 @@ def admin_add_product():
     price_val = float(request.form.get("price_val", 0))
     price = request.form.get("price")
     code = request.form.get("code")
-    image_url = request.form.get("image_url", "").strip()
     icon = request.form.get("icon")
     category = request.form.get("category")
     badge = request.form.get("badge")
+
+    image_url = ""
+    file = request.files.get("image_file")
+    if file and file.filename != '':
+        filename = secure_filename(file.filename)
+        unique_filename = f"{int(time.time())}_{filename}"
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+        file.save(filepath)
+        image_url = f"/static/uploads/{unique_filename}"
 
     with get_db() as db:
         db.execute("""
