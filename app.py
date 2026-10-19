@@ -150,10 +150,7 @@ PAGE = r"""
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-
 <meta name="google-site-verification" content="-cqasmgepuPXVxFHJ53UtVgI4DdfCiGR_MbwjVIVv0M" />
-
-<!-- ربط ملف الـ Manifest الخاص بالتطبيق -->
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#03091b">
 
@@ -172,9 +169,67 @@ PAGE = r"""
 .header-actions{display:flex;align-items:center;gap:10px;margin-right:auto}
 .user-profile-badge {display: flex; align-items: center; gap: 10px; background: #0b1734; border: 1px solid #263d70; padding: 6px 14px; border-radius: 30px; text-decoration: none;}
 .user-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #9b37ff, #315dff); display: grid; place-items: center; font-weight: bold; color: white; }
-.nav{min-height:50px;padding:0 4%;display:flex;align-items:center;gap:20px;border-bottom:1px solid #18284a;font-size:13px;background:#061028;overflow-x:auto;}
-.nav a{color:#c4cde3;text-decoration:none;padding:6px 14px;border-radius:10px;transition:0.2s;white-space:nowrap;display:flex;align-items:center;gap:6px;}
-.nav a:hover, .nav a.active{background:#1a2f5a;color:#fff}
+
+/* شريط الملاحة الرئيسي الأنيق */
+.nav {
+  min-height: 58px;
+  padding: 0 4%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #1a2d54;
+  background: linear-gradient(180deg, #07122b 0%, #040a1b 100%);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nav::-webkit-scrollbar { display: none; }
+
+.nav a {
+  color: #c4cde3;
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.nav a:hover {
+  background: rgba(49, 93, 255, 0.15);
+  border-color: #315dff;
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(49, 93, 255, 0.2);
+}
+
+.nav a.active {
+  background: linear-gradient(110deg, #9b37ff, #315dff);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 4px 15px rgba(155, 55, 255, 0.35);
+}
+
+.nav-badge-spin {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  color: #fff !important;
+  border: none !important;
+  font-weight: bold;
+}
+.nav-badge-dev {
+  border-color: #38bdf8 !important;
+  color: #38bdf8 !important;
+}
+.nav-badge-tele {
+  border-color: #a855f7 !important;
+  color: #c084fc !important;
+}
+
 .admin-badge { background: #570f0f; color: #ff7777; border: 1px solid #ff5555; padding: 6px 14px; border-radius: 12px; font-weight: bold; text-decoration:none;}
 
 .layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:22px;padding:22px 4%}
@@ -287,11 +342,26 @@ footer a:hover{color:#38bdf8;}
   </div> 
 </header>
 
+<!-- القائمة الرئيسية الجديدة بتنسيق احترافي ومميز -->
 <nav class="nav">
-  <a href="/" class="active">🏠 الرئيسية</a>
-  <a href="/spin" style="color:#ffc107;font-weight:bold;">🎡 عجلة الحظ</a>
-  <a href="https://t.me/{{ admin_telegram }}" target="_blank" style="color:#38bdf8;">💬 التواصل مع المطور والدعم</a>
-  <a href="{{ telegram_channel }}" target="_blank" style="color:#a855f7;">📢 قناة التليجرام</a>
+  <a href="/" class="active">
+    <span>🏠</span> الرئيسية
+  </a>
+  <a href="/spin" class="nav-badge-spin">
+    <span>🎡</span> عجلة الحظ اليومية
+  </a>
+  <a href="https://t.me/{{ admin_telegram }}" target="_blank" class="nav-badge-dev">
+    <span>💬</span> الدعم والمطور
+  </a>
+  <a href="{{ telegram_channel }}" target="_blank" class="nav-badge-tele">
+    <span>📢</span> القناة الرسمية
+  </a>
+  <a href="#products">
+    <span>🔥</span> العروض والمنتجات
+  </a>
+  <a href="/account">
+    <span>👤</span> حسابي والمركز
+  </a>
 </nav>
 
 <main class="layout">
@@ -500,7 +570,6 @@ const productGrid = document.getElementById('productGrid');
 const adminTelegram = "{{ admin_telegram }}";
 let activeDiscountPercent = 0;
 
-/* كود تثبيت التطبيق PWA */
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
@@ -615,7 +684,295 @@ renderProducts(PRODUCTS);
 </html>
 """
 
-# ==================== باقي المسارات ====================
+# ==================== صفحة تسجيل الدخول والخروج والصفحات الآمنة ====================
+REGISTER_PAGE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>إنشاء حساب | NOVA STORE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+body{margin:0;background:#03091b;color:white;font-family:'Cairo',sans-serif;display:grid;place-items:center;min-height:100vh;}
+.box{background:#07132c;padding:30px;border:1px solid #315dff;border-radius:15px;width:360px;}
+input{width:100%;padding:12px;margin:8px 0;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white;box-sizing:border-box;}
+button{width:100%;padding:13px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>إنشاء حساب جديد</h2>
+  {% if step == 1 %}
+  <form method="post">
+    <input name="name" placeholder="الاسم الكامل" required>
+    <input type="email" name="email" placeholder="البريد الإلكتروني" required>
+    <input type="password" name="password" placeholder="كلمة المرور" required>
+    <input name="telegram_id" placeholder="Telegram Chat ID (لاستلام كود التحقق)" required>
+    <button type="submit">إرسال كود التحقق عبر التليجرام</button>
+  </form>
+  <a href="/login_google" style="display:block;text-align:center;padding:12px;border-radius:10px;color:white;text-decoration:none;font-weight:bold;background:#db4437;margin-top:10px;">التسجيل بحساب جوجل 🌐</a>
+  {% else %}
+  <form method="post">
+    <p style="color:#35eaa1;font-size:12px;">تم إرسال كود التحقق إلى بوت التليجرام الخاص بك!</p>
+    <input name="code" placeholder="أدخل كود التحقق" required>
+    <button type="submit">تأكيد التسجيل</button>
+  </form>
+  {% endif %}
+  {% if error %}<p style="color:#ff7777;font-size:12px;margin-top:10px;">{{ error }}</p>{% endif %}
+  <a href="/login" style="color:#8198ff;display:block;margin-top:15px;text-align:center;font-size:12px;text-decoration:none;">تسجيل الدخول</a>
+</div>
+</body>
+</html>
+"""
+
+LOGIN_PAGE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>تسجيل الدخول | NOVA STORE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+body{margin:0;background:#03091b;color:white;font-family:'Cairo',sans-serif;display:grid;place-items:center;min-height:100vh;}
+.box{background:#07132c;padding:30px;border:1px solid #315dff;border-radius:15px;width:360px;}
+input{width:100%;padding:12px;margin:8px 0;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white;box-sizing:border-box;}
+button{width:100%;padding:13px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>تسجيل الدخول</h2>
+  <form method="post">
+    <input type="email" name="email" placeholder="البريد الإلكتروني" required>
+    <input type="password" name="password" placeholder="كلمة المرور" required>
+    <button type="submit">دخول</button>
+  </form>
+  <a href="/login_google" style="display:block;text-align:center;padding:12px;border-radius:10px;color:white;text-decoration:none;font-weight:bold;background:#db4437;margin-top:10px;">الدخول بحساب جوجل 🌐</a>
+  {% if error %}<p style="color:#ff7777;font-size:12px;margin-top:10px;">{{ error }}</p>{% endif %}
+  <a href="/register" style="color:#8198ff;display:block;margin-top:15px;text-align:center;font-size:12px;text-decoration:none;">إنشاء حساب جديد</a>
+</div>
+</body>
+</html>
+"""
+
+ACCOUNT_PAGE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>حسابي | NOVA STORE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+body{margin:0;background:#03091b;color:white;font-family:'Cairo',sans-serif;display:grid;place-items:center;min-height:100vh;padding:20px;}
+.box{background:#07132c;padding:30px;border:1px solid #315dff;border-radius:18px;text-align:center;width:400px;}
+input{width:100%;padding:10px;margin:8px 0;background:#03091b;border:1px solid #263d70;border-radius:8px;color:white;box-sizing:border-box;}
+button{padding:10px 20px;background:#315dff;border:0;border-radius:8px;color:white;font-weight:bold;cursor:pointer;margin-top:10px;}
+.avatar-preview{width:70px;height:70px;border-radius:50%;margin:0 auto 10px;background:linear-gradient(135deg,#9b37ff,#315dff);display:grid;place-items:center;font-size:28px;overflow:hidden;border:2px solid #35eaa1;}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="avatar-preview">
+    {% if user["avatar"].startswith('http') or user["avatar"].startswith('/') %}
+      <img src="{{ user['avatar'] }}" style="width:100%;height:100%;object-fit:cover;">
+    {% else %}
+      {{ user["avatar"] }}
+    {% endif %}
+  </div>
+  <h2>{{ user["name"] }}</h2>
+  <p style="color:#35eaa1;font-weight:bold;margin:5px 0;">الحالة: {{ user["status_title"] }} | الرصيد: {{ user["balance"] }} جـ</p>
+  
+  <form method="POST" action="/update_profile" style="margin-top:20px;text-align:right;">
+    <label style="font-size:11px;color:#a8b7d8;">تعديل اللوجو / رابط الصورة:</label>
+    <input name="avatar" value="{{ user['avatar'] }}" placeholder="أدخل رابط صورة أو إيموجي" required>
+    <label style="font-size:11px;color:#a8b7d8;">تعديل حالة الحساب:</label>
+    <input name="status_title" value="{{ user['status_title'] }}" placeholder="مثال: VIP / عضو ممتاز" required>
+    <button type="submit" style="width:100%;">حفظ التعديلات</button>
+  </form>
+
+  <div style="margin-top:20px;display:flex;justify-content:space-between;">
+    <a href="/" style="color:#9db4ff;text-decoration:none;font-size:12px;">← الرئيسية</a>
+    <a href="/logout" style="color:#ff7777;text-decoration:none;font-size:12px;">تسجيل الخروج</a>
+  </div>
+</div>
+</body>
+</html>
+"""
+
+ADMIN_PANEL_PAGE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>لوحة التحكم | NOVA STORE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+body{margin:0;background:#03091b;color:white;font-family:'Cairo',sans-serif;padding:30px}
+.box{background:#07132c;border:1px solid #315dff;border-radius:15px;padding:25px;max-width:550px;margin:20px auto;}
+input{width:100%;padding:12px;margin:10px 0;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white;box-sizing:border-box;}
+button{width:100%;padding:13px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;}
+</style>
+</head>
+<body>
+<div style="max-width:550px;margin:auto;display:flex;justify-content:space-between;align-items:center;">
+  <h2>⚙️ لوحة تحكم المطور</h2>
+  <a href="/" style="color:#8198ff;text-decoration:none;">← العودة للمتجر</a>
+</div>
+
+<div class="box">
+  <h3>➕ إضافة منتج جديد</h3>
+  <form method="POST" action="/admin/add_product">
+    <input name="name" placeholder="اسم المنتج" required>
+    <input name="description" placeholder="الوصف" required>
+    <input type="number" step="0.01" name="price_val" placeholder="السعر بالجنيه (مثال: 500)" required>
+    <input name="price" placeholder="نص السعر (مثال: 500 جـ)" required>
+    <input name="code" placeholder="الكود الرقمي" required>
+    <input name="icon" placeholder="الأيقونة (مثال: ▶ أو 🎮)" required>
+    <input name="category" placeholder="القسم (بطاقات الألعاب / بطاقات الهدايا / ألعاب)" required>
+    <input name="badge" placeholder="الشارة (اختياري)">
+    <button type="submit">إضافة المنتج</button>
+  </form>
+</div>
+</body>
+</html>
+"""
+
+SPIN_PAGE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>عجلة الحظ السينمائية | NOVA STORE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse at center,#0f1c3f 0%,#03091b 100%);color:#fff;font-family:'Cairo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;overflow:hidden;}
+.wheel-container{position:relative;width:340px;height:340px;display:flex;align-items:center;justify-content:center;margin:20px 0;}
+.wheel-outer-ring{position:absolute;inset:-15px;border-radius:50%;border:5px dashed #315dff;box-shadow:0 0 50px #8d38ff;pointer-events:none;z-index:2;}
+.pointer{position:absolute;top:-25px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:18px solid transparent;border-right:18px solid transparent;border-top:32px solid #ff3b3b;z-index:10;}
+canvas{width:100%;height:100%;border-radius:50%;transition: transform 6s cubic-bezier(0.1, 0.9, 0.1, 1);}
+.spin-btn{position:absolute;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle,#9b37ff,#315dff);border:4px solid #fff;color:#fff;font-weight:900;font-size:16px;cursor:pointer;z-index:5;}
+.modal{display:none;position:fixed;inset:0;background:#03091bee;backdrop-filter:blur(12px);z-index:100;place-items:center;padding:20px;}
+.modal-content{background:linear-gradient(145deg,#07132c,#0b1e47);border:2px solid #35eaa1;border-radius:20px;padding:30px;text-align:center;max-width:360px;width:100%;}
+</style>
+</head>
+<body>
+<div style="text-align:center;margin-bottom:15px;">
+  <h1 style="font-size:28px;margin:0;background:linear-gradient(110deg,#bc5bff,#315dff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">🎡 عجلة الحظ السينمائية</h1>
+  <p style="color:#a8b7d8;font-size:12px;">متاحة لفة واحدة كل يوم مجهزة بمؤثرات وصوت!</p>
+</div>
+
+<div class="wheel-container">
+  <div class="pointer"></div>
+  <div class="wheel-outer-ring"></div>
+  <canvas id="wheel" width="500" height="500"></canvas>
+  <button class="spin-btn" id="spinBtn">أَدِرْ!</button>
+</div>
+
+<a href="/" style="color:#8198ff;text-decoration:none;margin-top:20px;font-size:13px;">← العودة للمتجر الرئيسية</a>
+
+<div class="modal" id="resultModal">
+  <div class="modal-content">
+    <div style="font-size:50px;">🎁</div>
+    <h2 id="prizeTitle" style="color:#35eaa1;margin:5px 0;">مبروك!</h2>
+    <p id="prizeDesc" style="color:#a8b7d8;font-size:13px;"></p>
+    <button onclick="location.reload()" style="margin-top:15px;padding:10px 20px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;">حسناً</button>
+  </div>
+</div>
+
+<script>
+function playSpinSound() {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(300, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 5);
+  gain.gain.setValueAtTime(0.1, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 5);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + 5);
+}
+
+const canvas = document.getElementById('wheel');
+const ctx = canvas.getContext('2d');
+const spinBtn = document.getElementById('spinBtn');
+const resultModal = document.getElementById('resultModal');
+
+const items = [
+  { label: '5 جنيه 💰', color: '#8d38ff', amount: 5 },
+  { label: 'حظ أوفر 😅', color: '#1b2a4a', amount: 0 },
+  { label: '10 جنيه 💳', color: '#315dff', amount: 10 },
+  { label: 'خصم 20% 🏷️', color: '#00c853', amount: 0 },
+  { label: '20 جنيه 🎁', color: '#ff9100', amount: 20 },
+  { label: 'حظ أوفر 😅', color: '#263d70', amount: 0 }
+];
+
+const numItems = items.length;
+const arc = (2 * Math.PI) / numItems;
+
+function drawWheel() {
+  const radius = canvas.width / 2;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (let i = 0; i < numItems; i++) {
+    const angle = i * arc;
+    ctx.beginPath();
+    ctx.fillStyle = items[i].color;
+    ctx.moveTo(radius, radius);
+    ctx.arc(radius, radius, radius - 10, angle, angle + arc);
+    ctx.lineTo(radius, radius);
+    ctx.fill();
+    ctx.save();
+    ctx.translate(radius, radius);
+    ctx.rotate(angle + arc / 2);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 20px Cairo";
+    ctx.fillText(items[i].label, radius - 40, 8);
+    ctx.restore();
+  }
+}
+drawWheel();
+
+let isSpinning = false;
+spinBtn.addEventListener('click', () => {
+  if (isSpinning) return;
+  isSpinning = true;
+  spinBtn.disabled = true;
+  playSpinSound();
+
+  fetch('/spin', {method: 'POST'}).then(res => res.json()).then(data => {
+    if (data.status === 'error') {
+      isSpinning = false;
+      spinBtn.disabled = false;
+      document.getElementById('prizeTitle').textContent = 'عذراً!';
+      document.getElementById('prizeDesc').textContent = data.message;
+      resultModal.style.display = 'grid';
+      return;
+    }
+
+    const selectedIndex = data.index;
+    const prize = items[selectedIndex];
+    const targetDegree = (360 - (selectedIndex * (360 / numItems)) - ((360 / numItems) / 2)) + (360 * 6);
+    
+    canvas.style.transform = `rotate(${targetDegree}deg)`;
+
+    setTimeout(() => {
+      isSpinning = false;
+      document.getElementById('prizeTitle').textContent = prize.amount > 0 ? '🎉 مبروك!' : '😅 حظ أوفر!';
+      document.getElementById('prizeDesc').textContent = data.msg;
+      resultModal.style.display = 'grid';
+    }, 6000);
+  });
+});
+</script>
+</body>
+</html>
+"""
+
+# ==================== مسارات الروت ====================
 
 @app.route('/manifest.json')
 def manifest():
