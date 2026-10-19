@@ -21,16 +21,15 @@ from flask import (
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_store_secret_key")
 
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@novastore.com")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "nova_store.db")
 
-# بيانات التليجرام وفودافون كاش الحقيقية
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4")
 ADMIN_TELEGRAM_USERNAME = "Mido_M9do"
 TELEGRAM_BOT_USERNAME = "midoassistantAIbot"
 TELEGRAM_CHANNEL_LINK = "https://t.me/Midomsn"
-VODAFONE_NUMBER = os.environ.get("VODAFONE_NUMBER", "01000000000")
+VODAFONE_NUMBER = os.environ.get("VODAFONE_NUMBER", "01011541698")
 
 
 def get_db():
@@ -151,7 +150,6 @@ PAGE = r"""
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<!-- كود إثبات ملكية محرك البحث جوجل -->
 <meta name="google-site-verification" content="-cqasmgepuPXVxFHJ53UtVgI4DdfCiGR_MbwjVIVv0M" />
 
 <title>NOVA STORE | المتجر الرقمي الشامل لبطاقات الألعاب والدفع</title>
@@ -175,6 +173,7 @@ PAGE = r"""
 .admin-badge { background: #570f0f; color: #ff7777; border: 1px solid #ff5555; padding: 6px 14px; border-radius: 12px; font-weight: bold; text-decoration:none;}
 
 .layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:22px;padding:22px 4%}
+@media (max-width:850px){ .layout{grid-template-columns:1fr;} }
 .main-column{min-width:0}
 
 /* Hero Section */
@@ -218,6 +217,13 @@ PAGE = r"""
 .quick-link-btn{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;background:#091a3e;border:1px solid #1f3769;border-radius:10px;color:#cde0ff;font-size:11px;text-decoration:none;margin-bottom:8px;transition:0.2s;}
 .quick-link-btn:hover{background:#12295a;border-color:#315dff;color:#fff;}
 .wallet-box{background:linear-gradient(135deg,#0e234e,#180b3d);border:1px solid #35eaa166;border-radius:14px;padding:14px;text-align:center;}
+
+.live-sales{display:flex;flex-direction:column;gap:8px;}
+.sale-item{display:flex;align-items:center;gap:10px;background:#050f26;padding:8px 10px;border-radius:10px;border:1px solid #16284d;font-size:10.5px;}
+.sale-icon{font-size:18px;color:#35eaa1;}
+
+.vip-card{background:linear-gradient(135deg,#4c1d95,#1e1b4b);border:1px solid #a855f7;border-radius:14px;padding:14px;text-align:center;}
+.rating-stars{color:#facc15;font-size:14px;margin-bottom:4px;}
 
 /* Flash Deals Box */
 .flash-box{background:linear-gradient(135deg,#5e0a0a,#2b0808);border:1px solid #ff3b3b;border-radius:14px;padding:12px;margin-bottom:15px;display:flex;align-items:center;justify-content:space-between;}
@@ -285,6 +291,22 @@ footer a:hover{color:#38bdf8;}
 
 <main class="layout">
   <aside class="sidebar-left">
+    <!-- بطاقة تنزيل التطبيق المضافة -->
+    <div class="side-card" style="border-color: #35eaa1; background: linear-gradient(135deg, #071f3d, #030d24);">
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+        <span style="font-size: 24px;">📱</span>
+        <div>
+          <h4 style="margin: 0; color: #fff;">تطبيق NOVA STORE</h4>
+          <span style="font-size: 9px; color: #35eaa1;">تصفح أسرع وإشعارات فورية</span>
+        </div>
+      </div>
+      <p style="font-size: 10px; color: #a8b7d8; margin: 0 0 10px;">حمل التطبيق الآن على هاتفك لشحن البطاقات بضغطة واحدة!</p>
+      <a href="https://t.me/{{ admin_telegram }}?text=أريد%20رابط%20تنزيل%20التطبيق" target="_blank" style="display: block; text-align: center; padding: 8px; background: linear-gradient(110deg, #35eaa1, #00b894); color: #03091b; font-weight: bold; border-radius: 8px; text-decoration: none; font-size: 11px;">
+        ⬇️ تنزيل التطبيق المباشر
+      </a>
+    </div>
+
+    <!-- مساعد الذكاء الاصطناعي -->
     <div class="side-card">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
         <div style="width:40px;height:40px;border-radius:50%;background:radial-gradient(circle,#2c8cff,#11175a);display:grid;place-items:center;font-size:20px;">✦</div>
@@ -296,6 +318,7 @@ footer a:hover{color:#38bdf8;}
       <p style="font-size:11px;color:#c4d1ed;line-height:1.6;margin:0;">اختر منتجك واشترِ فوراً بفودافون كاش بكل سهولة وسرعة!</p>
     </div>
 
+    <!-- بطاقة المحفظة والرصيد -->
     <div class="side-card">
       <h4>💳 محفظتك الرقمية</h4>
       <div class="wallet-box">
@@ -305,6 +328,38 @@ footer a:hover{color:#38bdf8;}
       </div>
     </div>
 
+    <!-- المبيعات المباشرة -->
+    <div class="side-card">
+      <h4>🔥 أحدث المبيعات الشائعة</h4>
+      <div class="live-sales">
+        <div class="sale-item">
+          <span class="sale-icon">✅</span>
+          <div>
+            <b style="color:#fff;display:block;">أحمد المجدي</b>
+            <span style="color:#a8b7d8;">اشترى كود بلايستيشن (20$)</span>
+          </div>
+        </div>
+        <div class="sale-item">
+          <span class="sale-icon">⚡</span>
+          <div>
+            <b style="color:#fff;display:block;">محمود حسن</b>
+            <span style="color:#a8b7d8;">شحن 660 شدة ببجي</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- كارت عضوية VIP -->
+    <div class="side-card" style="border-color:#a855f7;">
+      <div class="vip-card">
+        <span style="font-size:22px;">👑</span>
+        <h4 style="margin:5px 0;color:#f0abfc;">عضوية VIP الخاصة</h4>
+        <p style="font-size:10px;color:#d8b4fe;margin:0 0 10px;">احصل على خصم دائم 5% على كافة البطاقات وأولوية في التسليم الفوري!</p>
+        <a href="https://t.me/{{ admin_telegram }}?text=أريد%20الاشتراك%20في%20عضوية%20VIP" target="_blank" style="display:inline-block;padding:6px 16px;background:linear-gradient(110deg,#c084fc,#9333ea);color:white;font-weight:bold;font-size:10px;border-radius:20px;text-decoration:none;">اشترك الآن ⚡</a>
+      </div>
+    </div>
+
+    <!-- شارك واكسب -->
     <div class="side-card" style="border-color:#315dff;">
       <h4 style="color:#60a5fa;">🎁 شارك واكسب رصيد!</h4>
       <p style="font-size:10px;color:#a8b7d8;margin:0 0 8px;">ادعُ أصدقاءك للشراء من المتجر واكسب 10 جنيه رصيد مجاني!</p>
@@ -316,6 +371,7 @@ footer a:hover{color:#38bdf8;}
       {% endif %}
     </div>
 
+    <!-- كود الخصم -->
     <div class="side-card">
       <h4>🏷️ هل لديك كود خصم؟</h4>
       <div class="promo-input-group">
@@ -323,14 +379,6 @@ footer a:hover{color:#38bdf8;}
         <button onclick="applyPromo()">تطبيق</button>
       </div>
       <small id="promoMsg" style="display:block;margin-top:6px;font-size:10px;"></small>
-    </div>
-
-    <div class="side-card">
-      <h4>⚡ خدمات سريعة</h4>
-      <a href="/account" class="quick-link-btn"><span>👤</span> تعديل الحساب واللوجو</a>
-      <a href="/spin" class="quick-link-btn"><span>🎡</span> تجربة عجلة الحظ</a>
-      <a href="https://t.me/{{ admin_telegram }}" target="_blank" class="quick-link-btn"><span>💬</span> الدعم والمساعدة الفورية</a>
-      <a href="{{ telegram_channel }}" target="_blank" class="quick-link-btn"><span>📢</span> انضم لقناتنا على تليجرام</a>
     </div>
   </aside>
 
@@ -435,7 +483,7 @@ footer a:hover{color:#38bdf8;}
   </div>
 
   <div>
-    <h4>وسائل الدفع</h4>
+    <h4>وسائل الدفع والتطبيق</h4>
     <div style="font-size:18px;margin-top:8px;color:#35eaa1;font-weight:bold;">📱 فودافون كاش</div>
     <small style="display:block;margin-top:15px;color:#8194ba;">© 2026 NOVA STORE جميع الحقوق محفوظة</small>
   </div>
@@ -541,7 +589,7 @@ renderProducts(PRODUCTS);
 </html>
 """
 
-# ==================== باقي مسارات التطبيق ====================
+# ==================== باقي المسارات ====================
 REGISTER_PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
