@@ -23,10 +23,13 @@ from flask import (
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_store_secret_key")
 
-# مجلد حفظ الصور المرفوعة
+# مجلدات حفظ الصور المرفوعة
 UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads')
+AVATARS_FOLDER = os.path.join(app.root_path, 'static', 'avatars')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(AVATARS_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['AVATARS_FOLDER'] = AVATARS_FOLDER
 
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
@@ -60,6 +63,8 @@ def init_db():
                 ref_code TEXT UNIQUE,
                 referred_by TEXT,
                 last_spin_date TEXT,
+                spin_count INTEGER DEFAULT 0,
+                total_orders INTEGER DEFAULT 0,
                 created_at INTEGER NOT NULL
             )
         """)
@@ -212,8 +217,8 @@ PAGE = r"""
 .search{height:44px;max-width:420px;flex:1;display:flex;align-items:center;gap:10px;border:1px solid #263d70;border-radius:30px;padding:0 17px;background:#09132b}
 .search input{width:100%;border:0;outline:0;background:transparent;color:white;font-size:13px}
 .header-actions{display:flex;align-items:center;gap:10px;margin-right:auto}
-.user-profile-badge {display: flex; align-items: center; gap: 10px; background: #0b1734; border: 1px solid #263d70; padding: 6px 14px; border-radius: 30px; text-decoration: none;}
-.user-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #9b37ff, #315dff); display: grid; place-items: center; font-weight: bold; color: white; }
+.user-profile-badge {display: flex; align-items: center; gap: 10px; background: #0b1734; border: 1px solid #315dff; padding: 6px 14px; border-radius: 30px; text-decoration: none; box-shadow: 0 0 10px rgba(49,93,255,0.3);}
+.user-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #9b37ff, #315dff); display: grid; place-items: center; font-weight: bold; color: white; border: 2px solid #35eaa1; box-shadow: 0 0 8px #35eaa188; overflow:hidden;}
 
 .nav {
   min-height: 58px;
@@ -285,6 +290,28 @@ PAGE = r"""
 .gift-card.google{right:45%;transform:rotate(-12deg);background:linear-gradient(145deg,#113e83,#11153c);border-color:#35eaa1}
 .gift-card.playstation{right:28%;top:20px;transform:rotate(6deg);background:linear-gradient(145deg,#0759dd,#111342)}
 .gift-card.steam{right:10%;top:30px;transform:rotate(12deg);background:linear-gradient(125deg,#122b54,#050c1c)}
+
+/* Personal Deal Banner */
+.personal-deal-box {
+  background: linear-gradient(135deg, #1e0938, #0a1128);
+  border: 1px solid #a855f7;
+  border-radius: 16px;
+  padding: 14px 20px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 4px 20px rgba(168, 85, 247, 0.25);
+}
+.deal-timer {
+  background: #03091b;
+  color: #f43f5e;
+  border: 1px solid #f43f5e;
+  font-weight: 800;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+}
 
 /* Categories Grid */
 .categories{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin:20px 0}
@@ -358,7 +385,7 @@ footer a:hover{color:#38bdf8;}
       <a href="/account" class="user-profile-badge">
         <div class="user-avatar">
           {% if user["avatar"].startswith('http') or user["avatar"].startswith('/') %}
-            <img src="{{ user['avatar'] }}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
+            <img src="{{ user['avatar'] }}" style="width:100%;height:100%;object-fit:cover;">
           {% else %}
             {{ user["avatar"] }}
           {% endif %}
@@ -450,6 +477,18 @@ footer a:hover{color:#38bdf8;}
         </div>
       </div>
       <div class="timer" id="flashTimer">02:45:18</div>
+    </div>
+
+    <!-- عداد الخصم المخصص التنازلي للعميل -->
+    <div class="personal-deal-box">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-size:28px;">🎁</span>
+        <div>
+          <b style="color:#c084fc;font-size:13px;display:block;">عرض مخصص لك حصرياً!</b>
+          <span style="font-size:11px;color:#cbd5e1;">احصل على خصم 15% على أي بطاقة عبر كود <b style="color:#facc15;">MIDO2026</b></span>
+        </div>
+      </div>
+      <div class="deal-timer" id="personalTimer">19:59</div>
     </div>
 
     <div class="hero">
@@ -684,6 +723,7 @@ function applyPromo() {
   }
 }
 
+// Flash timer
 let sec = 9918;
 setInterval(() => {
   if (sec <= 0) return;
@@ -693,6 +733,17 @@ setInterval(() => {
   let s = sec % 60;
   document.getElementById('flashTimer').textContent = 
     `${h < 10 ? '0'+h : h}:${m < 10 ? '0'+m : m}:${s < 10 ? '0'+s : s}`;
+}, 1000);
+
+// Personal offer timer
+let dealSec = 1199;
+setInterval(() => {
+  if (dealSec <= 0) return;
+  dealSec--;
+  let m = Math.floor(dealSec / 60);
+  let s = dealSec % 60;
+  document.getElementById('personalTimer').textContent = 
+    `${m < 10 ? '0'+m : m}:${s < 10 ? '0'+s : s}`;
 }, 1000);
 
 function filterCat(cat) {
@@ -711,6 +762,96 @@ renderProducts(PRODUCTS);
 </html>
 """
 
+# ==================== صفحة الحساب الشيك وتخصيص البروفايل ====================
+ACCOUNT_PAGE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>حسابي الشيك | NOVA STORE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
+body{margin:0;background:radial-gradient(ellipse at 50% 0%,#180b3d 0%,#03091b 100%);color:white;font-family:'Cairo',sans-serif;min-height:100vh;padding:20px;display:grid;place-items:center;}
+.box{background:linear-gradient(145deg,#07132c,#091a42);border:1px solid #315dff;border-radius:24px;padding:30px;text-align:center;width:100%;max-width:480px;box-shadow:0 10px 40px rgba(49,93,255,0.25);}
+.avatar-preview{width:100px;height:100px;border-radius:50%;margin:0 auto 15px;background:linear-gradient(135deg,#9b37ff,#315dff);display:grid;place-items:center;font-size:42px;overflow:hidden;border:3px solid #35eaa1;box-shadow:0 0 20px #35eaa1aa;position:relative;}
+.avatar-preview img{width:100%;height:100%;object-fit:cover;}
+
+.preset-avatars{display:flex;gap:10px;justify-content:center;margin:12px 0;}
+.preset-item{width:42px;height:42px;border-radius:50%;background:#0a1a3f;border:2px solid #263d70;display:grid;place-items:center;font-size:22px;cursor:pointer;transition:0.2s;}
+.preset-item:hover{border-color:#35eaa1;transform:scale(1.1);}
+
+.badges-row{display:flex;gap:8px;justify-content:center;margin:15px 0;flex-wrap:wrap;}
+.badge-item{background:#0a1a3f;border:1px solid #1f3a70;padding:5px 12px;border-radius:20px;font-size:10px;font-weight:bold;color:#38bdf8;}
+
+input, select{width:100%;padding:11px;margin:6px 0 12px;background:#03091b;border:1px solid #263d70;border-radius:10px;color:white;box-sizing:border-box;}
+button{padding:12px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;width:100%;font-size:13px;}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="avatar-preview">
+    {% if user["avatar"].startswith('http') or user["avatar"].startswith('/') %}
+      <img src="{{ user['avatar'] }}" alt="Avatar">
+    {% else %}
+      {{ user["avatar"] }}
+    {% endif %}
+  </div>
+  <h2 style="margin:0 0 4px;">{{ user["name"] }}</h2>
+  <span style="color:#35eaa1;font-weight:800;font-size:12px;display:block;">{{ user["status_title"] }} | الرصيد: {{ user["balance"] }} جـ</span>
+
+  <!-- شارات الإنجازات -->
+  <div class="badges-row">
+    {% if user["spin_count"] and user["spin_count"] > 0 %}
+      <span class="badge-item" style="border-color:#f59e0b;color:#facc15;">🎡 صائد الحظ</span>
+    {% endif %}
+    {% if user["total_orders"] and user["total_orders"] > 0 %}
+      <span class="badge-item" style="border-color:#35eaa1;color:#35eaa1;">🎯 أول شحنة</span>
+    {% endif %}
+    <span class="badge-item">👑 العميل الوفي</span>
+  </div>
+
+  <hr style="border-color:#1c3361;margin:20px 0;">
+
+  <form method="POST" action="/update_profile" enctype="multipart/form-data" style="text-align:right;">
+    <label style="font-size:11.5px;color:#cbd5e1;font-weight:bold;">📸 رفع صورة شخصية شيك من هاتفـك:</label>
+    <input type="file" name="avatar_file" accept="image/*" style="background:#03091b;">
+
+    <label style="font-size:11.5px;color:#cbd5e1;font-weight:bold;">أو اختر أفاتار ألعاب شيك جاهز:</label>
+    <div class="preset-avatars">
+      <span class="preset-item" onclick="setAvatar('🎮')">🎮</span>
+      <span class="preset-item" onclick="setAvatar('👑')">👑</span>
+      <span class="preset-item" onclick="setAvatar('🥷')">🥷</span>
+      <span class="preset-item" onclick="setAvatar('🔥')">🔥</span>
+      <span class="preset-item" onclick="setAvatar('🦁')">🦁</span>
+    </div>
+    <input type="hidden" name="avatar_preset" id="avatarPreset" value="{{ user['avatar'] }}">
+
+    <label style="font-size:11.5px;color:#cbd5e1;font-weight:bold;">رابط صورة مخصص (اختياري):</label>
+    <input name="avatar_url" placeholder="أدخل رابط صورة المباشر">
+
+    <label style="font-size:11.5px;color:#cbd5e1;font-weight:bold;">تعديل اللقب في المتجر:</label>
+    <input name="status_title" value="{{ user['status_title'] }}" placeholder="مثال: VIP / عضو مميز" required>
+
+    <button type="submit">حفظ التعديلات الشيك ✨</button>
+  </form>
+
+  <div style="margin-top:20px;display:flex;justify-content:space-between;">
+    <a href="/" style="color:#8198ff;text-decoration:none;font-size:12px;">← العودة للمتجر الرئيسية</a>
+    <a href="/logout" style="color:#ff7777;text-decoration:none;font-size:12px;">تسجيل الخروج</a>
+  </div>
+</div>
+
+<script>
+function setAvatar(emoji) {
+  document.getElementById('avatarPreset').value = emoji;
+  alert('تم اختيار الأفاتار: ' + emoji + ' (اضغط حفظ للتأكيد)');
+}
+</script>
+</body>
+</html>
+"""
+
+# بقية القوالب ومسارات الروت
 REGISTER_PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -781,51 +922,6 @@ button{width:100%;padding:13px;background:linear-gradient(110deg,#9b37ff,#315dff
 </html>
 """
 
-ACCOUNT_PAGE = r"""
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="utf-8">
-<title>حسابي | NOVA STORE</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
-body{margin:0;background:#03091b;color:white;font-family:'Cairo',sans-serif;display:grid;place-items:center;min-height:100vh;padding:20px;}
-.box{background:#07132c;padding:30px;border:1px solid #315dff;border-radius:18px;text-align:center;width:400px;}
-input{width:100%;padding:10px;margin:8px 0;background:#03091b;border:1px solid #263d70;border-radius:8px;color:white;box-sizing:border-box;}
-button{padding:10px 20px;background:#315dff;border:0;border-radius:8px;color:white;font-weight:bold;cursor:pointer;margin-top:10px;}
-.avatar-preview{width:70px;height:70px;border-radius:50%;margin:0 auto 10px;background:linear-gradient(135deg,#9b37ff,#315dff);display:grid;place-items:center;font-size:28px;overflow:hidden;border:2px solid #35eaa1;}
-</style>
-</head>
-<body>
-<div class="box">
-  <div class="avatar-preview">
-    {% if user["avatar"].startswith('http') or user["avatar"].startswith('/') %}
-      <img src="{{ user['avatar'] }}" style="width:100%;height:100%;object-fit:cover;">
-    {% else %}
-      {{ user["avatar"] }}
-    {% endif %}
-  </div>
-  <h2>{{ user["name"] }}</h2>
-  <p style="color:#35eaa1;font-weight:bold;margin:5px 0;">الحالة: {{ user["status_title"] }} | الرصيد: {{ user["balance"] }} جـ</p>
-  
-  <form method="POST" action="/update_profile" style="margin-top:20px;text-align:right;">
-    <label style="font-size:11px;color:#a8b7d8;">تعديل اللوجو / رابط الصورة:</label>
-    <input name="avatar" value="{{ user['avatar'] }}" placeholder="أدخل رابط صورة أو إيموجي" required>
-    <label style="font-size:11px;color:#a8b7d8;">تعديل حالة الحساب:</label>
-    <input name="status_title" value="{{ user['status_title'] }}" placeholder="مثال: VIP / عضو ممتاز" required>
-    <button type="submit" style="width:100%;">حفظ التعديلات</button>
-  </form>
-
-  <div style="margin-top:20px;display:flex;justify-content:space-between;">
-    <a href="/" style="color:#9db4ff;text-decoration:none;font-size:12px;">← الرئيسية</a>
-    <a href="/logout" style="color:#ff7777;text-decoration:none;font-size:12px;">تسجيل الخروج</a>
-  </div>
-</div>
-</body>
-</html>
-"""
-
-# ==================== لوحة التحكم الشاملة الكاملة ====================
 ADMIN_PANEL_PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -854,7 +950,6 @@ button{width:100%;padding:11px;background:linear-gradient(110deg,#9b37ff,#315dff
     <a href="/" style="color:#8198ff;text-decoration:none;font-weight:bold;">← العودة للمتجر الرئيسية</a>
   </div>
 
-  <!-- 1. تغيير رقم فودافون كاش -->
   <div class="box">
     <h3>📲 رقم فودافون كاش لتحويل الأموال</h3>
     <form method="POST" action="/admin/update_vodafone">
@@ -863,7 +958,6 @@ button{width:100%;padding:11px;background:linear-gradient(110deg,#9b37ff,#315dff
     </form>
   </div>
 
-  <!-- 2. التحكم في العروض -->
   <div class="box">
     <h3>⚡ التحكم في شريط العروض والخصومات العلوي</h3>
     <form method="POST" action="/admin/update_flash">
@@ -872,7 +966,6 @@ button{width:100%;padding:11px;background:linear-gradient(110deg,#9b37ff,#315dff
     </form>
   </div>
 
-  <!-- 3. إضافة منتج جديد مع زر اختيار الصورة من الهاتف/الجهاز -->
   <div class="box">
     <h3>➕ إضافة منتج جديد بالصورة والأسعار</h3>
     <form method="POST" action="/admin/add_product" enctype="multipart/form-data">
@@ -907,7 +1000,6 @@ button{width:100%;padding:11px;background:linear-gradient(110deg,#9b37ff,#315dff
     </form>
   </div>
 
-  <!-- 4. إدارة وحذف المنتجات الحالية -->
   <div class="box">
     <h3>📦 المنتجات المتاحة حالياً في المتجر (إدارة وحذف)</h3>
     <table class="table-style">
@@ -946,7 +1038,6 @@ button{width:100%;padding:11px;background:linear-gradient(110deg,#9b37ff,#315dff
     </table>
   </div>
 
-  <!-- 5. شحن/تعديل رصيد المستخدمين -->
   <div class="box">
     <h3>💳 تعديل شحن رصيد مستخدم</h3>
     <form method="POST" action="/admin/update_user_balance">
@@ -956,7 +1047,6 @@ button{width:100%;padding:11px;background:linear-gradient(110deg,#9b37ff,#315dff
     </form>
   </div>
 
-  <!-- 6. أكواد الخصم والبروموكود -->
   <div class="box">
     <h3>🏷️ إضافة كود خصم جديد (بروموكود)</h3>
     <form method="POST" action="/admin/add_promo">
@@ -1257,9 +1347,9 @@ def spin():
 
         with get_db() as db:
             if prize['amount'] > 0:
-                db.execute("UPDATE users SET balance = balance + ?, last_spin_date = ? WHERE email = ?", (prize['amount'], today_str, email))
+                db.execute("UPDATE users SET balance = balance + ?, last_spin_date = ?, spin_count = spin_count + 1 WHERE email = ?", (prize['amount'], today_str, email))
             else:
-                db.execute("UPDATE users SET last_spin_date = ? WHERE email = ?", (today_str, email))
+                db.execute("UPDATE users SET last_spin_date = ?, spin_count = spin_count + 1 WHERE email = ?", (today_str, email))
 
         msg = f"مبروك! فزت بـ ({prize['label']}) وأضيفت لمحفظتك." if prize['amount'] > 0 else "حاول مجدداً غداً."
         return jsonify({"status": "success", "index": selectedIndex, "msg": msg})
@@ -1370,10 +1460,26 @@ def update_profile():
     email = session.get("user_email")
     if not email:
         return redirect(url_for("login"))
-    avatar = request.form.get("avatar", "🤖").strip()
+    
     status_title = request.form.get("status_title", "عضو مميز").strip()
+    avatar_preset = request.form.get("avatar_preset")
+    avatar_url = request.form.get("avatar_url", "").strip()
+    
+    final_avatar = avatar_preset or "🤖"
+    
+    if avatar_url:
+        final_avatar = avatar_url
+
+    file = request.files.get("avatar_file")
+    if file and file.filename != '':
+        filename = secure_filename(file.filename)
+        unique_filename = f"avatar_{int(time.time())}_{filename}"
+        filepath = os.path.join(app.config['AVATARS_FOLDER'], unique_filename)
+        file.save(filepath)
+        final_avatar = f"/static/avatars/{unique_filename}"
+
     with get_db() as db:
-        db.execute("UPDATE users SET avatar = ?, status_title = ? WHERE email = ?", (avatar, status_title, email))
+        db.execute("UPDATE users SET avatar = ?, status_title = ? WHERE email = ?", (final_avatar, status_title, email))
     return redirect(url_for("account"))
 
 
