@@ -362,8 +362,11 @@ PAGE = r"""
 .product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:15px}
 .product-card{border:1px solid #1b3159;background:linear-gradient(150deg,#08152e,#050c1e);border-radius:14px;padding:12px;position:relative;transition:0.2s}
 .product-card:hover{border-color:#5c52ff;transform:translateY(-3px)}
-.product-visual{height:120px;border-radius:10px;background:radial-gradient(circle at 50% 20%,#1b3159,transparent 70%),#07142c;display:flex;align-items:center;justify-content:center;font-size:36px;position:relative;margin-bottom:10px;overflow:hidden;}
-.product-img{width:100%;height:100%;object-fit:cover;border-radius:10px;}
+
+/* تكبير وتعديل ظهور صور المنتجات لتظهر كاملة */
+.product-visual{height:160px;border-radius:10px;background:radial-gradient(circle at 50% 20%,#1b3159,transparent 70%),#07142c;display:flex;align-items:center;justify-content:center;font-size:36px;position:relative;margin-bottom:10px;overflow:hidden;}
+.product-img{width:100%;height:100%;object-fit:contain;border-radius:10px;}
+
 .badge-tag{position:absolute;top:8px;right:8px;background:#ff3b3b;color:white;font-size:9px;padding:2px 8px;border-radius:6px;font-weight:bold;z-index:2;}
 .badge-tag.memo{background:#315dff}
 .product-card h3{font-size:13px;margin:5px 0 2px;}
@@ -382,7 +385,17 @@ PAGE = r"""
 .post-card {background:linear-gradient(145deg,#0b1938,#07122b);border:1px solid #315dff;border-radius:16px;padding:16px;box-shadow:0 4px 20px rgba(49,93,255,0.15);}
 .post-card h3 {margin:0 0 8px;font-size:15px;color:#38bdf8;display:flex;align-items:center;gap:8px;}
 .post-card p {font-size:12px;color:#cbd5e1;line-height:1.7;margin:0 0 10px;}
-.post-card img {width:100%;max-height:260px;object-fit:cover;border-radius:12px;margin-bottom:10px;border:1px solid #1f3a70;}
+
+/* تكبير وتعديل أبعاد صور الإعلانات والمنشورات لتظهر بالكامل دون قص */
+.post-card img {
+  width:100%;
+  max-height:450px;
+  object-fit:contain;
+  border-radius:12px;
+  margin-bottom:10px;
+  border:1px solid #1f3a70;
+  background:#03091b;
+}
 
 .reviews-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:15px;}
 .review-card {background:#071635;border:1px solid #1e3a6e;padding:12px;border-radius:12px;}
@@ -1039,7 +1052,7 @@ button{width:100%;padding:13px;background:linear-gradient(110deg,#9b37ff,#315dff
     <input name="name" placeholder="الاسم الكامل" required>
     <input type="email" name="email" placeholder="البريد الإلكتروني" required>
     <input type="password" name="password" placeholder="كلمة المرور" required>
-    <input name="telegram_id" placeholder="Telegram Chat ID (لاستلاستلام كود التحقق)" required>
+    <input name="telegram_id" placeholder="Telegram Chat ID (لاستلام كود التحقق)" required>
     <button type="submit">إرسال كود التحقق عبر التليجرام</button>
   </form>
   <a href="/login_google" style="display:block;text-align:center;padding:12px;border-radius:10px;color:white;text-decoration:none;font-weight:bold;background:#db4437;margin-top:10px;">التسجيل بحساب جوجل 🌐</a>
