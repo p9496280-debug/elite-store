@@ -1287,69 +1287,163 @@ button{width:100%;padding:11px;background:linear-gradient(110deg,#9b37ff,#315dff
 </html>
 """
 
+# ==================== عجلة الحظ التفاعلية مع الروبوت المتحرك والصوت ====================
 SPIN_PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<title>عجلة الحظ السينمائية | NOVA STORE</title>
+<title>عجلة الحظ التفاعلية مع الروبوت | NOVA STORE</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
 *{box-sizing:border-box}
 body{margin:0;background:radial-gradient(ellipse at center,#0f1c3f 0%,#03091b 100%);color:#fff;font-family:'Cairo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;overflow:hidden;}
-.wheel-container{position:relative;width:340px;height:340px;display:flex;align-items:center;justify-content:center;margin:20px 0;}
-.wheel-outer-ring{position:absolute;inset:-15px;border-radius:50%;border:5px dashed #315dff;box-shadow:0 0 50px #8d38ff;pointer-events:none;z-index:2;}
-.pointer{position:absolute;top:-25px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:18px solid transparent;border-right:18px solid transparent;border-top:32px solid #ff3b3b;z-index:10;}
+
+/* الحاوية الرئيسية للتفاعل السينمائي */
+.spin-stage {
+  position: relative;
+  width: 360px;
+  height: 440px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* الروبوت التفاعلي */
+.robot-head {
+  font-size: 50px;
+  filter: drop-shadow(0 0 15px #38bdf8);
+  transition: transform 0.3s ease;
+  margin-bottom: 5px;
+  z-index: 5;
+}
+
+/* ذراع الروبوت الميكانيكية المتحركة */
+.robot-arm {
+  position: absolute;
+  top: 45px;
+  left: -20px;
+  width: 90px;
+  height: 20px;
+  background: linear-gradient(90deg, #38bdf8, #315dff);
+  border-radius: 10px;
+  transform-origin: left center;
+  transform: rotate(-30deg);
+  transition: transform 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  box-shadow: 0 0 15px #315dff88;
+  z-index: 8;
+}
+.robot-arm::after {
+  content: '🦾';
+  position: absolute;
+  right: -15px;
+  top: -10px;
+  font-size: 26px;
+}
+
+.robot-arm.pulling {
+  transform: rotate(45deg) scale(1.1);
+}
+
+.wheel-container{position:relative;width:320px;height:320px;display:flex;align-items:center;justify-content:center;}
+.wheel-outer-ring{position:absolute;inset:-12px;border-radius:50%;border:5px dashed #315dff;box-shadow:0 0 40px #8d38ff;pointer-events:none;z-index:2;}
+.pointer{position:absolute;top:-20px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-top:30px solid #ff3b3b;z-index:10;filter:drop-shadow(0 0 8px #ff3b3b);}
 canvas{width:100%;height:100%;border-radius:50%;transition: transform 6s cubic-bezier(0.1, 0.9, 0.1, 1);}
-.spin-btn{position:absolute;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle,#9b37ff,#315dff);border:4px solid #fff;color:#fff;font-weight:900;font-size:16px;cursor:pointer;z-index:5;}
+.spin-btn{position:absolute;width:75px;height:75px;border-radius:50%;background:radial-gradient(circle,#9b37ff,#315dff);border:4px solid #fff;color:#fff;font-weight:900;font-size:15px;cursor:pointer;z-index:5;box-shadow:0 0 20px #9b37ff;}
+
 .modal{display:none;position:fixed;inset:0;background:#03091bee;backdrop-filter:blur(12px);z-index:100;place-items:center;padding:20px;}
-.modal-content{background:linear-gradient(145deg,#07132c,#0b1e47);border:2px solid #35eaa1;border-radius:20px;padding:30px;text-align:center;max-width:360px;width:100%;}
+.modal-content{background:linear-gradient(145deg,#07132c,#0b1e47);border:2px solid #35eaa1;border-radius:20px;padding:25px;text-align:center;max-width:360px;width:100%;box-shadow:0 0 30px #35eaa166;}
 </style>
 </head>
 <body>
-<div style="text-align:center;margin-bottom:15px;">
-  <h1 style="font-size:28px;margin:0;background:linear-gradient(110deg,#bc5bff,#315dff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">🎡 عجلة الحظ السينمائية</h1>
-  <p style="color:#a8b7d8;font-size:12px;">متاحة لفة واحدة كل يوم مجهزة بمؤثرات وصوت!</p>
+<div style="text-align:center;margin-bottom:10px;">
+  <h1 style="font-size:26px;margin:0;background:linear-gradient(110deg,#bc5bff,#315dff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">🎡 عجلة الحظ السينمائية</h1>
+  <p style="color:#a8b7d8;font-size:12px;margin:3px 0 0;">الروبوت نُوفا جاهز لإدارة العجلة لك!</p>
 </div>
 
-<div class="wheel-container">
-  <div class="pointer"></div>
-  <div class="wheel-outer-ring"></div>
-  <canvas id="wheel" width="500" height="500"></canvas>
-  <button class="spin-btn" id="spinBtn">أَدِرْ!</button>
+<div class="spin-stage">
+  <!-- رأس الروبوت التفاعلي -->
+  <div class="robot-head" id="robotAvatar">🤖</div>
+  <!-- ذراع الروبوت المتحركة -->
+  <div class="robot-arm" id="robotArm"></div>
+
+  <div class="wheel-container">
+    <div class="pointer"></div>
+    <div class="wheel-outer-ring"></div>
+    <canvas id="wheel" width="500" height="500"></canvas>
+    <button class="spin-btn" id="spinBtn">أَدِرْ!</button>
+  </div>
 </div>
 
-<a href="/" style="color:#8198ff;text-decoration:none;margin-top:20px;font-size:13px;">← العودة للمتجر الرئيسية</a>
+<a href="/" style="color:#8198ff;text-decoration:none;margin-top:15px;font-size:13px;font-weight:bold;">← العودة للمتجر الرئيسية</a>
 
 <div class="modal" id="resultModal">
   <div class="modal-content">
-    <div style="font-size:50px;">🎁</div>
+    <div style="font-size:55px;" id="modalRobotEmoji">😃</div>
     <h2 id="prizeTitle" style="color:#35eaa1;margin:5px 0;">مبروك!</h2>
-    <p id="prizeDesc" style="color:#a8b7d8;font-size:13px;"></p>
-    <button onclick="location.href='/'" style="margin-top:15px;padding:10px 20px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;">التوجه للمتجر للشراء بالخصم 🔥</button>
+    <p id="prizeDesc" style="color:#a8b7d8;font-size:13px;line-height:1.6;"></p>
+    <button onclick="location.href='/'" style="margin-top:15px;padding:10px 20px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;width:100%;">التوجه للمتجر للشراء بالخصم 🔥</button>
   </div>
 </div>
 
 <script>
+// إنشاء المؤثرات الصوتية الميكانيكية ونغمة الفوز سينمائياً
 function playSpinSound() {
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  
+  // صوت المحرك والتروس الميكانيكية
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
-  osc.type = 'triangle';
-  osc.frequency.setValueAtTime(300, ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 5);
-  gain.gain.setValueAtTime(0.1, ctx.currentTime);
-  gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 5);
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(150, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 3);
+  osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 6);
+  
+  gain.gain.setValueAtTime(0.12, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 6);
+  
   osc.connect(gain);
   gain.connect(ctx.destination);
   osc.start();
-  osc.stop(ctx.currentTime + 5);
+  osc.stop(ctx.currentTime + 6);
+}
+
+function playWinSound() {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const notes = [523.25, 659.25, 783.99, 1046.50]; // نغمة فوز سينمائية
+  notes.forEach((freq, idx) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.15, ctx.currentTime + idx * 0.12);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + idx * 0.12 + 0.3);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime + idx * 0.12);
+    osc.stop(ctx.currentTime + idx * 0.12 + 0.3);
+  });
+}
+
+// جعل الروبوت يتحدث بصوت ناطق باللغة العربية
+function speakRobot(text) {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ar-SA';
+    utterance.pitch = 1.2;
+    utterance.rate = 1.0;
+    window.speechSynthesis.speak(utterance);
+  }
 }
 
 const canvas = document.getElementById('wheel');
 const ctx = canvas.getContext('2d');
 const spinBtn = document.getElementById('spinBtn');
 const resultModal = document.getElementById('resultModal');
+const robotAvatar = document.getElementById('robotAvatar');
+const robotArm = document.getElementById('robotArm');
 
 const items = [
   { label: '5 جنيه 💰', color: '#8d38ff', amount: 5, discount: 0 },
@@ -1391,14 +1485,24 @@ spinBtn.addEventListener('click', () => {
   if (isSpinning) return;
   isSpinning = true;
   spinBtn.disabled = true;
+
+  // 1. حركة ذراع الروبوت وسحب العجلة
+  robotAvatar.textContent = '⚙️';
+  robotArm.classList.add('pulling');
   playSpinSound();
+
+  setTimeout(() => {
+    robotArm.classList.remove('pulling');
+  }, 800);
 
   fetch('/spin', {method: 'POST'}).then(res => res.json()).then(data => {
     if (data.status === 'error') {
       isSpinning = false;
       spinBtn.disabled = false;
+      robotAvatar.textContent = '🤖';
       document.getElementById('prizeTitle').textContent = 'عذراً!';
       document.getElementById('prizeDesc').textContent = data.message;
+      document.getElementById('modalRobotEmoji').textContent = '😅';
       resultModal.style.display = 'grid';
       return;
     }
@@ -1410,7 +1514,21 @@ spinBtn.addEventListener('click', () => {
 
     setTimeout(() => {
       isSpinning = false;
-      document.getElementById('prizeTitle').textContent = (prize.amount > 0 || prize.discount > 0) ? '🎉 مبروك!' : '😅 حظ أوفر!';
+      const isWin = (prize.amount > 0 || prize.discount > 0);
+      
+      if (isWin) {
+        robotAvatar.textContent = '😃';
+        document.getElementById('modalRobotEmoji').textContent = '😃';
+        document.getElementById('prizeTitle').textContent = '🎉 مبروك الفوز!';
+        playWinSound();
+        speakRobot(`مبروك! ${data.msg}`);
+      } else {
+        robotAvatar.textContent = '😅';
+        document.getElementById('modalRobotEmoji').textContent = '😅';
+        document.getElementById('prizeTitle').textContent = 'حظ أفضل المرة القادمة!';
+        speakRobot("حظ أفضل في المرة القادمة!");
+      }
+
       document.getElementById('prizeDesc').textContent = data.msg;
       resultModal.style.display = 'grid';
     }, 6000);
@@ -1670,9 +1788,9 @@ def spin():
 
         if prize['discount'] > 0:
             session['active_discount'] = prize['discount']
-            msg = f"مبروك! فزت بـ ({prize['label']}) وتم خفض جميع أسعار المتجر فوراً بنسبة {prize['discount']}%!"
+            msg = f"فزت بـ ({prize['label']}) وتم خفض جميع أسعار المتجر فوراً بنسبة {prize['discount']}%!"
         elif prize['amount'] > 0:
-            msg = f"مبروك! فزت بـ ({prize['label']}) وأضيفت لمحفظتك."
+            msg = f"فزت بـ ({prize['label']}) وأضيفت لمحفظتك بنجاح."
         else:
             msg = "حاول مجدداً غداً."
 
