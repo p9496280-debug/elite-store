@@ -31,11 +31,11 @@ os.makedirs(AVATARS_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['AVATARS_FOLDER'] = AVATARS_FOLDER
 
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@novastore.com")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "nova_store.db")
 
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4")
 ADMIN_TELEGRAM_USERNAME = "Mido_M9do"
 TELEGRAM_BOT_USERNAME = "midoassistantAIbot"
 TELEGRAM_CHANNEL_LINK = "https://t.me/Midomsn"
