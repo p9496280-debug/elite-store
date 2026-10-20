@@ -281,14 +281,12 @@ PAGE = r"""
 .reviews-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:15px;}
 .review-card {background:#071635;border:1px solid #1e3a6e;padding:12px;border-radius:12px;}
 
-/* تصميم نافذة الدفع واختيار الطرق الشيك */
 .checkout-modal{display:none;position:fixed;inset:0;background:rgba(3,9,27,0.85);backdrop-filter:blur(8px);z-index:200;place-items:center;padding:20px;}
 .checkout-box{background:linear-gradient(145deg,#07132c,#0a1a3f);border:1px solid #315dff;border-radius:18px;padding:25px;width:100%;max-width:420px;text-align:center;max-height:90vh;overflow-y:auto;}
 .payment-tabs{display:flex;gap:10px;margin:15px 0;}
 .pay-tab{flex:1;padding:12px;background:#03091b;border:1px solid #263d70;border-radius:10px;color:#a8b7d8;font-size:12px;font-weight:bold;cursor:pointer;transition:0.2s;}
 .pay-tab.active{border-color:#35eaa1;background:#0d2340;color:#35eaa1;box-shadow:0 0 10px rgba(53,234,161,0.3);}
 
-/* زر المطور الشيك جداً في الأسفل */
 .developer-footer-banner {
   background: linear-gradient(135deg, #120c2e, #060e24);
   border: 1px solid #9b37ff;
@@ -444,7 +442,7 @@ footer{border-top:1px solid #192b4e;padding:30px 4%;margin-top:30px;background:#
       </div>
     </div>
 
-    <!-- خانة كود الخصم الشيك -->
+    <!-- خانة كود الخصم -->
     <div style="display:flex;gap:8px;margin-bottom:15px;">
       <input type="text" id="promoInput" placeholder="أدخل كود الخصم (مثال: MIDO2026)" style="flex:1;padding:10px;background:#03091b;border:1px solid #315dff;border-radius:8px;color:#fff;font-size:11px;">
       <button onclick="applyPromoCode()" style="padding:10px 16px;background:linear-gradient(110deg,#9b37ff,#315dff);color:#fff;border:0;border-radius:8px;font-weight:bold;cursor:pointer;font-size:11px;">تطبيق الكود 🏷️</button>
@@ -478,7 +476,7 @@ footer{border-top:1px solid #192b4e;padding:30px 4%;margin-top:30px;background:#
   </div>
 </div>
 
-<!-- زر المطور الشيك في الأسفل -->
+<!-- زر المطور في الأسفل -->
 <div style="padding: 0 4%;">
   <div class="developer-footer-banner">
     <div style="font-size:32px;">👑</div>
