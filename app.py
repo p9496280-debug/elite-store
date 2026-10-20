@@ -18,6 +18,7 @@ from flask import (
     make_response,
     jsonify,
     send_from_directory,
+    Response,
 )
 
 app = Flask(__name__)
@@ -229,8 +230,18 @@ PAGE = r"""
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#03091b">
 
+<!-- تخصيص جوجل لمحركات البحث لاستبدال اسم المطور والشعار -->
 <title>NOVA STORE | المتجر الرقمي الشامل لبطاقات الألعاب والدفع</title>
 <meta name="description" content="متجر NOVA STORE هو متجرك الرقمي الأول لشحن بطاقات جوجل بلاي، بلايستيشن، إكس بوكس، العملات الرقمية وبطاقات الفيزا والدفع عبر فودافون كاش.">
+<meta property="og:site_name" content="NOVA STORE">
+<meta property="og:title" content="NOVA STORE | المتجر الرقمي الشامل">
+<meta property="og:description" content="متجر NOVA STORE لشحن الألعاب والبطاقات الرقمية.">
+<meta property="og:image" content="/logo.svg">
+<meta name="application-name" content="NOVA STORE">
+
+<!-- أيقونة الشعار لجوجل والهواتف -->
+<link rel="icon" type="image/svg+xml" href="/logo.svg">
+<link rel="apple-touch-icon" href="/logo.svg">
 
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
@@ -1392,7 +1403,27 @@ spinBtn.addEventListener('click', () => {
 </html>
 """
 
-# ==================== المسارات ====================
+# ==================== المسارات واللوجو ====================
+
+@app.route('/logo.svg')
+@app.route('/favicon.ico')
+def serve_logo():
+    svg_logo = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#03091b"/>
+      <stop offset="100%" stop-color="#081738"/>
+    </linearGradient>
+    <linearGradient id="nGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#bc5bff"/>
+      <stop offset="50%" stop-color="#315dff"/>
+      <stop offset="100%" stop-color="#35eaa1"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="120" fill="url(#bgGrad)"/>
+  <path d="M 120 120 L 200 120 L 312 312 L 312 120 L 392 120 L 392 392 L 312 392 L 200 200 L 200 392 L 120 392 Z" fill="url(#nGrad)"/>
+</svg>"""
+    return Response(svg_logo, mimetype='image/svg+xml')
 
 @app.route('/manifest.json')
 def manifest():
