@@ -230,16 +230,15 @@ PAGE = r"""
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#03091b">
 
-<!-- تخصيص جوجل لمحركات البحث لاستبدال اسم المطور والشعار -->
+<!-- تخصيص اسم وشعار الموقع لمحركات البحث -->
 <title>NOVA STORE | المتجر الرقمي الشامل لبطاقات الألعاب والدفع</title>
 <meta name="description" content="متجر NOVA STORE هو متجرك الرقمي الأول لشحن بطاقات جوجل بلاي، بلايستيشن، إكس بوكس، العملات الرقمية وبطاقات الفيزا والدفع عبر فودافون كاش.">
 <meta property="og:site_name" content="NOVA STORE">
 <meta property="og:title" content="NOVA STORE | المتجر الرقمي الشامل">
-<meta property="og:description" content="متجر NOVA STORE لشحن الألعاب والبطاقات الرقمية.">
+<meta property="og:description" content="متجر NOVA STORE لشحن الألعاب والبطاقات الرقمية والدفع الآمن.">
 <meta property="og:image" content="/logo.svg">
 <meta name="application-name" content="NOVA STORE">
 
-<!-- أيقونة الشعار لجوجل والهواتف -->
 <link rel="icon" type="image/svg+xml" href="/logo.svg">
 <link rel="apple-touch-icon" href="/logo.svg">
 
@@ -1403,7 +1402,7 @@ spinBtn.addEventListener('click', () => {
 </html>
 """
 
-# ==================== المسارات واللوجو ====================
+# ==================== المسارات واللوجو وملفات الأرشفة ====================
 
 @app.route('/logo.svg')
 @app.route('/favicon.ico')
@@ -1425,13 +1424,31 @@ def serve_logo():
 </svg>"""
     return Response(svg_logo, mimetype='image/svg+xml')
 
+@app.route('/robots.txt')
+def robots():
+    robots_content = """User-agent: *
+Allow: /
+
+Sitemap: https://elite-store-ug21.onrender.com/sitemap.xml
+"""
+    return Response(robots_content, mimetype='text/plain')
+
+@app.route('/sitemap.xml')
+def sitemap():
+    sitemap_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://elite-store-ug21.onrender.com/</loc>
+    <lastmod>2026-10-20</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>"""
+    return Response(sitemap_xml, mimetype='application/xml')
+
 @app.route('/manifest.json')
 def manifest():
     return send_from_directory('static', 'manifest.json')
-
-@app.route('/robots.txt')
-def robots():
-    return "User-agent: *\nAllow: /", 200, {'Content-Type': 'text/plain'}
 
 @app.route("/apply_promo", methods=["POST"])
 def apply_promo():
