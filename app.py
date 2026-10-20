@@ -31,11 +31,11 @@ os.makedirs(AVATARS_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['AVATARS_FOLDER'] = AVATARS_FOLDER
 
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@novastore.com")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "nova_store.db")
 
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 ADMIN_TELEGRAM_USERNAME = "Mido_M9do"
 TELEGRAM_BOT_USERNAME = "midoassistantAIbot"
 TELEGRAM_CHANNEL_LINK = "https://t.me/Midomsn"
@@ -173,6 +173,12 @@ def init_db():
 
 
 init_db()
+
+
+@app.after_request
+def add_header(response):
+    response.headers['X-Robots-Tag'] = 'index, follow, max-image-preview:large'
+    return response
 
 
 def send_telegram_code(chat_id, code):
@@ -1033,7 +1039,7 @@ button{width:100%;padding:13px;background:linear-gradient(110deg,#9b37ff,#315dff
     <input name="name" placeholder="الاسم الكامل" required>
     <input type="email" name="email" placeholder="البريد الإلكتروني" required>
     <input type="password" name="password" placeholder="كلمة المرور" required>
-    <input name="telegram_id" placeholder="Telegram Chat ID (لاستلام كود التحقق)" required>
+    <input name="telegram_id" placeholder="Telegram Chat ID (لاستلاستلام كود التحقق)" required>
     <button type="submit">إرسال كود التحقق عبر التليجرام</button>
   </form>
   <a href="/login_google" style="display:block;text-align:center;padding:12px;border-radius:10px;color:white;text-decoration:none;font-weight:bold;background:#db4437;margin-top:10px;">التسجيل بحساب جوجل 🌐</a>
