@@ -5,6 +5,9 @@ import secrets
 import sqlite3
 import math
 import requests
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -40,6 +43,10 @@ ADMIN_TELEGRAM_USERNAME = "Mido_M9do"
 TELEGRAM_BOT_USERNAME = "midoassistantAIbot"
 TELEGRAM_CHANNEL_LINK = "https://t.me/Midomsn"
 
+# البريد الإلكتروني المعتمد للدعم وإرسال الأكواد
+SUPPORT_EMAIL = os.environ.get("SUPPORT_EMAIL", "p9496280@gmail.com")
+SUPPORT_EMAIL_PASSWORD = os.environ.get("SUPPORT_EMAIL_PASSWORD", "")
+
 
 def get_db():
     connection = sqlite3.connect(DATABASE_PATH)
@@ -55,7 +62,7 @@ def init_db():
                 name TEXT NOT NULL,
                 email TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
-                telegram_id TEXT NOT NULL,
+                telegram_id TEXT DEFAULT '',
                 balance REAL NOT NULL DEFAULT 0.0,
                 verified INTEGER NOT NULL DEFAULT 0,
                 avatar TEXT DEFAULT '🤖',
@@ -182,17 +189,49 @@ def add_header(response):
 
 
 def send_telegram_code(chat_id, code):
-    if TELEGRAM_BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
+    if TELEGRAM_BOT_TOKEN == "YOUR_BOT_TOKEN_HERE" or not chat_id:
         return
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": chat_id,
-        "text": f"🔐 كود التحقق الخاص بك في متجر NOVA STORE هو: {code}\nصالح لمدة 5 دقائق فقط."
+        "text": f"🔐 كود التحقق الرسمي من NOVA STORE هو: {code}\nصالح لمدة 5 دقائق فقط."
     }
     try:
         requests.post(url, json=payload, timeout=5)
     except Exception:
         pass
+
+
+def send_email_code(to_email, code):
+    msg = MIMEMultipart()
+    msg['From'] = f"NOVA STORE Support <{SUPPORT_EMAIL}>"
+    msg['To'] = to_email
+    msg['Subject'] = "🔐 رمز التحقق الخاص بك لحساب NOVA STORE"
+
+    html_content = f"""
+    <div dir="rtl" style="font-family:'Cairo',sans-serif; background:#03091b; color:#fff; padding:30px; border-radius:16px; border:1px solid #315dff;">
+      <h2 style="color:#35eaa1; margin-top:0;">🛡️ NOVA STORE - التحقق الرسمي</h2>
+      <p style="color:#cbd5e1; font-size:14px;">مرحباً بك! لقد طلبت إنشاء حساب جديد في متجرنا الرقمي.</p>
+      <div style="background:#07132c; border:1px solid #35eaa1; padding:15px; text-align:center; border-radius:12px; margin:20px 0;">
+        <span style="font-size:12px; color:#a8b7d8; display:block;">كود التحقق الخاص بك:</span>
+        <h1 style="color:#35eaa1; font-size:32px; letter-spacing:4px; margin:5px 0;">{code}</h1>
+      </div>
+      <p style="font-size:11px; color:#8194ba;">هذا الكود صالح لمدة 5 دقائق فقط. إذا لم تقم بطلب هذا الكود، يرجى تجاهل هذه الرسالة.</p>
+      <hr style="border-color:#1b315c; margin:20px 0;">
+      <small style="color:#557099;">© 2026 NOVA STORE - جميع الحقوق محفوظة ({SUPPORT_EMAIL})</small>
+    </div>
+    """
+    msg.attach(MIMEText(html_content, 'html'))
+
+    if SUPPORT_EMAIL_PASSWORD:
+        try:
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()
+            server.login(SUPPORT_EMAIL, SUPPORT_EMAIL_PASSWORD)
+            server.sendmail(SUPPORT_EMAIL, to_email, msg.as_string())
+            server.quit()
+        except Exception:
+            pass
 
 
 def get_products():
@@ -225,7 +264,7 @@ def get_setting(key, default=""):
         return row["value"] if row else default
 
 
-# ==================== الصفحة الرئيسية للمتجر ====================
+# ==================== الواجهة الرئيسية للمتجر ====================
 PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -242,10 +281,7 @@ PAGE = r"""
 <meta property="og:title" content="NOVA STORE | المتجر الرقمي الشامل">
 <meta property="og:description" content="متجر NOVA STORE لشحن الألعاب والبطاقات الرقمية والدفع الآمن.">
 <meta property="og:image" content="/logo.svg">
-<meta name="application-name" content="NOVA STORE">
-
 <link rel="icon" type="image/svg+xml" href="/logo.svg">
-<link rel="apple-touch-icon" href="/logo.svg">
 
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
@@ -259,65 +295,12 @@ PAGE = r"""
 .user-profile-badge {display: flex; align-items: center; gap: 10px; background: #0b1734; border: 1px solid #315dff; padding: 6px 14px; border-radius: 30px; text-decoration: none; box-shadow: 0 0 10px rgba(49,93,255,0.3);}
 .user-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #9b37ff, #315dff); display: grid; place-items: center; font-weight: bold; color: white; border: 2px solid #35eaa1; box-shadow: 0 0 8px #35eaa188; overflow:hidden;}
 
-.nav {
-  min-height: 58px;
-  padding: 0 4%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-bottom: 1px solid #1a2d54;
-  background: linear-gradient(180deg, #07122b 0%, #040a1b 100%);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
+.nav { min-height: 58px; padding: 0 4%; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #1a2d54; background: linear-gradient(180deg, #07122b 0%, #040a1b 100%); overflow-x: auto; scrollbar-width: none; }
 .nav::-webkit-scrollbar { display: none; }
-
-.nav a {
-  color: #c4cde3;
-  text-decoration: none;
-  padding: 8px 16px;
-  border-radius: 12px;
-  font-size: 12.5px;
-  font-weight: 600;
-  transition: all 0.25s ease;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.nav a:hover {
-  background: rgba(49, 93, 255, 0.15);
-  border-color: #315dff;
-  color: #ffffff;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(49, 93, 255, 0.2);
-}
-
-.nav a.active {
-  background: linear-gradient(110deg, #9b37ff, #315dff);
-  color: #ffffff;
-  border-color: transparent;
-  box-shadow: 0 4px 15px rgba(155, 55, 255, 0.35);
-}
-
-.nav-badge-game {
-  background: linear-gradient(135deg, #ec4899, #8b5cf6) !important;
-  color: #fff !important;
-  border: none !important;
-  font-weight: bold;
-}
-.nav-badge-spin {
-  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
-  color: #fff !important;
-  border: none !important;
-  font-weight: bold;
-}
-.nav-badge-dev { border-color: #38bdf8 !important; color: #38bdf8 !important; }
-.nav-badge-tele { border-color: #a855f7 !important; color: #c084fc !important; }
-
+.nav a { color: #c4cde3; text-decoration: none; padding: 8px 16px; border-radius: 12px; font-size: 12.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); }
+.nav a.active { background: linear-gradient(110deg, #9b37ff, #315dff); color: #ffffff; border-color: transparent; }
+.nav-badge-game { background: linear-gradient(135deg, #ec4899, #8b5cf6) !important; color: #fff !important; font-weight: bold; }
+.nav-badge-spin { background: linear-gradient(135deg, #f59e0b, #d97706) !important; color: #fff !important; font-weight: bold; }
 .admin-badge { background: #570f0f; color: #ff7777; border: 1px solid #ff5555; padding: 6px 14px; border-radius: 12px; font-weight: bold; text-decoration:none;}
 
 .layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:22px;padding:22px 4%}
@@ -328,37 +311,9 @@ PAGE = r"""
 .hero h1{font-size:clamp(20px,2vw,28px);line-height:1.6;margin:0 0 10px;font-weight:800}
 .hero p{color:#c4cce2;font-size:12px;line-height:1.8;margin:0 0 15px}
 .hero-btn{display:inline-flex;align-items:center;gap:10px;padding:10px 22px;border-radius:30px;font-size:12px;background:linear-gradient(110deg,#9b37ff,#315dff);color:white;text-decoration:none;font-weight:bold;cursor:pointer;}
-.trust-row{display:flex;gap:15px;margin-top:15px;color:#dce5ff;font-size:10px}
-.hero-art{position:relative;height:220px;display:flex;align-items:center;justify-content:center}
-.gift-card{position:absolute;width:90px;height:125px;border:1px solid #66bfff;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-size:11px;background:linear-gradient(145deg,#063c9e,#09132e);box-shadow:0 0 20px #168dff55;}
-.gift-card.google{right:45%;transform:rotate(-12deg);background:linear-gradient(145deg,#113e83,#11153c);border-color:#35eaa1}
-.gift-card.playstation{right:28%;top:20px;transform:rotate(6deg);background:linear-gradient(145deg,#0759dd,#111342)}
-.gift-card.steam{right:10%;top:30px;transform:rotate(12deg);background:linear-gradient(125deg,#122b54,#050c1c)}
-
-.personal-deal-box {
-  background: linear-gradient(135deg, #1e0938, #0a1128);
-  border: 1px solid #a855f7;
-  border-radius: 16px;
-  padding: 14px 20px;
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  box-shadow: 0 4px 20px rgba(168, 85, 247, 0.25);
-}
-.deal-timer {
-  background: #03091b;
-  color: #f43f5e;
-  border: 1px solid #f43f5e;
-  font-weight: 800;
-  padding: 5px 12px;
-  border-radius: 8px;
-  font-size: 13px;
-}
 
 .categories{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin:20px 0}
 .category{border:1px solid #172d53;border-radius:12px;background:linear-gradient(150deg,#07152e,#050d20);padding:14px 8px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;cursor:pointer;transition:0.2s}
-.category:hover{border-color:#5a54ff;transform:translateY(-2px)}
 .category span{font-size:22px;color:#65baff}
 .category b{font-size:11px}
 
@@ -366,30 +321,16 @@ PAGE = r"""
 .section-heading h2{font-size:18px;margin:0;display:flex;align-items:center;gap:8px}
 .product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:15px}
 .product-card{border:1px solid #1b3159;background:linear-gradient(150deg,#08152e,#050c1e);border-radius:14px;padding:12px;position:relative;transition:0.2s}
-.product-card:hover{border-color:#5c52ff;transform:translateY(-3px)}
-
 .product-visual{height:160px;border-radius:10px;background:radial-gradient(circle at 50% 20%,#1b3159,transparent 70%),#07142c;display:flex;align-items:center;justify-content:center;font-size:36px;position:relative;margin-bottom:10px;overflow:hidden;}
 .product-img{width:100%;height:100%;object-fit:contain;border-radius:10px;}
-
-.badge-tag{position:absolute;top:8px;right:8px;background:#ff3b3b;color:white;font-size:9px;padding:2px 8px;border-radius:6px;font-weight:bold;z-index:2;}
-.badge-tag.memo{background:#315dff}
-.product-card h3{font-size:13px;margin:5px 0 2px;}
-.product-card p{font-size:10px;color:#8fa1c4;margin:0 0 10px}
-.price-row{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
 .price{font-size:13.5px;font-weight:800;color:#35eaa1}
-.old-price{font-size:11px;color:#8fa1c4;text-decoration:line-through;margin-left:5px;}
-.add-btn{padding:7px 12px;border:0;border-radius:8px;background:linear-gradient(100deg,#933aff,#315dff);font-size:11px;font-weight:700;color:white;cursor:pointer}
+.add-btn{padding:7px 12px;border:0;border-radius:8px;background:linear-gradient(100deg,#933aff,#315dff);font-size:11px;font-weight:700;color:white;cursor:pointer;text-decoration:none;}
 
-.sidebar-left{display:flex;flex-direction:column;gap:18px;}
-.side-card{border:1px solid #243e75;border-radius:18px;padding:16px;background:linear-gradient(155deg,#081735,#060d22);}
-.side-card h4{margin:0 0 10px;font-size:13px;color:#fff;display:flex;align-items:center;gap:8px;}
-.wallet-box{background:linear-gradient(135deg,#0e234e,#180b3d);border:1px solid #35eaa166;border-radius:14px;padding:14px;text-align:center;}
-
+/* أبعاد صور المنشورات المحدثة لتظهر بالكامل */
 .posts-feed {display:flex;flex-direction:column;gap:15px;margin-bottom:25px;}
 .post-card {background:linear-gradient(145deg,#0b1938,#07122b);border:1px solid #315dff;border-radius:16px;padding:16px;box-shadow:0 4px 20px rgba(49,93,255,0.15);}
 .post-card h3 {margin:0 0 8px;font-size:15px;color:#38bdf8;display:flex;align-items:center;gap:8px;}
 .post-card p {font-size:12px;color:#cbd5e1;line-height:1.7;margin:0 0 10px;}
-
 .post-card img {
   width:100%;
   max-height:450px;
@@ -400,43 +341,14 @@ PAGE = r"""
   background:#03091b;
 }
 
-.reviews-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:15px;}
-.review-card {background:#071635;border:1px solid #1e3a6e;padding:12px;border-radius:12px;}
-
-.flash-box{background:linear-gradient(135deg,#5e0a0a,#2b0808);border:1px solid #ff3b3b;border-radius:14px;padding:12px;margin-bottom:15px;display:flex;align-items:center;justify-content:space-between;}
-.timer{font-size:14px;font-weight:bold;color:#facc15;background:#03091b;padding:4px 10px;border-radius:8px;}
-
-.promo-input-group{display:flex;gap:6px;margin-top:8px;}
-.promo-input-group input{flex:1;padding:8px;background:#03091b;border:1px solid #263d70;border-radius:8px;color:#fff;font-size:11px;}
-.promo-input-group button{padding:8px 12px;background:#315dff;color:#fff;border:0;border-radius:8px;font-weight:bold;cursor:pointer;font-size:11px;}
-
-.checkout-modal{display:none;position:fixed;inset:0;background:rgba(3,9,27,0.85);backdrop-filter:blur(8px);z-index:200;place-items:center;padding:20px;overflow-y:auto;}
-.checkout-box{background:linear-gradient(145deg,#07132c,#0a1a3f);border:1px solid #315dff;border-radius:18px;padding:25px;width:100%;max-width:420px;text-align:center;max-height:90vh;overflow-y:auto;}
-.checkout-box h3{margin-top:0;color:#fff;}
-.vodafone-card{background:#e11d48;color:white;padding:12px;border-radius:10px;margin:12px 0;font-weight:bold;font-size:13px;}
-
-.payment-tabs {display:flex;gap:8px;margin:12px 0;}
-.pay-tab {flex:1;padding:8px;background:#03091b;border:1px solid #263d70;border-radius:8px;color:#a8b7d8;font-size:11px;font-weight:bold;cursor:pointer;}
-.pay-tab.active {border-color:#35eaa1;background:#0d2340;color:#35eaa1;}
-
-.success-box {display:none;background:linear-gradient(135deg,#064e3b,#022c22);border:1px solid #35eaa1;border-radius:12px;padding:15px;margin-bottom:15px;text-align:center;}
-
-footer{border-top:1px solid #192b4e;padding:30px 4%;display:grid;grid-template-columns:1.5fr 1fr 1fr 1.2fr;gap:25px;color:#aab9d8;font-size:11px;margin-top:40px;background:#030714}
-footer h4{color:#f4f7ff;margin:0 0 12px;font-size:13px;border-right:3px solid #315dff;padding-right:8px;}
-footer a{display:block;margin:6px 0;color:#aab8d0;text-decoration:none;transition:0.2s;}
-footer a:hover{color:#38bdf8;}
-.footer-dev-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:10px;background:linear-gradient(110deg,#9b37ff,#315dff);color:white;font-weight:bold;border-radius:10px;text-decoration:none;font-size:11.5px;box-shadow:0 4px 15px rgba(49,93,255,0.3);transition:0.2s;margin-top:6px;}
-.footer-dev-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(155,55,255,0.5);}
-.footer-link-box{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
-.footer-btn-item{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#091632;border:1px solid #1c3563;border-radius:8px;color:#e2ebf8;text-decoration:none;font-size:11px;transition:0.2s;}
-.footer-btn-item:hover{border-color:#38bdf8;background:#0e2047;color:#fff;}
+footer{border-top:1px solid #192b4e;padding:30px 4%;background:#030714;margin-top:40px;color:#aab9d8;font-size:11px;text-align:center;}
 </style>
 </head>
 <body>
 
 <header class="topbar">
   <a class="brand" href="/"><span class="brand-mark">N</span><span>NOVA <b>STORE</b></span></a>
-  <label class="search"><span>⌕</span><input id="searchInput" type="search" placeholder="ابحث عن أي منتج..." onkeyup="filterProducts()"></label>
+  <div class="search"><span>⌕</span><input id="searchInput" type="search" placeholder="ابحث عن أي منتج..." onkeyup="filterProducts()"></div>
   <div class="header-actions">
     {% if is_admin %}
       <a href="/admin" class="admin-badge">⚙️ لوحة المطور</a>
@@ -463,77 +375,31 @@ footer a:hover{color:#38bdf8;}
 </header>
 
 <nav class="nav">
-  <a href="/" class="active">
-    <span>🏠</span> الرئيسية
-  </a>
-  <a href="/game" class="nav-badge-game">
-    <span>🎮</span> منطقة الألعاب الترفيهية
-  </a>
-  <a href="/spin" class="nav-badge-spin">
-    <span>🎡</span> عجلة الحظ اليومية
-  </a>
-  <a href="https://t.me/{{ admin_telegram }}" target="_blank" class="nav-badge-dev">
-    <span>💬</span> الدعم والمطور
-  </a>
-  <a href="{{ telegram_channel }}" target="_blank" class="nav-badge-tele">
-    <span>📢</span> القناة الرسمية
-  </a>
-  <a href="#reviews">
-    <span>⭐️</span> تقييمات العملاء
-  </a>
+  <a href="/" class="active"><span>🏠</span> الرئيسية</a>
+  <a href="/game" class="nav-badge-game"><span>🎮</span> الألعاب الترفيهية</a>
+  <a href="/spin" class="nav-badge-spin"><span>🎡</span> عجلة الحظ اليومية</a>
+  <a href="https://t.me/{{ admin_telegram }}" target="_blank"><span>💬</span> الدعم والمطور</a>
+  <a href="{{ telegram_channel }}" target="_blank"><span>📢</span> القناة الرسمية</a>
 </nav>
 
 <main class="layout">
   <aside class="sidebar-left">
-    <div class="side-card" style="border-color: #ec4899; background: linear-gradient(135deg, #1f072b, #0d041c);">
-      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-        <span style="font-size: 26px;">🎮</span>
-        <div>
-          <h4 style="margin: 0; color: #fff;">لعبة الذاكرة الذكية</h4>
-          <span style="font-size: 9px; color: #ec4899;">العب مجاناً الآن للترفيه!</span>
-        </div>
-      </div>
-      <p style="font-size: 10px; color: #a8b7d8; margin: 0 0 10px;">طابق كروت الألعاب واختبر سرعتك وذاكرتك مع روبوت NOVA!</p>
-      <a href="/game" style="display:block; text-align:center; padding: 10px; background: linear-gradient(110deg, #ec4899, #8b5cf6); color: #fff; font-weight: bold; border-radius: 8px; text-decoration:none; font-size: 11px;">
-        🕹️ ابدأ اللعب فوراً
-      </a>
-    </div>
-
-    <div class="side-card" style="border-color: #35eaa1; background: linear-gradient(135deg, #071f3d, #030d24);">
-      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-        <span style="font-size: 24px;">📱</span>
-        <div>
-          <h4 style="margin: 0; color: #fff;">تطبيق NOVA STORE</h4>
-          <span style="font-size: 9px; color: #35eaa1;">تصفح أسرع وإشعارات فورية</span>
-        </div>
-      </div>
-      <p style="font-size: 10px; color: #a8b7d8; margin: 0 0 10px;">اضغط أسفله لتثبيت التطبيق مباشرة على شاشة هاتفك!</p>
-      <button id="pwaInstallBtn" onclick="installApp()" style="width:100%; padding: 10px; background: linear-gradient(110deg, #35eaa1, #00b894); color: #03091b; font-weight: bold; border-radius: 8px; border:0; cursor:pointer; font-size: 11px;">
-        📲 تثبيت التطبيق على الهاتف
-      </button>
-    </div>
-
-    <div class="side-card">
-      <h4>💳 محفظتك الرقمية</h4>
-      <div class="wallet-box">
+    <div style="background:#07132c;border:1px solid #315dff;border-radius:18px;padding:16px;margin-bottom:15px;">
+      <h4 style="margin:0 0 10px;color:#fff;">💳 محفظتك الرقمية</h4>
+      <div style="background:#03091b;padding:12px;border-radius:12px;text-align:center;">
         <span style="font-size:11px;color:#a8b7d8;">الرصيد المتاح</span>
         <h2 style="margin:5px 0;color:#35eaa1;">{% if user %}{{ user["balance"] }}{% else %}0.0{% endif %} جـ</h2>
-        <a href="https://t.me/{{ admin_telegram }}?text=أريد%20شحن%20رصيد%20محفظتي%20في%20المتجر" target="_blank" style="display:inline-block;margin-top:8px;padding:6px 14px;background:linear-gradient(110deg,#35eaa1,#00b894);color:#03091b;font-weight:bold;font-size:10px;border-radius:6px;text-decoration:none;">＋ شحن الرصيد</a>
       </div>
+    </div>
+
+    <div style="background:linear-gradient(135deg, #1f072b, #0d041c);border:1px solid #ec4899;border-radius:18px;padding:16px;">
+      <h4 style="margin:0 0 8px;color:#fff;">🎮 لعبة الذاكرة</h4>
+      <p style="font-size:10px;color:#a8b7d8;margin:0 0 10px;">اختبر ذاكرتك وسرعتك مجاناً الآن للترفيه!</p>
+      <a href="/game" style="display:block;text-align:center;padding:8px;background:linear-gradient(110deg,#ec4899,#8b5cf6);color:#fff;border-radius:8px;text-decoration:none;font-size:11px;font-weight:bold;">🕹️ ابدأ اللعب فوراً</a>
     </div>
   </aside>
 
   <section class="main-column">
-    <div class="flash-box">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:20px;">⚡</span>
-        <div>
-          <b style="font-size:12px;color:#fff;display:block;">{{ flash_msg }}</b>
-        </div>
-      </div>
-      <div class="timer" id="flashTimer">02:45:18</div>
-    </div>
-
     <div class="hero">
       <div>
         <span style="color:#bca0ff;font-size:11px;font-weight:bold;">عالمك الرقمي الأول</span>
@@ -541,11 +407,7 @@ footer a:hover{color:#38bdf8;}
         <p>اختر منتجك المفضل واشترِ الآن باستخدام فودافون كاش أو بطاقة الائتمان.</p>
         <a class="hero-btn" href="#products">تسوق الآن ←</a>
       </div>
-      <div class="hero-art">
-        <div class="gift-card google"><span style="color:#35eaa1;font-size:26px;">▶</span><b>Google Play</b></div>
-        <div class="gift-card playstation"><span style="color:#62a0ff;font-size:22px;">PSN</span><b>PlayStation</b></div>
-        <div class="gift-card steam"><span style="color:#9bb8ff;font-size:22px;">◉</span><b>STEAM</b></div>
-      </div>
+      <div></div>
     </div>
 
     {% if posts %}
@@ -582,26 +444,12 @@ footer a:hover{color:#38bdf8;}
     <div class="section-heading" id="products">
       <h2><span>🔥</span> أحدث المنتجات</h2>
     </div>
-
     <div class="product-grid" id="productGrid"></div>
   </section>
 </main>
 
-<footer id="footer">
-  <div>
-    <a class="brand" href="/" style="margin-bottom:10px;"><span class="brand-mark" style="width:28px;height:28px;font-size:22px;">N</span><span>NOVA <b>STORE</b></span></a>
-    <p style="line-height:1.7;margin:0 0 12px;">متجرك الرقمي الأول لبطاقات الدفع وأكواد الألعاب بأمان وسرعة.</p>
-  </div>
-  <div>
-    <h4>روابط سريعة</h4>
-    <a href="/">الرئيسية</a>
-    <a href="/game">🎮 المنطقة الترفيهية</a>
-    <a href="/spin">🎡 عجلة الحظ</a>
-  </div>
-  <div>
-    <h4>الدعم والتليجرام</h4>
-    <a href="https://t.me/{{ admin_telegram }}" target="_blank">👨‍💻 التواصل مع المطور</a>
-  </div>
+<footer>
+  <p>© 2026 NOVA STORE - جميع الحقوق محفوظة | البريد المعتمد والدعم: {{ support_email }}</p>
 </footer>
 
 <script>
@@ -613,286 +461,453 @@ function renderProducts(items) {
   items.forEach(p => {
     const card = document.createElement('article');
     card.className = 'product-card';
-    let visualHtml = p.image_url 
-      ? `<img src="${p.image_url}" class="product-img" alt="${p.name}">` 
-      : `<span style="color:${p.color};">${p.icon}</span>`;
-
+    let visualHtml = p.image_url ? `<img src="${p.image_url}" class="product-img">` : `<span style="color:${p.color};">${p.icon}</span>`;
     card.innerHTML = `
       <div class="product-visual">${visualHtml}</div>
-      <h3 style="color:#fff;">${p.name}</h3>
-      <p>${p.description}</p>
-      <div class="price-row">
+      <h3 style="color:#fff;font-size:13px;margin:5px 0;">${p.name}</h3>
+      <p style="font-size:10px;color:#8fa1c4;">${p.description}</p>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
         <span class="price">${p.price}</span>
-        <a href="https://t.me/{{ admin_telegram }}?text=أريد%20شراء%20${encodeURIComponent(p.name)}" target="_blank" class="add-btn" style="text-decoration:none;">شراء فوري 💳</a>
+        <a href="https://t.me/{{ admin_telegram }}?text=أريد%20شراء%20${encodeURIComponent(p.name)}" target="_blank" class="add-btn">شراء فوري 💳</a>
       </div>`;
     productGrid.appendChild(card);
   });
 }
+
+function filterCat(cat) {
+  if (cat === 'الكل') renderProducts(PRODUCTS);
+  else renderProducts(PRODUCTS.filter(x => x.category === cat));
+}
+
+function filterProducts() {
+  const query = document.getElementById('searchInput').value.toLowerCase();
+  renderProducts(PRODUCTS.filter(x => x.name.toLowerCase().includes(query)));
+}
+
 renderProducts(PRODUCTS);
 </script>
 </body>
 </html>
 """
 
-# ==================== اللعبة الترفيهية (Memory Game) ====================
-GAME_PAGE = r"""
+# ==================== عجلة الحظ السينمائية التفاعلية ====================
+SPIN_PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<title>لعبة طابق كروت الألعاب الترفيهية | NOVA STORE</title>
+<title>عجلة الحظ التفاعلية مع الروبوت | NOVA STORE</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
 *{box-sizing:border-box}
-body{margin:0;background:radial-gradient(ellipse at center,#1e0836 0%,#03091b 100%);color:#fff;font-family:'Cairo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
+body{margin:0;background:radial-gradient(ellipse at center,#0f1c3f 0%,#03091b 100%);color:#fff;font-family:'Cairo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;overflow:hidden;}
 
-.game-header {
-  text-align: center;
-  margin-bottom: 20px;
-}
-.game-stats {
-  display: flex;
-  gap: 20px;
-  justify-content: center;
-  background: #08152e;
-  padding: 8px 20px;
-  border-radius: 30px;
-  border: 1px solid #315dff;
-  margin-top: 10px;
-  font-size: 13px;
-}
+.spin-stage { position: relative; width: 360px; height: 440px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.robot-head { font-size: 50px; filter: drop-shadow(0 0 15px #38bdf8); transition: transform 0.3s ease; margin-bottom: 5px; z-index: 5; }
+.robot-arm { position: absolute; top: 45px; left: -20px; width: 90px; height: 20px; background: linear-gradient(90deg, #38bdf8, #315dff); border-radius: 10px; transform-origin: left center; transform: rotate(-30deg); transition: transform 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55); box-shadow: 0 0 15px #315dff88; z-index: 8; }
+.robot-arm::after { content: '🦾'; position: absolute; right: -15px; top: -10px; font-size: 26px; }
+.robot-arm.pulling { transform: rotate(45deg) scale(1.1); }
 
-/* شبكة كروت اللعبة */
-.memory-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 75px);
-  gap: 12px;
-  background: #07132c;
-  padding: 15px;
-  border-radius: 20px;
-  border: 2px solid #8d38ff;
-  box-shadow: 0 0 30px #8d38ff44;
-}
+.wheel-container{position:relative;width:320px;height:320px;display:flex;align-items:center;justify-content:center;}
+.wheel-outer-ring{position:absolute;inset:-12px;border-radius:50%;border:5px dashed #315dff;box-shadow:0 0 40px #8d38ff;pointer-events:none;z-index:2;}
+.pointer{position:absolute;top:-20px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-top:30px solid #ff3b3b;z-index:10;filter:drop-shadow(0 0 8px #ff3b3b);}
+canvas{width:100%;height:100%;border-radius:50%;transition: transform 6s cubic-bezier(0.1, 0.9, 0.1, 1);}
+.spin-btn{position:absolute;width:75px;height:75px;border-radius:50%;background:radial-gradient(circle,#9b37ff,#315dff);border:4px solid #fff;color:#fff;font-weight:900;font-size:15px;cursor:pointer;z-index:5;box-shadow:0 0 20px #9b37ff;}
 
-.card-item {
-  width: 75px;
-  height: 90px;
-  background: linear-gradient(145deg, #0f244a, #09132a);
-  border: 2px solid #315dff;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32px;
-  cursor: pointer;
-  user-select: none;
-  transition: transform 0.4s ease, background 0.3s ease;
-  transform-style: preserve-3d;
-}
-
-.card-item.flipped {
-  background: linear-gradient(145deg, #276bff, #bc5bff);
-  border-color: #35eaa1;
-  transform: rotateY(180deg);
-}
-
-.card-item.matched {
-  background: linear-gradient(145deg, #059669, #10b981);
-  border-color: #35eaa1;
-  cursor: default;
-  box-shadow: 0 0 15px #35eaa1aa;
-}
-
-.robot-cheer {
-  font-size: 45px;
-  margin-top: 15px;
-  filter: drop-shadow(0 0 10px #38bdf8);
-}
-
-.win-modal {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: #03091bee;
-  backdrop-filter: blur(10px);
-  z-index: 100;
-  place-items: center;
-}
-.win-box {
-  background: linear-gradient(145deg, #0b1a3d, #0d2454);
-  border: 2px solid #35eaa1;
-  border-radius: 20px;
-  padding: 30px;
-  text-align: center;
-  max-width: 340px;
-}
+.modal{display:none;position:fixed;inset:0;background:#03091bee;backdrop-filter:blur(12px);z-index:100;place-items:center;padding:20px;}
+.modal-content{background:linear-gradient(145deg,#07132c,#0b1e47);border:2px solid #35eaa1;border-radius:20px;padding:25px;text-align:center;max-width:360px;width:100%;box-shadow:0 0 30px #35eaa166;}
 </style>
 </head>
 <body>
+<div style="text-align:center;margin-bottom:10px;">
+  <h1 style="font-size:26px;margin:0;background:linear-gradient(110deg,#bc5bff,#315dff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">🎡 عجلة الحظ السينمائية</h1>
+  <p style="color:#a8b7d8;font-size:12px;margin:3px 0 0;">الروبوت نُوفا جاهز لإدارة العجلة لك!</p>
+</div>
 
-<div class="game-header">
-  <h1 style="margin:0;font-size:26px;background:linear-gradient(110deg,#ec4899,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">🎮 لعبة الذاكرة الذكية</h1>
-  <p style="margin:5px 0 0;color:#a8b7d8;font-size:12px;">طابق الكروت المتشابهة بأقل عدد حركات للتحدي والترفيه!</p>
-  <div class="game-stats">
-    <span>⏱️ الوقت: <b id="timer" style="color:#facc15;">0</b>ث</span>
-    <span>🎯 المحاولات: <b id="moves" style="color:#38bdf8;">0</b></span>
+<div class="spin-stage">
+  <div class="robot-head" id="robotAvatar">🤖</div>
+  <div class="robot-arm" id="robotArm"></div>
+
+  <div class="wheel-container">
+    <div class="pointer"></div>
+    <div class="wheel-outer-ring"></div>
+    <canvas id="wheel" width="500" height="500"></canvas>
+    <button class="spin-btn" id="spinBtn">أَدِرْ!</button>
   </div>
 </div>
 
-<div class="robot-cheer" id="robotCheer">🤖</div>
+<a href="/" style="color:#8198ff;text-decoration:none;margin-top:15px;font-size:13px;font-weight:bold;">← العودة للمتجر الرئيسية</a>
 
-<div class="memory-grid" id="memoryGrid"></div>
-
-<div style="margin-top:20px;display:flex;gap:12px;">
-  <button onclick="restartGame()" style="padding:10px 20px;background:linear-gradient(110deg,#9b37ff,#315dff);color:white;border:0;border-radius:10px;font-weight:bold;cursor:pointer;font-size:12px;">🔄 إعادة اللعب</button>
-  <a href="/" style="padding:10px 20px;background:#1e293b;color:white;text-decoration:none;border-radius:10px;font-weight:bold;font-size:12px;">← العودة للمتجر</a>
-</div>
-
-<div class="win-modal" id="winModal">
-  <div class="win-box">
-    <div style="font-size:55px;">🏆</div>
-    <h2 style="color:#35eaa1;margin:5px 0;">أحسنت بطل!</h2>
-    <p id="winMsg" style="color:#cbd5e1;font-size:13px;line-height:1.6;"></p>
-    <button onclick="restartGame()" style="padding:10px 20px;background:linear-gradient(110deg,#35eaa1,#00b894);color:#03091b;font-weight:bold;border:0;border-radius:10px;cursor:pointer;width:100%;margin-top:10px;">العب مرة أخرى 🎮</button>
+<div class="modal" id="resultModal">
+  <div class="modal-content">
+    <div style="font-size:55px;" id="modalRobotEmoji">😃</div>
+    <h2 id="prizeTitle" style="color:#35eaa1;margin:5px 0;">مبروك!</h2>
+    <p id="prizeDesc" style="color:#a8b7d8;font-size:13px;line-height:1.6;"></p>
+    <button onclick="location.href='/'" style="margin-top:15px;padding:10px 20px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;width:100%;">التوجه للمتجر للشراء بالخصم 🔥</button>
   </div>
 </div>
 
 <script>
-const emojis = ['🎮', '▶', '👑', '💳', '🪙', '🎁'];
-let cards = [...emojis, ...emojis];
-let flippedCards = [];
-let matchedPairs = 0;
-let moves = 0;
-let timer = 0;
-let timerInterval = null;
-let gameStarted = false;
-
-function playFlipSound() {
+function playSpinSound() {
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(400, ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.1);
-  gain.gain.setValueAtTime(0.1, ctx.currentTime);
-  gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.1);
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(150, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 3);
+  osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 6);
+  gain.gain.setValueAtTime(0.12, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 6);
   osc.connect(gain);
   gain.connect(ctx.destination);
   osc.start();
-  osc.stop(ctx.currentTime + 0.1);
+  osc.stop(ctx.currentTime + 6);
 }
 
 function playWinSound() {
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  [523, 659, 783, 1046].forEach((f, i) => {
+  [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.frequency.value = f;
-    gain.gain.setValueAtTime(0.1, ctx.currentTime + i * 0.12);
-    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + i * 0.12 + 0.25);
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.15, ctx.currentTime + idx * 0.12);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + idx * 0.12 + 0.3);
     osc.connect(gain);
     gain.connect(ctx.destination);
-    osc.start(ctx.currentTime + i * 0.12);
-    osc.stop(ctx.currentTime + i * 0.12 + 0.25);
+    osc.start(ctx.currentTime + idx * 0.12);
+    osc.stop(ctx.currentTime + idx * 0.12 + 0.3);
   });
 }
 
-function shuffle(array) {
-  return array.sort(() => Math.random() - 0.5);
-}
-
-function initBoard() {
-  const grid = document.getElementById('memoryGrid');
-  grid.innerHTML = '';
-  shuffle(cards).forEach((icon, idx) => {
-    const card = document.createElement('div');
-    card.className = 'card-item';
-    card.dataset.icon = icon;
-    card.dataset.index = idx;
-    card.innerHTML = '❓';
-    card.addEventListener('click', flipCard);
-    grid.appendChild(card);
-  });
-}
-
-function flipCard() {
-  if (flippedCards.length >= 2 || this.classList.contains('flipped') || this.classList.contains('matched')) return;
-
-  if (!gameStarted) {
-    gameStarted = true;
-    timerInterval = setInterval(() => {
-      timer++;
-      document.getElementById('timer').textContent = timer;
-    }, 1000);
-  }
-
-  playFlipSound();
-  this.classList.add('flipped');
-  this.innerHTML = this.dataset.icon;
-  flippedCards.push(this);
-
-  if (flippedCards.length === 2) {
-    moves++;
-    document.getElementById('moves').textContent = moves;
-    checkMatch();
+function speakRobot(text) {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ar-SA';
+    utterance.pitch = 1.2;
+    utterance.rate = 1.0;
+    window.speechSynthesis.speak(utterance);
   }
 }
 
-function checkMatch() {
-  const [c1, c2] = flippedCards;
-  if (c1.dataset.icon === c2.dataset.icon) {
-    c1.classList.add('matched');
-    c2.classList.add('matched');
-    flippedCards = [];
-    matchedPairs++;
-    document.getElementById('robotCheer').textContent = '😃';
+const canvas = document.getElementById('wheel');
+const ctx = canvas.getContext('2d');
+const spinBtn = document.getElementById('spinBtn');
+const resultModal = document.getElementById('resultModal');
+const robotAvatar = document.getElementById('robotAvatar');
+const robotArm = document.getElementById('robotArm');
 
-    if (matchedPairs === emojis.length) {
-      clearInterval(timerInterval);
-      playWinSound();
-      setTimeout(() => {
-        document.getElementById('winMsg').textContent = `لقد أنهيت اللعبة بنجاح في ${timer} ثانية بـ ${moves} حركات فقط!`;
-        document.getElementById('winModal').style.display = 'grid';
-      }, 500);
+const items = [
+  { label: '5 جنيه 💰', color: '#8d38ff', amount: 5, discount: 0 },
+  { label: 'حظ أوفر 😅', color: '#1b2a4a', amount: 0, discount: 0 },
+  { label: '10 جنيه 💳', color: '#315dff', amount: 10, discount: 0 },
+  { label: 'خصم 20% 🏷️', color: '#00c853', amount: 0, discount: 20 },
+  { label: '20 جنيه 🎁', color: '#ff9100', amount: 20, discount: 0 },
+  { label: 'حظ أوفر 😅', color: '#263d70', amount: 0, discount: 0 }
+];
+
+const numItems = items.length;
+const arc = (2 * Math.PI) / numItems;
+
+function drawWheel() {
+  const radius = canvas.width / 2;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (let i = 0; i < numItems; i++) {
+    const angle = i * arc;
+    ctx.beginPath();
+    ctx.fillStyle = items[i].color;
+    ctx.moveTo(radius, radius);
+    ctx.arc(radius, radius, radius - 10, angle, angle + arc);
+    ctx.lineTo(radius, radius);
+    ctx.fill();
+    ctx.save();
+    ctx.translate(radius, radius);
+    ctx.rotate(angle + arc / 2);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 20px Cairo";
+    ctx.fillText(items[i].label, radius - 40, 8);
+    ctx.restore();
+  }
+}
+drawWheel();
+
+let isSpinning = false;
+spinBtn.addEventListener('click', () => {
+  if (isSpinning) return;
+  isSpinning = true;
+  spinBtn.disabled = true;
+
+  robotAvatar.textContent = '⚙️';
+  robotArm.classList.add('pulling');
+  playSpinSound();
+
+  setTimeout(() => {
+    robotArm.classList.remove('pulling');
+  }, 800);
+
+  fetch('/spin', {method: 'POST'}).then(res => res.json()).then(data => {
+    if (data.status === 'error') {
+      isSpinning = false;
+      spinBtn.disabled = false;
+      robotAvatar.textContent = '🤖';
+      document.getElementById('prizeTitle').textContent = 'عذراً!';
+      document.getElementById('prizeDesc').textContent = data.message;
+      document.getElementById('modalRobotEmoji').textContent = '😅';
+      resultModal.style.display = 'grid';
+      return;
     }
-  } else {
-    document.getElementById('robotCheer').textContent = '😅';
+
+    const selectedIndex = data.index;
+    const prize = items[selectedIndex];
+    const targetDegree = (360 - (selectedIndex * (360 / numItems)) - ((360 / numItems) / 2)) + (360 * 6);
+    canvas.style.transform = `rotate(${targetDegree}deg)`;
+
     setTimeout(() => {
-      c1.classList.remove('flipped');
-      c2.classList.remove('flipped');
-      c1.innerHTML = '❓';
-      c2.innerHTML = '❓';
-      flippedCards = [];
-      document.getElementById('robotCheer').textContent = '🤖';
-    }, 800);
-  }
-}
+      isSpinning = false;
+      const isWin = (prize.amount > 0 || prize.discount > 0);
+      
+      if (isWin) {
+        robotAvatar.textContent = '😃';
+        document.getElementById('modalRobotEmoji').textContent = '😃';
+        document.getElementById('prizeTitle').textContent = '🎉 مبروك الفوز!';
+        playWinSound();
+        speakRobot(`مبروك! ${data.msg}`);
+      } else {
+        robotAvatar.textContent = '😅';
+        document.getElementById('modalRobotEmoji').textContent = '😅';
+        document.getElementById('prizeTitle').textContent = 'حظ أفضل المرة القادمة!';
+        speakRobot("حظ أفضل في المرة القادمة!");
+      }
 
-function restartGame() {
-  clearInterval(timerInterval);
-  matchedPairs = 0;
-  moves = 0;
-  timer = 0;
-  gameStarted = false;
-  flippedCards = [];
-  document.getElementById('timer').textContent = '0';
-  document.getElementById('moves').textContent = '0';
-  document.getElementById('robotCheer').textContent = '🤖';
-  document.getElementById('winModal').style.display = 'none';
-  initBoard();
-}
-
-initBoard();
+      document.getElementById('prizeDesc').textContent = data.msg;
+      resultModal.style.display = 'grid';
+    }, 6000);
+  });
+});
 </script>
 </body>
 </html>
 """
 
-# ==================== المسارات واللوجو وملفات الأرشفة ====================
+# ==================== لعبة الذاكرة الترفيهية ====================
+GAME_PAGE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>لعبة الذاكرة الترفيهية | NOVA STORE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse at center,#1e0836 0%,#03091b 100%);color:#fff;font-family:'Cairo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
+.memory-grid { display: grid; grid-template-columns: repeat(4, 75px); gap: 12px; background: #07132c; padding: 15px; border-radius: 20px; border: 2px solid #8d38ff; box-shadow: 0 0 30px #8d38ff44; margin-top:15px; }
+.card-item { width: 75px; height: 90px; background: linear-gradient(145deg, #0f244a, #09132a); border: 2px solid #315dff; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 32px; cursor: pointer; user-select: none; transition: 0.3s; }
+.card-item.flipped { background: linear-gradient(145deg, #276bff, #bc5bff); border-color: #35eaa1; }
+.card-item.matched { background: linear-gradient(145deg, #059669, #10b981); border-color: #35eaa1; cursor: default; }
+</style>
+</head>
+<body>
+<div style="text-align:center;">
+  <h1 style="margin:0;font-size:26px;color:#ec4899;">🎮 لعبة الذاكرة الترفيهية</h1>
+  <p style="color:#a8b7d8;font-size:12px;">طابق الكروت للاستمتاع وقضاء وقت ممتع!</p>
+</div>
+<div class="memory-grid" id="memoryGrid"></div>
+<a href="/" style="margin-top:20px;padding:10px 20px;background:#1e293b;color:white;text-decoration:none;border-radius:10px;font-weight:bold;font-size:12px;">← العودة للمتجر الرئيسية</a>
 
-@app.route('/game')
-def game():
-    return render_template_string(GAME_PAGE)
+<script>
+const emojis = ['🎮', '▶', '👑', '💳', '🪙', '🎁'];
+let cards = [...emojis, ...emojis].sort(() => Math.random() - 0.5);
+let flippedCards = [], matchedPairs = 0;
+const grid = document.getElementById('memoryGrid');
+
+cards.forEach((icon) => {
+  const card = document.createElement('div');
+  card.className = 'card-item';
+  card.dataset.icon = icon;
+  card.innerHTML = '❓';
+  card.onclick = function() {
+    if (flippedCards.length >= 2 || this.classList.contains('flipped') || this.classList.contains('matched')) return;
+    this.classList.add('flipped');
+    this.innerHTML = this.dataset.icon;
+    flippedCards.push(this);
+    if (flippedCards.length === 2) {
+      if (flippedCards[0].dataset.icon === flippedCards[1].dataset.icon) {
+        flippedCards[0].classList.add('matched');
+        flippedCards[1].classList.add('matched');
+        flippedCards = [];
+        matchedPairs++;
+        if (matchedPairs === emojis.length) alert('🏆 مبروك! أنهيت اللعبة بنجاح.');
+      } else {
+        setTimeout(() => {
+          flippedCards[0].classList.remove('flipped');
+          flippedCards[1].classList.remove('flipped');
+          flippedCards[0].innerHTML = '❓';
+          flippedCards[1].innerHTML = '❓';
+          flippedCards = [];
+        }, 700);
+      }
+    }
+  };
+  grid.appendChild(card);
+});
+</script>
+</body>
+</html>
+"""
+
+# ==================== صفحة التسجيل والتوثيق المعتمدة ====================
+REGISTER_PAGE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>إنشاء حساب موثوق | NOVA STORE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+body{margin:0;background:#03091b;color:white;font-family:'Cairo',sans-serif;display:grid;place-items:center;min-height:100vh;}
+.box{background:#07132c;padding:30px;border:1px solid #315dff;border-radius:18px;width:380px;box-shadow:0 10px 30px rgba(49,93,255,0.2);}
+input, select{width:100%;padding:12px;margin:8px 0;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white;box-sizing:border-box;font-size:12px;}
+button{width:100%;padding:13px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;margin-top:10px;font-size:13px;}
+</style>
+</head>
+<body>
+<div class="box">
+  <div style="text-align:center;margin-bottom:15px;">
+    <h2 style="margin:0 0 5px;color:#35eaa1;">🛡️ إنشاء حساب جديد</h2>
+    <p style="font-size:11px;color:#a8b7d8;margin:0;">اختر الطريقة المفضلة لديك لاستلام كود التحقق</p>
+  </div>
+
+  {% if step == 1 %}
+  <form method="post">
+    <input name="name" placeholder="الاسم الكامل" required>
+    <input type="email" name="email" placeholder="البريد الإلكتروني الشخصي" required>
+    <input type="password" name="password" placeholder="كلمة المرور (6 أحرف على الأقل)" required>
+    
+    <label style="font-size:11.5px;color:#cbd5e1;display:block;margin-top:8px;">طريقة استلام كود التحقق:</label>
+    <select name="method" id="methodSelect" onchange="toggleField()" style="margin-bottom:10px;">
+      <option value="email">📧 البريد الإلكتروني الرسمي ({{ support_email }})</option>
+      <option value="telegram">🤖 عبر بوت التليجرام الرسمي</option>
+    </select>
+
+    <div id="telegramField" style="display:none;">
+      <input name="telegram_id" placeholder="Telegram Chat ID (مثل: 123456789)">
+    </div>
+
+    <button type="submit">إرسال كود التحقق 🔐</button>
+  </form>
+  {% else %}
+  <form method="post">
+    <div style="background:#03091b;padding:12px;border-radius:10px;border:1px solid #35eaa1;margin-bottom:15px;text-align:center;">
+      <span style="font-size:12px;color:#35eaa1;display:block;">تم إرسال كود التحقق بنجاح!</span>
+      <p style="font-size:10.5px;color:#a8b7d8;margin:5px 0 0;">تفقد البريد الإلكتروني أو بوت التليجرام الخاص بك.</p>
+    </div>
+    <input name="code" placeholder="أدخل كود التحقق المكون من 6 أرقام" required style="text-align:center;font-size:16px;letter-spacing:2px;">
+    <button type="submit">تأكيد الحساب والدخول 🚀</button>
+  </form>
+  {% endif %}
+
+  {% if error %}<p style="color:#ff7777;font-size:12px;margin-top:10px;text-align:center;">{{ error }}</p>{% endif %}
+  <a href="/login" style="color:#8198ff;display:block;margin-top:15px;text-align:center;font-size:12px;text-decoration:none;">لديك حساب بالفعل؟ تسجيل الدخول</a>
+</div>
+
+<script>
+function toggleField() {
+  const method = document.getElementById('methodSelect').value;
+  const teleField = document.getElementById('telegramField');
+  if (method === 'telegram') {
+    teleField.style.display = 'block';
+  } else {
+    teleField.style.display = 'none';
+  }
+}
+</script>
+</body>
+</html>
+"""
+
+LOGIN_PAGE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>تسجيل الدخول | NOVA STORE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+body{margin:0;background:#03091b;color:white;font-family:'Cairo',sans-serif;display:grid;place-items:center;min-height:100vh;}
+.box{background:#07132c;padding:30px;border:1px solid #315dff;border-radius:15px;width:360px;}
+input{width:100%;padding:12px;margin:8px 0;background:#03091b;border:1px solid #263d70;border-radius:9px;color:white;box-sizing:border-box;}
+button{width:100%;padding:13px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:10px;color:white;font-weight:bold;cursor:pointer;margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>تسجيل الدخول</h2>
+  <form method="post">
+    <input type="email" name="email" placeholder="البريد الإلكتروني" required>
+    <input type="password" name="password" placeholder="كلمة المرور" required>
+    <button type="submit">دخول</button>
+  </form>
+  {% if error %}<p style="color:#ff7777;font-size:12px;margin-top:10px;">{{ error }}</p>{% endif %}
+  <a href="/register" style="color:#8198ff;display:block;margin-top:15px;text-align:center;font-size:12px;text-decoration:none;">إنشاء حساب جديد</a>
+</div>
+</body>
+</html>
+"""
+
+ADMIN_PANEL_PAGE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>لوحة التحكم الشاملة | NOVA STORE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+body{margin:0;background:#03091b;color:white;font-family:'Cairo',sans-serif;padding:20px;}
+.admin-container{max-width:900px;margin:auto;}
+.box{background:#07132c;border:1px solid #315dff;border-radius:15px;padding:20px;margin-bottom:20px;}
+h3{margin-top:0;color:#35eaa1;}
+input, textarea{width:100%;padding:10px;margin:4px 0 10px;background:#03091b;border:1px solid #263d70;border-radius:8px;color:white;box-sizing:border-box;}
+button{width:100%;padding:11px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:8px;color:white;font-weight:bold;cursor:pointer;}
+</style>
+</head>
+<body>
+<div class="admin-container">
+  <h2>⚙️ لوحة تحكم المطور</h2>
+
+  <div class="box">
+    <h3>📢 نشر خبر / إعلان جديد</h3>
+    <form method="POST" action="/admin/add_post" enctype="multipart/form-data">
+      <input name="title" placeholder="عنوان المنشور" required>
+      <textarea name="content" placeholder="محتوى الإعلان" required style="height:60px;"></textarea>
+      <input type="file" name="image_file" accept="image/*" style="background:#0a1a3f;padding:8px;">
+      <input name="link_url" placeholder="رابط توجيه خارجي (اختياري)">
+      <button type="submit">نشر المنشور</button>
+    </form>
+  </div>
+
+  <div class="box">
+    <h3>📦 إضافة منتج جديد</h3>
+    <form method="POST" action="/admin/add_product" enctype="multipart/form-data">
+      <input name="name" placeholder="اسم المنتج" required>
+      <input name="description" placeholder="الوصف" required>
+      <input type="number" step="0.01" name="price_val" placeholder="السعر الرقمي" required>
+      <input name="price" placeholder="السعر النصي (مثال: 500 جـ)" required>
+      <input name="code" placeholder="الكود" required>
+      <input type="file" name="image_file" accept="image/*" style="background:#0a1a3f;padding:8px;">
+      <input name="icon" placeholder="الأيقونة الاحتياطية (مثال: ▶)" required>
+      <input name="category" placeholder="القسم" required>
+      <button type="submit">إضافة المنتج</button>
+    </form>
+  </div>
+  <a href="/" style="color:#8198ff;text-decoration:none;font-weight:bold;">← العودة للمتجر</a>
+</div>
+</body>
+</html>
+"""
+
+# ==================== المسارات والروابط العامة واللوجو والأرشفة ====================
 
 @app.route('/logo.svg')
 @app.route('/favicon.ico')
@@ -940,6 +955,213 @@ def sitemap():
 def manifest():
     return send_from_directory('static', 'manifest.json')
 
+@app.route('/game')
+def game():
+    return render_template_string(GAME_PAGE)
+
+@app.route("/spin", methods=["GET", "POST"])
+def spin():
+    email = session.get("user_email")
+    if not email:
+        return redirect(url_for("login"))
+
+    with get_db() as db:
+        user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+
+    today_str = time.strftime("%Y-%m-%d")
+    if request.method == "POST":
+        if user["last_spin_date"] == today_str:
+            return jsonify({"status": "error", "message": "لقد استخدمت محاولتك اليومية! عُد غداً لفرصة جديدة 🎁"})
+
+        selectedIndex = secrets.randbelow(6)
+        prizes = [
+            {'label': '5 جنيه 💰', 'amount': 5, 'discount': 0},
+            {'label': 'حظ أوفر 😅', 'amount': 0, 'discount': 0},
+            {'label': '10 جنيه 💳', 'amount': 10, 'discount': 0},
+            {'label': 'خصم 20% 🏷️', 'amount': 0, 'discount': 20},
+            {'label': '20 جنيه 🎁', 'amount': 20, 'discount': 0},
+            {'label': 'حظ أوفر 😅', 'amount': 0, 'discount': 0}
+        ]
+        prize = prizes[selectedIndex]
+
+        with get_db() as db:
+            if prize['amount'] > 0:
+                db.execute("UPDATE users SET balance = balance + ?, last_spin_date = ?, spin_count = spin_count + 1 WHERE email = ?", (prize['amount'], today_str, email))
+            else:
+                db.execute("UPDATE users SET last_spin_date = ?, spin_count = spin_count + 1 WHERE email = ?", (today_str, email))
+
+        if prize['discount'] > 0:
+            session['active_discount'] = prize['discount']
+            msg = f"فزت بـ ({prize['label']}) وتم خفض جميع أسعار المتجر فوراً بنسبة {prize['discount']}%!"
+        elif prize['amount'] > 0:
+            msg = f"فزت بـ ({prize['label']}) وأضيفت لمحفظتك بنجاح."
+        else:
+            msg = "حاول مجدداً غداً."
+
+        return jsonify({"status": "success", "index": selectedIndex, "msg": msg})
+
+    return render_template_string(SPIN_PAGE)
+
+@app.route('/register', methods=["GET", "POST"])
+def register():
+    error = ""
+    step = 1
+    if request.method == "POST":
+        if "code" not in request.form:
+            name = request.form.get("name", "").strip()
+            email = request.form.get("email", "").strip().lower()
+            password = request.form.get("password", "")
+            method = request.form.get("method", "email")
+            telegram_id = request.form.get("telegram_id", "").strip()
+
+            if not name or "@" not in email or len(password) < 6:
+                error = "يرجى ملء جميع البيانات بشكل صحيح (كلمة المرور 6 أحرف على الأقل)."
+            else:
+                with get_db() as db:
+                    existing = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+                    if existing:
+                        error = "هذا البريد مسجل مسبقاً."
+                    else:
+                        code = str(secrets.randbelow(900000) + 100000)
+                        db.execute("INSERT OR REPLACE INTO email_codes (email, code, expires_at) VALUES (?, ?, ?)",
+                                   (email, code, int(time.time()) + 300))
+                        
+                        if method == "telegram":
+                            send_telegram_code(telegram_id, code)
+                        else:
+                            send_email_code(email, code)
+
+                        session["temp_reg"] = {
+                            "name": name, 
+                            "email": email, 
+                            "password": generate_password_hash(password), 
+                            "telegram_id": telegram_id
+                        }
+                        step = 2
+        else:
+            entered_code = request.form.get("code", "").strip()
+            temp = session.get("temp_reg")
+            if not temp:
+                return redirect(url_for("register"))
+            with get_db() as db:
+                record = db.execute("SELECT * FROM email_codes WHERE email = ?", (temp["email"],)).fetchone()
+                if record and record["code"] == entered_code:
+                    my_ref = "REF" + str(secrets.randbelow(899999) + 100000)
+                    db.execute("""
+                        INSERT INTO users (name, email, password_hash, telegram_id, balance, verified, ref_code, created_at)
+                        VALUES (?, ?, ?, ?, 0.0, 1, ?, ?)
+                    """, (temp["name"], temp["email"], temp["password"], temp["telegram_id"], my_ref, int(time.time())))
+                    session["user_email"] = temp["email"]
+                    session.pop("temp_reg", None)
+                    return redirect(url_for("home"))
+                else:
+                    error = "كود التحقق غير صحيح."
+                    step = 2
+    return render_template_string(REGISTER_PAGE, error=error, step=step, support_email=SUPPORT_EMAIL)
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    error = ""
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+        with get_db() as db:
+            user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        if user and check_password_hash(user["password_hash"], password):
+            session["user_email"] = email
+            return redirect(url_for("home"))
+        error = "بيانات الدخول غير صحيحة."
+    return render_template_string(LOGIN_PAGE, error=error)
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("home"))
+
+@app.route("/account")
+def account():
+    email = session.get("user_email")
+    if not email:
+        return redirect(url_for("login"))
+    with get_db() as db:
+        user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+    return render_template_string("""
+    <div dir="rtl" style="font-family:'Cairo',sans-serif; background:#03091b; color:#fff; min-height:100vh; display:grid; place-items:center; padding:20px;">
+      <div style="background:#07132c; border:1px solid #315dff; border-radius:20px; padding:30px; text-align:center; max-width:400px; width:100%;">
+        <h2>👤 مرحبًا، {{ user["name"] }}</h2>
+        <p style="color:#35eaa1;">الرصيد: {{ user["balance"] }} جـ</p>
+        <a href="/" style="display:block; margin-top:15px; color:#8198ff; text-decoration:none;">← العودة للمتجر</a>
+        <a href="/logout" style="display:block; margin-top:10px; color:#ff7777; text-decoration:none;">تسجيل الخروج</a>
+      </div>
+    </div>
+    """, user=user)
+
+@app.route("/admin")
+def admin_panel():
+    email = session.get("user_email")
+    if not email or email != ADMIN_EMAIL:
+        return redirect(url_for("home"))
+    return render_template_string(ADMIN_PANEL_PAGE)
+
+@app.route("/admin/add_post", methods=["POST"])
+def admin_add_post():
+    email = session.get("user_email")
+    if not email or email != ADMIN_EMAIL:
+        return redirect(url_for("home"))
+
+    title = request.form.get("title", "").strip()
+    content = request.form.get("content", "").strip()
+    link_url = request.form.get("link_url", "").strip()
+
+    image_url = ""
+    file = request.files.get("image_file")
+    if file and file.filename != '':
+        filename = secure_filename(file.filename)
+        unique_filename = f"post_{int(time.time())}_{filename}"
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+        file.save(filepath)
+        image_url = f"/static/uploads/{unique_filename}"
+
+    if title and content:
+        with get_db() as db:
+            db.execute("""
+                INSERT INTO posts (title, content, image_url, link_url, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            """, (title, content, image_url, link_url, int(time.time())))
+
+    return redirect(url_for("admin_panel"))
+
+@app.route("/admin/add_product", methods=["POST"])
+def admin_add_product():
+    email = session.get("user_email")
+    if not email or email != ADMIN_EMAIL:
+        return redirect(url_for("home"))
+
+    name = request.form.get("name")
+    description = request.form.get("description")
+    price_val = float(request.form.get("price_val", 0))
+    price = request.form.get("price")
+    code = request.form.get("code")
+    icon = request.form.get("icon", "▶")
+    category = request.form.get("category")
+
+    image_url = ""
+    file = request.files.get("image_file")
+    if file and file.filename != '':
+        filename = secure_filename(file.filename)
+        unique_filename = f"{int(time.time())}_{filename}"
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+        file.save(filepath)
+        image_url = f"/static/uploads/{unique_filename}"
+
+    with get_db() as db:
+        db.execute("""
+            INSERT INTO products (name, description, price_val, price, code, icon, image_url, category, color, badge)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, '#315dff', 'جديد')
+        """, (name, description, price_val, price, code, icon, image_url, category))
+
+    return redirect(url_for("admin_panel"))
+
 @app.route("/")
 def home():
     email = session.get("user_email")
@@ -950,21 +1172,17 @@ def home():
             user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
         is_admin = (email == ADMIN_EMAIL)
     products = get_products()
-    reviews = get_reviews()
     posts = get_posts()
-    flash_msg = get_setting("flash_msg", "عروض الساعات المحدودة!")
 
     return render_template_string(
         PAGE, 
         products=products, 
-        reviews=reviews,
         posts=posts,
-        flash_msg=flash_msg,
         user=user, 
         is_admin=is_admin, 
-        admin_telegram=ADMIN_TELEGRAM_USERNAME, 
-        telegram_bot=TELEGRAM_BOT_USERNAME,
-        telegram_channel=TELEGRAM_CHANNEL_LINK
+        admin_telegram=ADMIN_TELEGRAM_USERNAME,
+        telegram_channel=TELEGRAM_CHANNEL_LINK,
+        support_email=SUPPORT_EMAIL
     )
 
 if __name__ == "__main__":
