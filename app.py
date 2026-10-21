@@ -17,7 +17,7 @@ from flask import (
 )
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_ehub_master_key_2026")
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_ehub_pro_2026")
 
 UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -69,6 +69,15 @@ def init_db():
         """)
 
         db.execute("""
+            CREATE TABLE IF NOT EXISTS skills (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL,
+                image_url TEXT NOT NULL
+            )
+        """)
+
+        db.execute("""
             CREATE TABLE IF NOT EXISTS players (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
@@ -87,11 +96,10 @@ def init_db():
 
         db.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('custom_banner', '')")
 
-        # إضافة خبر تجريبي للمجتمع
         cursor = db.execute("SELECT COUNT(*) as count FROM news")
         if cursor.fetchone()["count"] == 0:
             db.execute("INSERT INTO news (title, content, created_at) VALUES (?, ?, ?)", 
-                       ("تحديث صيانة الخميس القادم", "كونامي تعلن عن وصول بطاقات Epic جديدة وتسريبات قوية لميسي ورونالدو.", int(time.time())))
+                       ("تحديث صيانة الخميس القادم", "وصول بطاقات Epic جديدة وتسريبات قوية لميسي ورونالدو.", int(time.time())))
 
 
 init_db()
@@ -107,7 +115,8 @@ def send_verification_code_to_channel(email, code):
         pass
 
 
-PAGE_TEMPLATE = r"""
+# الصفحة الرئيسية
+HOME_TEMPLATE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -123,60 +132,36 @@ PAGE_TEMPLATE = r"""
   --neon-blue: #00d2ff;
   --border-color: #1e2638;
 }
-
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans-serif; min-height: 100vh; display: flex; flex-direction: column; justify-content: space-between; }
-
 .navbar { background: #090d16; border-bottom: 2px solid var(--neon-green); padding: 12px 4%; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; flex-wrap: wrap; gap: 10px; }
 .brand { font-weight: 900; font-size: 22px; color: #fff; text-decoration: none; display: flex; align-items: center; gap: 8px; }
 .brand span { color: var(--neon-green); }
 .brand-badge { background: var(--neon-green); color: #000; padding: 2px 6px; border-radius: 6px; font-size: 12px; }
-
 .search-box input { width: 240px; padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border-color); background: #141a29; color: #fff; font-family: 'Cairo'; outline: none; }
 .search-box input:focus { border-color: var(--neon-green); }
-
 .user-actions { display: flex; gap: 8px; align-items: center; }
 .btn-action { padding: 6px 14px; background: #141a29; border: 1px solid var(--border-color); border-radius: 8px; color: #fff; text-decoration: none; font-size: 12px; font-weight: bold; }
 .btn-action.primary { background: var(--neon-green); color: #000; border: 0; }
-
-/* عرض الصورة كاملة دون قص */
 .custom-banner { width: 100%; background: #000; text-align: center; border-bottom: 2px solid var(--border-color); padding: 10px 0; }
 .custom-banner img { max-width: 100%; height: auto; max-height: 400px; object-fit: contain; display: block; margin: 0 auto; }
-
-/* قسم أخبار المجتمع */
 .community-news { background: #0e1320; border: 1px solid var(--border-color); border-radius: 14px; padding: 16px; margin: 20px 4%; }
-.news-title { font-size: 15px; font-weight: 800; color: var(--neon-green); margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.news-title { font-size: 15px; font-weight: 800; color: var(--neon-green); margin-bottom: 6px; }
 .news-item { font-size: 12px; color: #cbd5e1; padding: 6px 0; border-bottom: 1px solid #1e2638; }
-
-/* أزرار سريعة (المهارات والمنشورات) */
 .quick-btns { display: flex; gap: 10px; margin: 15px 4%; flex-wrap: wrap; }
 .q-btn { padding: 8px 16px; background: #141a29; border: 1px solid var(--border-color); border-radius: 10px; color: #fff; font-size: 12px; font-weight: bold; text-decoration: none; display: flex; align-items: center; gap: 6px; transition: 0.2s; }
 .q-btn:hover { border-color: var(--neon-green); color: var(--neon-green); }
-
 .tabs { display: flex; gap: 10px; margin: 20px 4%; flex-wrap: wrap; }
 .tab-btn { padding: 8px 18px; background: #141a29; border: 1px solid var(--border-color); border-radius: 8px; color: #fff; cursor: pointer; font-family: 'Cairo'; font-weight: 700; font-size: 13px; }
 .tab-btn.active { background: var(--neon-green); color: #000; }
-
 .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; padding: 0 4%; margin-bottom: 40px; }
-
-.player-card { background: linear-gradient(145deg, #121826, #090d16); border: 1px solid var(--border-color); border-radius: 14px; padding: 10px; text-align: center; cursor: pointer; transition: 0.2s; position: relative; }
+.player-card { background: linear-gradient(145deg, #121826, #090d16); border: 1px solid var(--border-color); border-radius: 14px; padding: 10px; text-align: center; cursor: pointer; transition: 0.2s; position: relative; text-decoration: none; display: block; color: inherit; }
 .player-card:hover { border-color: var(--neon-green); box-shadow: 0 0 15px rgba(204, 255, 0, 0.25); transform: translateY(-3px); }
-
 .card-header { display: flex; justify-content: space-between; font-weight: 900; }
 .overall { font-size: 20px; color: var(--neon-green); }
 .position { font-size: 11px; background: #1a233a; padding: 2px 6px; border-radius: 4px; color: #00d2ff; }
-
 .player-img { width: 100%; height: 115px; object-fit: contain; margin: 6px 0; background:#07090e; border-radius:8px; }
 .player-name { font-size: 13px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* النافذة المنبثقة للتفاصيل */
-.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); z-index: 200; align-items: center; justify-content: center; }
-.modal-content { background: #0e1320; border: 2px solid var(--neon-green); border-radius: 18px; max-width: 450px; width: 92%; padding: 22px; position: relative; max-height: 90vh; overflow-y: auto; }
-.stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1e2638; font-size: 13px; }
-.stat-val-green { font-weight: bold; color: var(--neon-green); }
-.close-btn { position: absolute; top: 12px; left: 15px; background: none; border: 0; color: #fff; font-size: 18px; cursor: pointer; }
-
-/* الأزرار الثلاثة أسفل التطبيق تماماً فوق الفوتر */
 .bottom-section { margin-top: auto; border-top: 1px solid var(--border-color); padding-top: 25px; background: #05070c; }
 .footer-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; padding: 0 4%; }
 .f-btn { padding: 10px 20px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 12px; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
@@ -184,7 +169,6 @@ body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans
 .f-btn-main { background: #7c3aed; color: #fff; }
 .f-btn-bot { background: #0284c7; color: #fff; }
 .f-btn:hover { transform: translateY(-2px); opacity: 0.9; }
-
 footer { text-align: center; padding: 15px; color: #64748b; font-size: 11px; }
 </style>
 </head>
@@ -217,7 +201,6 @@ footer { text-align: center; padding: 15px; color: #64748b; font-size: 11px; }
   </div>
   {% endif %}
 
-  <!-- أخبار المجتمع -->
   <div class="community-news">
     <div class="news-title">📢 أخبار المجتمع وتحديثات كونامي</div>
     {% for n in news %}
@@ -225,9 +208,8 @@ footer { text-align: center; padding: 15px; color: #64748b; font-size: 11px; }
     {% endfor %}
   </div>
 
-  <!-- أزرار المهارات والمنشورات -->
   <div class="quick-btns">
-    <a href="#" class="q-btn">⚡ المهارات الجديدة (Skills)</a>
+    <a href="/skills" class="q-btn">⚡ المهارات الجديدة (Skills)</a>
     <a href="#" class="q-btn">📝 منشورات المجتمع (Post to Feed)</a>
   </div>
 
@@ -238,7 +220,7 @@ footer { text-align: center; padding: 15px; color: #64748b; font-size: 11px; }
 
   <div class="card-grid" id="playersGrid">
     {% for p in players %}
-    <div class="player-card" data-upcoming="{{ p['is_upcoming'] }}" onclick='showPlayerStats({{ p|tojson }})'>
+    <a href="/player/{{ p['id'] }}" class="player-card" data-upcoming="{{ p['is_upcoming'] }}">
       <div class="card-header">
         <span class="overall">{{ p['overall_max'] }}</span>
         <span class="position">{{ p['position'] }}</span>
@@ -246,36 +228,17 @@ footer { text-align: center; padding: 15px; color: #64748b; font-size: 11px; }
       <img class="player-img" src="{{ p['image_url'] }}" alt="{{ p['name'] }}" onerror="this.src='https://via.placeholder.com/150/121826/ccff00?text=eFootball'">
       <div class="player-name">{{ p['name'] }}</div>
       <div style="font-size:9px; color:#8fa0c0; margin-top:2px;">{{ p['card_type'] }}</div>
-    </div>
+    </a>
     {% endfor %}
   </div>
 </div>
 
-<!-- النافذة المنبثقة للتفاصيل -->
-<div class="modal-overlay" id="statsModal">
-  <div class="modal-content">
-    <button class="close-btn" onclick="closeModal()">✕</button>
-    <div style="display:flex; gap:15px; align-items:center; margin-bottom:15px;">
-      <img id="modalImg" src="" style="width:70px; height:70px; object-fit:contain; background:#141a29; border-radius:10px; padding:4px;">
-      <div>
-        <h3 id="modalName" style="color:var(--neon-green); font-size:16px;"></h3>
-        <p id="modalTeam" style="font-size:11px; color:#aaa;"></p>
-        <span id="modalCardType" style="font-size:10px; background:#1a233a; padding:2px 6px; border-radius:4px; color:#00d2ff;"></span>
-      </div>
-    </div>
-    <h4 style="font-size:12px; color:#cbd5e1; margin-bottom:8px; border-bottom:1px solid #1e2638; padding-bottom:4px;">📊 الإحصائيات (Stats):</h4>
-    <div id="statsContainer"></div>
-  </div>
-</div>
-
-<!-- الأزرار الثلاثة أسفل التطبيق تماماً فوق الفوتر -->
 <div class="bottom-section">
   <div class="footer-buttons">
     <a href="{{ telegram_dev }}" target="_blank" class="f-btn f-btn-dev">👨‍💻 التواصل مع المطور</a>
     <a href="{{ telegram_main }}" target="_blank" class="f-btn f-btn-main">📢 القناة الأساسية</a>
     <a href="{{ telegram_bot }}" target="_blank" class="f-btn f-btn-bot">🤖 البوت الخاص بنا</a>
   </div>
-
   <footer>
     <p>قناة التنبيهات والأكواد الرسمية: <a href="{{ telegram_codes_channel }}" target="_blank" style="color:var(--neon-green); text-decoration:none;">MidoWorld ✈️</a></p>
     <p style="margin-top:5px;">© 2026 NOVA eHUB - جميع الحقوق محفوظة</p>
@@ -283,30 +246,9 @@ footer { text-align: center; padding: 15px; color: #64748b; font-size: 11px; }
 </div>
 
 <script>
-function showPlayerStats(player) {
-  document.getElementById('modalName').textContent = player.name + ' (' + player.position + ')';
-  document.getElementById('modalTeam').textContent = player.team + ' - Max Overall: ' + player.overall_max;
-  document.getElementById('modalCardType').textContent = player.card_type;
-  document.getElementById('modalImg').src = player.image_url;
-
-  let stats = JSON.parse(player.stats_json || '{}');
-  let html = '';
-  for(let key in stats) {
-    let statName = key.replace('_', ' ').toUpperCase();
-    html += `<div class="stat-row"><span>${statName}</span><span class="stat-val-green">${stats[key]}</span></div>`;
-  }
-  document.getElementById('statsContainer').innerHTML = html;
-  document.getElementById('statsModal').style.display = 'flex';
-}
-
-function closeModal() {
-  document.getElementById('statsModal').style.display = 'none';
-}
-
 function switchTab(type, btn) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  
   document.querySelectorAll('.player-card').forEach(card => {
     let isUpcoming = card.getAttribute('data-upcoming');
     if(type === 'all') card.style.display = 'block';
@@ -314,7 +256,6 @@ function switchTab(type, btn) {
     else card.style.display = 'none';
   });
 }
-
 function filterCards() {
   let query = document.getElementById('searchInput').value.toLowerCase();
   document.querySelectorAll('.player-card').forEach(card => {
@@ -323,10 +264,108 @@ function filterCards() {
   });
 }
 </script>
-
 </body>
 </html>
 """
+
+
+# لوحة اللاعب الفخمة والكاملة
+PLAYER_DETAIL_TEMPLATE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ player['name'] }} | eHUB 26</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
+:root { --bg-dark: #07090e; --panel-bg: #0e121d; --neon-green: #ccff00; --border-color: #1e2638; }
+body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans-serif; padding: 20px; }
+.container { max-width: 600px; margin: auto; background: var(--panel-bg); border: 2px solid var(--neon-green); border-radius: 20px; padding: 25px; box-shadow: 0 0 25px rgba(204,255,0,0.2); }
+.header { display: flex; gap: 20px; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px; }
+.p-img { width: 110px; height: 110px; object-fit: contain; background: #07090e; border-radius: 12px; padding: 6px; border: 1px solid var(--neon-green); }
+.stat-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #1e2638; font-size: 14px; }
+.stat-val { font-weight: bold; color: var(--neon-green); }
+.back-btn { display: inline-block; margin-top: 20px; padding: 10px 20px; background: var(--neon-green); color: #000; font-weight: bold; border-radius: 10px; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <img class="p-img" src="{{ player['image_url'] }}" onerror="this.src='https://via.placeholder.com/150/121826/ccff00?text=eFootball'">
+    <div>
+      <h2 style="color:var(--neon-green);">{{ player['name'] }}</h2>
+      <p style="font-size:13px; color:#aaa;">{{ player['team'] }} | المركز: <b>{{ player['position'] }}</b></p>
+      <p style="font-size:12px; color:#00d2ff; margin-top:4px;">نوع البطاقة: {{ player['card_type'] }} | Max Overall: <b>{{ player['overall_max'] }}</b></p>
+    </div>
+  </div>
+  <h3 style="font-size:15px; margin-bottom:12px; color:#cbd5e1;">📊 الإحصائيات الكاملة (Stats):</h3>
+  <div id="statsBox"></div>
+  <a href="/" class="back-btn">← العودة للرئيسية</a>
+</div>
+<script>
+let stats = {{ player['stats_json'] | safe }};
+let html = '';
+for(let key in stats) {
+  let sName = key.replace('_', ' ').toUpperCase();
+  html += `<div class="stat-row"><span>${sName}</span><span class="stat-val">${stats[key]}</span></div>`;
+}
+document.getElementById('statsBox').innerHTML = html;
+</script>
+</body>
+</html>
+"""
+
+
+# صفحة المهارات الجديدة
+SKILLS_TEMPLATE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>المهارات الجديدة | eHUB 26</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
+:root { --bg-dark: #07090e; --panel-bg: #0e121d; --neon-green: #ccff00; --border-color: #1e2638; }
+body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans-serif; padding: 25px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; margin-top: 20px; }
+.card { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 15px; text-align: center; }
+.card img { width: 60px; height: 60px; object-fit: contain; margin-bottom: 10px; }
+.back-btn { display: inline-block; margin-bottom: 20px; padding: 8px 16px; background: #141a29; border: 1px solid var(--border-color); color: #fff; border-radius: 8px; text-decoration: none; font-weight: bold; }
+</style>
+</head>
+<body>
+<a href="/" class="back-btn">← العودة للرئيسية</a>
+<h2 style="color:var(--neon-green);">⚡ قائمة المهارات الجديدة في eFootball</h2>
+<div class="grid">
+  {% for s in skills %}
+  <div class="card">
+    <img src="{{ s['image_url'] }}" onerror="this.src='https://via.placeholder.com/60/121826/ccff00?text=Skill'">
+    <h3 style="font-size:14px; color:#fff; margin-bottom:6px;">{{ s['name'] }}</h3>
+    <p style="font-size:11px; color:#94a3b8;">{{ s['description'] }}</p>
+  </div>
+  {% endfor %}
+</div>
+</body>
+</html>
+"""
+
+
+@app.route('/player/<int:player_id>')
+def player_detail(player_id):
+    with get_db() as db:
+        player = db.execute("SELECT * FROM players WHERE id = ?", (player_id,)).fetchone()
+    if not player:
+        return "اللاعب غير موجود", 404
+    return render_template_string(PLAYER_DETAIL_TEMPLATE, player=player)
+
+
+@app.route('/skills')
+def skills_page():
+    with get_db() as db:
+        skills = db.execute("SELECT * FROM skills ORDER BY id DESC").fetchall()
+    return render_template_string(SKILLS_TEMPLATE, skills=skills)
 
 
 @app.route('/register', methods=["GET", "POST"])
@@ -434,6 +473,7 @@ def logout():
     return redirect(url_for("home"))
 
 
+# لوحة تحكم المطور الحصرية والآمنة
 @app.route("/admin", methods=["GET", "POST"])
 def admin_panel():
     msg = ""
@@ -443,7 +483,6 @@ def admin_panel():
         else:
             msg = "بيانات دخول المطور غير صحيحة."
 
-    # حماية صارمة للوحة المطور
     if not session.get("is_admin"):
         return f"""
         <html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>دخول المطور</title>
@@ -487,6 +526,20 @@ def admin_panel():
                 db.commit()
                 msg = "✅ تم إضافة خبر المجتمع بنجاح!"
 
+            elif action == "add_skill":
+                name = request.form.get("name")
+                desc = request.form.get("desc")
+                img_url = ""
+                file = request.files.get("skill_file")
+                if file and file.filename != "":
+                    filename = secure_filename(file.filename)
+                    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    file.save(filepath)
+                    img_url = url_for('static', filename=f'uploads/{filename}')
+                db.execute("INSERT INTO skills (name, description, image_url) VALUES (?, ?, ?)", (name, desc, img_url))
+                db.commit()
+                msg = "✅ تم إضافة المهارة الجديدة بنجاح!"
+
             elif action == "add_player":
                 name = request.form.get("name")
                 overall_base = int(request.form.get("overall_base", 80))
@@ -506,13 +559,31 @@ def admin_panel():
                 else:
                     image_url = "https://via.placeholder.com/150/121826/ccff00?text=eFootball"
 
-                stats = {"speed": 85, "finishing": 82}
+                stats = {
+                    "speed": int(request.form.get("speed", 85)),
+                    "acceleration": int(request.form.get("acceleration", 85)),
+                    "dribbling": int(request.form.get("dribbling", 85)),
+                    "finishing": int(request.form.get("finishing", 85)),
+                    "passing": int(request.form.get("passing", 80)),
+                    "defensive_awareness": int(request.form.get("def_awareness", 50))
+                }
                 db.execute("""
                     INSERT INTO players (name, overall_base, overall_max, position, team, card_type, is_upcoming, image_url, stats_json, skills_json)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (name, overall_base, overall_max, position, team, card_type, is_upcoming, image_url, json.dumps(stats), json.dumps([])))
                 db.commit()
-                msg = "✅ تم إضافة اللاعب بنجاح!"
+                msg = "✅ تم إضافة اللاعب وطاقاته بنجاح!"
+
+            elif action == "delete_player":
+                p_id = request.form.get("player_id")
+                db.execute("DELETE FROM players WHERE id = ?", (p_id,))
+                db.commit()
+                msg = "🗑️ تم حذف اللاعب بنجاح!"
+
+    with get_db() as db:
+        all_players = db.execute("SELECT id, name, position, card_type FROM players ORDER BY id DESC").fetchall()
+
+    players_options = "".join([f"<option value='{p['id']}'>{p['name']} ({p['position']} - {p['card_type']})</option>" for p in all_players])
 
     return f"""
     <html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>لوحة المطور</title>
@@ -536,32 +607,53 @@ def admin_panel():
     </div>
 
     <div class="box">
-      <h3>📢 إضافة خبر جديد لأخبار المجتمع</h3>
-      <form method="post">
-        <input type="hidden" name="action" value="add_news">
-        <input name="title" placeholder="عنوان الخبر (مثال: تحديثات الخميس)" required>
-        <textarea name="content" placeholder="محتوى الخبر..." rows="3" required></textarea>
-        <button type="submit" style="background:#229ED9;color:#fff;margin-top:10px;">نشر الخبر للمجتمع</button>
+      <h3>⚡ إضافة مهارة جديدة مع صورتها</h3>
+      <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="action" value="add_skill">
+        <input name="name" placeholder="اسم المهارة (مثال: Double Touch)" required>
+        <textarea name="desc" placeholder="وصف المهارة..." rows="2" required></textarea>
+        <label style="font-size:11px;">صورة المهارة:</label>
+        <input type="file" name="skill_file" accept="image/*">
+        <button type="submit" style="margin-top:10px;">إضافة المهارة</button>
       </form>
     </div>
 
     <div class="box">
-      <h3>⚽ إضافة لاعب جديد</h3>
+      <h3>⚽ إضافة لاعب جديد بالكامل</h3>
       <form method="post" enctype="multipart/form-data">
         <input type="hidden" name="action" value="add_player">
         <input name="name" placeholder="اسم اللاعب" required>
         <input type="number" name="overall_base" placeholder="الطاقة الأساسية (Base)" required>
-        <input type="number" name="overall_max" placeholder="الطاقة القصوى (Max Rating)" required>
-        <input name="position" placeholder="المركز (مثال: CB)" required>
-        <input name="team" placeholder="الفريق / النادي" required>
+        <input type="number" name="overall_max" placeholder="الطاقة القصوى (Max)" required>
+        <input name="position" placeholder="المركز (مثال: CMF)" required>
+        <input name="team" placeholder="النادي / الفريق" required>
         <select name="card_type">
           <option value="Epic / Big Time">Epic / Big Time</option>
           <option value="Showtime">Showtime</option>
+          <option value="Highlight">Highlight</option>
         </select>
         <label><input type="checkbox" name="is_upcoming" value="1"> لاعب تسريبات (Upcoming)</label>
-        <label style="display:block;margin-top:8px;font-size:11px;">صورة بطاقة اللاعب:</label>
+        <label style="font-size:11px;display:block;margin-top:6px;">صورة بطاقة اللاعب:</label>
         <input type="file" name="image_file" accept="image/*">
-        <button type="submit" style="margin-top:10px;">إضافة اللاعب</button>
+        
+        <h4 style="margin-top:10px;font-size:13px;color:#ccff00;">الطاقات التفصيلية:</h4>
+        <input type="number" name="speed" placeholder="السرعة Speed" value="85">
+        <input type="number" name="acceleration" placeholder="التسارع Acceleration" value="85">
+        <input type="number" name="dribbling" placeholder="المراوغة Dribbling" value="85">
+        <input type="number" name="finishing" placeholder="الإنهاء Finishing" value="80">
+        <button type="submit" style="margin-top:10px;">حفظ وإضافة اللاعب 🚀</button>
+      </form>
+    </div>
+
+    <div class="box" style="border-color:#ef4444;">
+      <h3 style="color:#ef4444;">🗑️ حذف لاعب من قاعدة البيانات</h3>
+      <form method="post">
+        <input type="hidden" name="action" value="delete_player">
+        <select name="player_id" required>
+          <option value="">اختر اللاعب للحذف...</option>
+          {players_options}
+        </select>
+        <button type="submit" style="background:#ef4444;color:#fff;margin-top:10px;">حذف اللاعب نهائياً ❌</button>
       </form>
     </div>
     </div></body></html>
@@ -583,7 +675,7 @@ def home():
         custom_banner = banner_res["value"] if banner_res else ""
 
     return render_template_string(
-        PAGE_TEMPLATE,
+        HOME_TEMPLATE,
         players=players,
         news=news,
         user=user,
