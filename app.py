@@ -108,13 +108,11 @@ def init_db():
         db.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('custom_banner', '')")
         db.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('managers_card_img', '')")
 
-        # أخبار افتراضية
         cursor_n = db.execute("SELECT COUNT(*) as count FROM news")
         if cursor_n.fetchone()["count"] == 0:
             db.execute("INSERT INTO news (title, content, created_at) VALUES (?, ?, ?)", 
                        ("تحديث صيانة الخميس القادم", "وصول بطاقات Epic جديدة وتسريبات قوية لميسي ورونالدو.", int(time.time())))
 
-        # مدربين افتراضيين
         cursor_m = db.execute("SELECT COUNT(*) as count FROM managers")
         if cursor_m.fetchone()["count"] == 0:
             db.execute("INSERT INTO managers (name, playstyle, affinity, image_url) VALUES (?, ?, ?, ?)",
@@ -124,7 +122,6 @@ def init_db():
             db.execute("INSERT INTO managers (name, playstyle, affinity, image_url) VALUES (?, ?, ?, ?)",
                        ("R. Rodriguez", "Out Wide", 83, "https://via.placeholder.com/150/121826/ccff00?text=Rodriguez"))
 
-        # لاعبين افتراضيين بطاقاتهم التفصيلية
         cursor_p = db.execute("SELECT COUNT(*) as count FROM players")
         if cursor_p.fetchone()["count"] == 0:
             varane_stats = {"attacking": {"وعي هجومي": 52, "التحكم في الكرة": 66, "المراوغة": 70, "إنهاء الهجمة": 50}, "physical": {"السرعة": 81, "التسارع": 76, "القفز": 78}, "defending": {"وعي دفاعي": 88, "احتكاك دفاعي": 88, "قطع الكرة": 87}}
@@ -312,7 +309,6 @@ footer { text-align: center; padding: 15px; color: #64748b; font-size: 11px; }
   <div class="custom-banner"><img src="{{ custom_banner }}" alt="Main Banner"></div>
   {% endif %}
 
-  <!-- بطاقة باني الفرقة -->
   <div class="squad-builder-card">
     <div class="squad-info">
       <div class="squad-badge">محدث ⚡</div>
@@ -323,7 +319,6 @@ footer { text-align: center; padding: 15px; color: #64748b; font-size: 11px; }
     <div style="font-size:45px;">📋</div>
   </div>
 
-  <!-- قسم قائمة المدربين الرسمية مع الصورة المصغرة المضيئة -->
   <div class="managers-section">
     <div class="sec-title">👔 قائمة المدربين الرسمية</div>
     <div class="managers-row">
@@ -397,7 +392,7 @@ function filterCards() { let query = document.getElementById('searchInput').valu
 """
 
 
-# صفحة باني التشكيلة الاحترافية الشاملة للبحث والمدربين والمهملات والتكتيك!
+# صفحة باني التشكيلة المحدثة مع ظهور صورة المدرب بجانبه في الجنب!
 SQUAD_BUILDER_TEMPLATE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -414,6 +409,10 @@ body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans
 .control-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 select, input { background: #07090e; border: 1px solid var(--border-color); color: #fff; padding: 8px; border-radius: 8px; font-family: 'Cairo'; font-size: 12px; }
 
+/* عرض صورة المدرب بجانبه شيك في الجنب */
+.manager-preview-box { display: flex; align-items: center; gap: 10px; background: #141a29; border: 1px solid var(--neon-blue); border-radius: 10px; padding: 6px 12px; }
+.manager-preview-img { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid var(--neon-green); display: none; }
+
 .pitch-container { max-width: 500px; margin: 0 auto; background: linear-gradient(180deg, #0b2512, #051408); border: 2px solid var(--neon-green); border-radius: 20px; padding: 20px 10px; position: relative; min-height: 580px; display: flex; flex-direction: column; justify-content: space-between; }
 .pitch-line { position: absolute; border: 1px solid rgba(204, 255, 0, 0.2); pointer-events: none; }
 .line-center { top: 50%; left: 0; right: 0; }
@@ -425,11 +424,9 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
 .pos-slot img { width: 45px; height: 45px; object-fit: contain; border-radius: 6px; }
 .delete-btn { position: absolute; top: -5px; right: -5px; background: #ef4444; color: #fff; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 
-/* نافذة البحث المباشر عن اللاعبين */
 .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; }
 .modal-content { background: #0e121d; border: 2px solid var(--neon-green); border-radius: 16px; padding: 20px; width: 90%; max-width: 400px; max-height: 80vh; overflow-y: auto; }
 .search-item { display: flex; align-items: center; justify-content: space-between; background: #141a29; padding: 8px; border-radius: 8px; margin-bottom: 6px; cursor: pointer; }
-.search-item:hover { border: 1px solid var(--neon-green); }
 
 .back-btn { display: block; text-align: center; margin: 20px auto; max-width: 500px; padding: 12px; background: var(--neon-green); color: #000; font-weight: 900; border-radius: 10px; text-decoration: none; }
 </style>
@@ -439,13 +436,22 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
 
 <div class="squad-controls">
   <div class="control-row">
-    <label style="font-size:12px; font-weight:bold;">👔 اختر المدرب:</label>
-    <select id="managerSelect">
-      <option value="">-- اختر المدرب --</option>
-      {% for m in managers %}
-      <option value="{{ m['name'] }}">{{ m['name'] }} ({{ m['playstyle'] }})</option>
-      {% endfor %}
-    </select>
+    <div style="display:flex; flex-direction:column; gap:4px; flex-grow:1;">
+      <label style="font-size:12px; font-weight:bold;">👔 اختر المدرب:</label>
+      <select id="managerSelect" onchange="updateManagerPreview()">
+        <option value="">-- اختر المدرب --</option>
+        {% for m in managers %}
+        <option value="{{ m['name'] }}" data-img="{{ m['image_url'] }}" data-style="{{ m['playstyle'] }}">{{ m['name'] }} ({{ m['playstyle'] }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="manager-preview-box" id="managerBox">
+      <img id="mImg" class="manager-preview-img">
+      <div id="mInfo" style="font-size:10px; display:none;">
+        <div id="mName" style="font-weight:bold; color:var(--neon-green);"></div>
+        <div id="mStyle" style="color:#8fa0c0;"></div>
+      </div>
+    </div>
   </div>
 
   <div class="control-row">
@@ -500,7 +506,6 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
   </div>
 </div>
 
-<!-- نافذة البحث عن لاعب -->
 <div class="modal" id="searchModal">
   <div class="modal-content">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
@@ -518,15 +523,31 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
 let allPlayers = {{ players | tojson }};
 let currentSlot = '';
 
+function updateManagerPreview() {
+  let select = document.getElementById('managerSelect');
+  let opt = select.options[select.selectedIndex];
+  let img = opt.getAttribute('data-img');
+  let style = opt.getAttribute('data-style');
+  
+  if(opt.value) {
+    document.getElementById('mImg').src = img;
+    document.getElementById('mImg').style.display = 'block';
+    document.getElementById('mName').textContent = opt.value;
+    document.getElementById('mStyle').textContent = style;
+    document.getElementById('mInfo').style.display = 'block';
+  } else {
+    document.getElementById('mImg').style.display = 'none';
+    document.getElementById('mInfo').style.display = 'none';
+  }
+}
+
 function openSearch(slotId) {
   currentSlot = slotId;
   document.getElementById('searchModal').style.display = 'flex';
   renderModalPlayers(allPlayers);
 }
 
-function closeSearch() {
-  document.getElementById('searchModal').style.display = 'none';
-}
+function closeSearch() { document.getElementById('searchModal').style.display = 'none'; }
 
 function renderModalPlayers(list) {
   let html = '';
@@ -569,6 +590,49 @@ function removePlayer(slotId) {
   slot.innerHTML = `<span>${slotId.replace(/[0-9]/g, '')}</span><br>+`;
 }
 </script>
+</body>
+</html>
+"""
+
+
+# صفحة البروفايل الشيك والفخمة للغاية
+ACCOUNT_TEMPLATE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>الملف الشخصي | NOVA eHUB 26</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
+:root { --bg-dark: #07090e; --panel-bg: #0e121d; --neon-green: #ccff00; --neon-blue: #00d2ff; --border-color: #1e2638; }
+body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans-serif; display: grid; place-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+.profile-card { background: linear-gradient(145deg, #0e121d, #07090e); border: 2px solid var(--neon-green); border-radius: 24px; width: 100%; max-width: 440px; padding: 35px 25px; text-align: center; box-shadow: 0 0 30px rgba(204, 255, 0, 0.2); position: relative; }
+.avatar-ring { width: 95px; height: 95px; background: #141a29; border: 3px solid var(--neon-green); border-radius: 50%; margin: 0 auto 15px; display: grid; place-items: center; font-size: 40px; color: var(--neon-green); box-shadow: 0 0 15px rgba(204,255,0,0.4); }
+.user-name { font-size: 22px; font-weight: 900; color: #fff; margin-bottom: 4px; }
+.user-badge { background: #141a29; border: 1px solid var(--neon-blue); color: var(--neon-blue); padding: 3px 12px; border-radius: 12px; font-size: 11px; font-weight: 800; display: inline-block; margin-bottom: 20px; }
+.info-box { background: #0e1320; border: 1px solid var(--border-color); border-radius: 14px; padding: 16px; text-align: right; margin-bottom: 20px; }
+.info-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #1e2638; font-size: 13px; }
+.info-item:last-child { border: 0; }
+.btn-home { display: block; width: 100%; padding: 12px; background: var(--neon-green); color: #000; border-radius: 12px; font-weight: 900; text-decoration: none; font-size: 13px; margin-bottom: 10px; }
+.btn-logout { display: block; width: 100%; padding: 10px; background: #ef4444; color: #fff; border-radius: 12px; font-weight: bold; text-decoration: none; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="profile-card">
+  <div class="avatar-ring">👤</div>
+  <div class="user-name">{{ user["name"] }}</div>
+  <div class="user-badge">⭐ حساب موثق رسمي</div>
+
+  <div class="info-box">
+    <div class="info-item"><span style="color:#94a3b8;">البريد الإلكتروني:</span> <b>{{ user["email"] }}</b></div>
+    <div class="info-item"><span style="color:#94a3b8;">حالة التوثيق:</span> <b style="color:var(--neon-green);">مفعل ✅</b></div>
+    <div class="info-item"><span style="color:#94a3b8;">الرتبة في التطبيق:</span> <b style="color:var(--neon-blue);">عضو مميز VIP</b></div>
+  </div>
+
+  <a href="/" class="btn-home">← العودة للصفحة الرئيسية</a>
+  <a href="/logout" class="btn-logout">تسجيل الخروج 🚪</a>
+</div>
 </body>
 </html>
 """
@@ -696,7 +760,7 @@ SKILLS_TEMPLATE = r"""
 body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans-serif; padding: 25px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; margin-top: 20px; }
 .card { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 15px; text-align: center; }
-.card img { width: 60px; height: 60px; object-fit: contain; margin-bottom: 10px; }
+.card img { width: 60px; height: 60px; object-fit: contain; margin-bottom: 10px; border-radius:8px; }
 .back-btn { display: inline-block; margin-bottom: 20px; padding: 8px 16px; background: #141a29; border: 1px solid var(--border-color); color: #fff; border-radius: 8px; text-decoration: none; font-weight: bold; }
 </style>
 </head>
@@ -721,7 +785,7 @@ body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans
 def squad_builder():
     with get_db() as db:
         players = [dict(row) for row in db.execute("SELECT name, position, overall_max, image_url FROM players").fetchall()]
-        managers = [dict(row) for row in db.execute("SELECT name, playstyle FROM managers").fetchall()]
+        managers = [dict(row) for row in db.execute("SELECT name, playstyle, image_url FROM managers").fetchall()]
     return render_template_string(SQUAD_BUILDER_TEMPLATE, players=players, managers=managers)
 
 
@@ -815,18 +879,7 @@ def account():
     email = session.get("user_email")
     if not email: return redirect(url_for("login"))
     with get_db() as db: user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
-    return f"""
-    <html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>الملف الشخصي</title>
-    <style>body{{background:#07090e;color:#fff;font-family:Cairo,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;}}
-    .box{{background:#0e121d;padding:35px;border:2px solid #ccff00;border-radius:20px;width:420px;text-align:center;}}
-    </style></head>
-    <body><div class="box">
-      <h2 style="color:#ccff00;">الملف الشخصي</h2>
-      <p><b>الاسم:</b> {user["name"]}</p>
-      <p><b>البريد:</b> {user["email"]}</p>
-      <a href="/" style="color:#00d2ff;display:block;margin-top:15px;text-decoration:none;">← العودة للرئيسية</a>
-    </div></body></html>
-    """
+    return render_template_string(ACCOUNT_TEMPLATE, user=user)
 
 
 @app.route('/logout')
@@ -868,7 +921,7 @@ def admin_panel():
                 content = request.form.get("content")
                 db.execute("INSERT INTO news (title, content, created_at) VALUES (?, ?, ?)", (title, content, int(time.time())))
                 db.commit()
-                msg = "✅ تم إرسال الرسالة والإشعار لجميع المستخدمين بنجاح!"
+                msg = "✅ تم إرسال الرسالة والإشعار بنجاح!"
 
             elif action == "upload_banner":
                 file = request.files.get("banner_file")
@@ -892,6 +945,20 @@ def admin_panel():
                     db.commit()
                     msg = "✅ تم تحديث الصورة المصغرة لقائمة المدربين!"
 
+            elif action == "add_skill":
+                name = request.form.get("name")
+                desc = request.form.get("desc")
+                img_url = "https://via.placeholder.com/60/121826/ccff00?text=Skill"
+                file = request.files.get("skill_file")
+                if file and file.filename != "":
+                    filename = secure_filename(file.filename)
+                    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    file.save(filepath)
+                    img_url = url_for('static', filename=f'uploads/{filename}')
+                db.execute("INSERT INTO skills (name, description, image_url) VALUES (?, ?, ?)", (name, desc, img_url))
+                db.commit()
+                msg = "✅ تم إضافة المهارة الجديدة بنجاح!"
+
             elif action == "add_manager":
                 name = request.form.get("name")
                 style = request.form.get("playstyle")
@@ -905,6 +972,12 @@ def admin_panel():
                 db.execute("INSERT INTO managers (name, playstyle, image_url) VALUES (?, ?, ?)", (name, style, img_url))
                 db.commit()
                 msg = "✅ تم إضافة المدرب بنجاح!"
+
+            elif action == "delete_manager":
+                m_id = request.form.get("manager_id")
+                db.execute("DELETE FROM managers WHERE id = ?", (m_id,))
+                db.commit()
+                msg = "🗑️ تم حذف المدرب بنجاح!"
 
             elif action == "add_player":
                 name = request.form.get("name")
@@ -944,8 +1017,10 @@ def admin_panel():
 
     with get_db() as db:
         all_players = db.execute("SELECT id, name, position, card_type FROM players ORDER BY id DESC").fetchall()
+        all_managers = db.execute("SELECT id, name, playstyle FROM managers ORDER BY id DESC").fetchall()
 
     players_options = "".join([f"<option value='{p['id']}'>{p['name']} ({p['position']} - {p['card_type']})</option>" for p in all_players])
+    managers_options = "".join([f"<option value='{m['id']}'>{m['name']} ({m['playstyle']})</option>" for m in all_managers])
 
     return f"""
     <html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>لوحة المطور</title>
@@ -969,20 +1044,23 @@ def admin_panel():
     </div>
 
     <div class="box">
+      <h3>⚡ إضافة مهارة جديدة مع الاسم، الوصف والصورة</h3>
+      <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="action" value="add_skill">
+        <input name="name" placeholder="اسم المهارة (مثال: Double Touch)" required>
+        <textarea name="desc" placeholder="وصف المهارة وكيفية تنفيذها..." rows="2" required></textarea>
+        <label style="font-size:11px;">صورة المهارة:</label>
+        <input type="file" name="skill_file" accept="image/*">
+        <button type="submit" style="margin-top:10px;">حفظ وإضافة المهارة 🚀</button>
+      </form>
+    </div>
+
+    <div class="box">
       <h3>🖼️ رفع البانر الرئيسي للموقع من الهاتف</h3>
       <form method="post" enctype="multipart/form-data">
         <input type="hidden" name="action" value="upload_banner">
         <input type="file" name="banner_file" accept="image/*" required>
         <button type="submit" style="margin-top:10px;">رفع وعرض البانر الرئيسي 🚀</button>
-      </form>
-    </div>
-
-    <div class="box">
-      <h3>🖼️ رفع الصورة المصغرة لكارت قائمة المدربين</h3>
-      <form method="post" enctype="multipart/form-data">
-        <input type="hidden" name="action" value="upload_managers_card">
-        <input type="file" name="card_file" accept="image/*" required>
-        <button type="submit" style="margin-top:10px;">رفع وتحديث الصورة 🚀</button>
       </form>
     </div>
 
@@ -994,6 +1072,18 @@ def admin_panel():
         <input name="playstyle" placeholder="أسلوب اللعب (مثال: Quick Counter)" required>
         <input type="file" name="image_file" accept="image/*">
         <button type="submit" style="margin-top:10px;">إضافة المدرب</button>
+      </form>
+    </div>
+
+    <div class="box" style="border-color:#ef4444;">
+      <h3 style="color:#ef4444;">🗑️ حذف مدرب من قاعدة البيانات</h3>
+      <form method="post">
+        <input type="hidden" name="action" value="delete_manager">
+        <select name="manager_id" required>
+          <option value="">اختر المدرب للحذف...</option>
+          {managers_options}
+        </select>
+        <button type="submit" style="background:#ef4444;color:#fff;margin-top:10px;">حذف المدرب ❌</button>
       </form>
     </div>
 
