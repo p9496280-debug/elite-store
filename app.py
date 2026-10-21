@@ -484,6 +484,13 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
 .delete-btn { position: absolute; top: -5px; right: -5px; background: #ef4444; color: #fff; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 25; }
 .edit-pos-btn { position: absolute; bottom: -5px; left: -5px; background: #00d2ff; color: #000; border-radius: 50%; width: 18px; height: 18px; font-size: 9px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 25; }
 
+.action-buttons-bar { max-width: 500px; margin: 15px auto; display: flex; gap: 10px; justify-content: space-between; }
+.action-btn { flex: 1; padding: 10px; border-radius: 12px; font-family: 'Cairo'; font-weight: 900; font-size: 12px; border: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; transition: 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.btn-save { background: #10b981; color: #fff; }
+.btn-load { background: #3b82f6; color: #fff; }
+.btn-share { background: linear-gradient(135deg, #25d366, #128c7e); color: #fff; }
+.action-btn:hover { transform: translateY(-2px); opacity: 0.95; }
+
 .tactics-board { max-width: 500px; margin: 20px auto 10px; background: #fdfdfd; color: #000; border-radius: 16px; border: 4px solid #cbd5e1; padding: 18px; box-shadow: 0 0 20px rgba(255,255,255,0.1); font-family: 'Cairo', sans-serif; }
 .board-header { font-size: 16px; font-weight: 900; border-bottom: 3px solid #ef4444; padding-bottom: 6px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; color: #0f172a; }
 .board-tip-item { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; background: #f1f5f9; padding: 8px 12px; border-radius: 10px; border-right: 4px solid #10b981; }
@@ -576,6 +583,13 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
   </svg>
 
   <div id="slotsContainer"></div>
+</div>
+
+<!-- الأزرار الجديدة: حفظ، تنزيل، ومشاركة -->
+<div class="action-buttons-bar">
+  <button class="action-btn btn-save" onclick="saveSquad()">💾 حفظ التشكيلة</button>
+  <button class="action-btn btn-load" onclick="loadSquad()">📥 تنزيل التشكيلة</button>
+  <button class="action-btn btn-share" onclick="shareSquad()">🔗 مشاركة التشكيلة</button>
 </div>
 
 <div class="tactics-board">
@@ -844,7 +858,7 @@ function initDraggableSlots() {
 const TACTICAL_CONFIG = {
   "Possession": {
     tips: [
-      { title: "✅ Create Angles (خلق زوايا التمرير)", desc: "التحرك في المساحة لاستلاستلام الكرة بوضعية جسم مفتوحة لتسهيل التمرير." },
+      { title: "✅ Create Angles (خلق زوايا التمرير)", desc: "التحرك في المساحة لاستلام الكرة بوضعية جسم مفتوحة لتسهيل التمرير." },
       { title: "✅ Support Play (المساندة القريبة)", desc: "توفر خيارات تمرير قريبة من حامل الكرة لضمان الاستحواذ وعدم فقدانها." },
       { title: "✅ Find Space Between Lines (المساحات بين الخطوط)", desc: "التحرك في الثغرات بين دفاع ووسط الخصم للاستلام في مناطق خطيرة." },
       { title: "✅ Drop Deep to Collect (النزول للاستلام)", desc: "نزول لاعب الوسط لعمق الدفاع لبناء اللعب وتدوير الكرة من الخلف." }
@@ -1017,6 +1031,64 @@ function removePlayer(slotId) {
   delete squadPlayersData[slotId];
   let slot = document.getElementById('slot_' + slotId);
   slot.innerHTML = `<span id="pos_${slotId}">${slotId.replace(/[0-9]/g, '')}</span><br>+`;
+}
+
+// الدوال الجديدة المضافة: حفظ، تنزيل ومشاركة
+function saveSquad() {
+  let squadData = {
+    manager: document.getElementById('managerSelect').value,
+    formation: document.getElementById('formationSelect').value,
+    club: document.getElementById('clubSelect').value,
+    tactic: document.getElementById('tacticSelect').value,
+    players: squadPlayersData
+  };
+  localStorage.setItem('nova_saved_squad', JSON.stringify(squadData));
+  alert('✅ تم حفظ التشكيلة بنجاح على جهازك!');
+}
+
+function loadSquad() {
+  let saved = localStorage.getItem('nova_saved_squad');
+  if(!saved) {
+    alert('⚠️ لا توجد تشكيلة محفوظة مسبقاً!');
+    return;
+  }
+  let squadData = JSON.parse(saved);
+  if(squadData.manager) document.getElementById('managerSelect').value = squadData.manager;
+  if(squadData.formation) document.getElementById('formationSelect').value = squadData.formation;
+  if(squadData.club) document.getElementById('clubSelect').value = squadData.club;
+  if(squadData.tactic) document.getElementById('tacticSelect').value = squadData.tactic;
+  
+  updateManagerPreview();
+  updateClubPreview();
+  updateTacticalOverlayAndBoard();
+  
+  squadPlayersData = squadData.players || {};
+  changeFormation();
+  alert('📥 تم تنزيل واستعادة التشكيلة بنجاح!');
+}
+
+function shareSquad() {
+  let formation = document.getElementById('formationSelect').value;
+  let manager = document.getElementById('managerSelect').value || 'بدون مدرب';
+  let tactic = document.getElementById('tacticSelect').value;
+  let text = `⚽ تشكيلتي في لعبة eFootball عبر تطبيق NOVA eHUB 26:\n📋 الخطة: ${formation}\n👔 المدرب: ${manager}\n⚡ التكتيك: ${tactic}\n🔥 أنشئ تشكيلتك الآن وانضم إلينا!`;
+  
+  if (navigator.share) {
+    navigator.share({
+      title: 'تشكيلتي في eFootball',
+      text: text,
+      url: window.location.href
+    }).catch(() => {});
+  } else {
+    // فتح نافذة مشاركة مباشرة عبر واتساب وتيليجرام
+    let encoded = encodeURIComponent(text);
+    let choice = confirm('مشاركة عبر واتساب؟ (اضغط إ cancelar لتيليجرام)');
+    if(choice) {
+      window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank');
+    } else {
+      window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encoded}`, '_blank');
+    }
+  }
 }
 </script>
 </body>
