@@ -17,7 +17,7 @@ from flask import (
 )
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_ehub_ultimate_2026")
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_ehub_master_key_2026")
 
 UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -60,6 +60,15 @@ def init_db():
         """)
 
         db.execute("""
+            CREATE TABLE IF NOT EXISTS news (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at INTEGER NOT NULL
+            )
+        """)
+
+        db.execute("""
             CREATE TABLE IF NOT EXISTS players (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
@@ -77,6 +86,12 @@ def init_db():
         """)
 
         db.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('custom_banner', '')")
+
+        # إضافة خبر تجريبي للمجتمع
+        cursor = db.execute("SELECT COUNT(*) as count FROM news")
+        if cursor.fetchone()["count"] == 0:
+            db.execute("INSERT INTO news (title, content, created_at) VALUES (?, ?, ?)", 
+                       ("تحديث صيانة الخميس القادم", "كونامي تعلن عن وصول بطاقات Epic جديدة وتسريبات قوية لميسي ورونالدو.", int(time.time())))
 
 
 init_db()
@@ -124,8 +139,19 @@ body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans
 .btn-action { padding: 6px 14px; background: #141a29; border: 1px solid var(--border-color); border-radius: 8px; color: #fff; text-decoration: none; font-size: 12px; font-weight: bold; }
 .btn-action.primary { background: var(--neon-green); color: #000; border: 0; }
 
-.custom-banner { width: 100%; max-height: 250px; overflow: hidden; margin-bottom: 20px; border-bottom: 2px solid var(--border-color); }
-.custom-banner img { width: 100%; height: 100%; object-fit: cover; }
+/* عرض الصورة كاملة دون قص */
+.custom-banner { width: 100%; background: #000; text-align: center; border-bottom: 2px solid var(--border-color); padding: 10px 0; }
+.custom-banner img { max-width: 100%; height: auto; max-height: 400px; object-fit: contain; display: block; margin: 0 auto; }
+
+/* قسم أخبار المجتمع */
+.community-news { background: #0e1320; border: 1px solid var(--border-color); border-radius: 14px; padding: 16px; margin: 20px 4%; }
+.news-title { font-size: 15px; font-weight: 800; color: var(--neon-green); margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.news-item { font-size: 12px; color: #cbd5e1; padding: 6px 0; border-bottom: 1px solid #1e2638; }
+
+/* أزرار سريعة (المهارات والمنشورات) */
+.quick-btns { display: flex; gap: 10px; margin: 15px 4%; flex-wrap: wrap; }
+.q-btn { padding: 8px 16px; background: #141a29; border: 1px solid var(--border-color); border-radius: 10px; color: #fff; font-size: 12px; font-weight: bold; text-decoration: none; display: flex; align-items: center; gap: 6px; transition: 0.2s; }
+.q-btn:hover { border-color: var(--neon-green); color: var(--neon-green); }
 
 .tabs { display: flex; gap: 10px; margin: 20px 4%; flex-wrap: wrap; }
 .tab-btn { padding: 8px 18px; background: #141a29; border: 1px solid var(--border-color); border-radius: 8px; color: #fff; cursor: pointer; font-family: 'Cairo'; font-weight: 700; font-size: 13px; }
@@ -175,7 +201,7 @@ footer { text-align: center; padding: 15px; color: #64748b; font-size: 11px; }
     </div>
     <div class="user-actions">
       {% if user %}
-        <span style="font-size:12px; color:var(--neon-green);">👤 {{ user["name"] }}</span>
+        <a href="/account" class="btn-action" style="color:var(--neon-green);">👤 {{ user["name"] }}</a>
         <a href="/logout" class="btn-action" style="color:#fca5a5;">خروج</a>
       {% else %}
         <a href="/login" class="btn-action">دخول</a>
@@ -190,6 +216,20 @@ footer { text-align: center; padding: 15px; color: #64748b; font-size: 11px; }
     <img src="{{ custom_banner }}" alt="Main Banner">
   </div>
   {% endif %}
+
+  <!-- أخبار المجتمع -->
+  <div class="community-news">
+    <div class="news-title">📢 أخبار المجتمع وتحديثات كونامي</div>
+    {% for n in news %}
+    <div class="news-item"><b>{{ n['title'] }}</b>: {{ n['content'] }}</div>
+    {% endfor %}
+  </div>
+
+  <!-- أزرار المهارات والمنشورات -->
+  <div class="quick-btns">
+    <a href="#" class="q-btn">⚡ المهارات الجديدة (Skills)</a>
+    <a href="#" class="q-btn">📝 منشورات المجتمع (Post to Feed)</a>
+  </div>
 
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('all', this)">⚡ جميع اللاعبين والأساطير</button>
@@ -363,6 +403,31 @@ def login():
     """
 
 
+@app.route('/account')
+def account():
+    email = session.get("user_email")
+    if not email: return redirect(url_for("login"))
+    with get_db() as db:
+        user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+    return f"""
+    <html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>الملف الشخصي</title>
+    <style>body{{background:#07090e;color:#fff;font-family:Cairo,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;}}
+    .box{{background:#0e121d;padding:30px;border:2px solid #ccff00;border-radius:18px;width:400px;text-align:center;}}
+    .info{{background:#141a29;padding:12px;border-radius:8px;margin:15px 0;font-size:13px;text-align:right;}}
+    </style></head>
+    <body><div class="box">
+      <h2 style="color:#ccff00;">👤 الملف الشخصي للمستخدم</h2>
+      <div class="info">
+        <p><b>الاسم:</b> {user["name"]}</p>
+        <p><b>البريد الإلكتروني:</b> {user["email"]}</p>
+        <p><b>حالة الحساب:</b> <span style="color:#ccff00;">موثق ✅</span></p>
+      </div>
+      <a href="/" style="color:#00d2ff;display:block;margin-top:15px;text-decoration:none;font-weight:bold;">← العودة للرئيسية</a>
+      <a href="/logout" style="color:#ef4444;display:block;margin-top:10px;text-decoration:none;">تسجيل الخروج</a>
+    </div></body></html>
+    """
+
+
 @app.route('/logout')
 def logout():
     session.pop("user_email", None)
@@ -378,6 +443,7 @@ def admin_panel():
         else:
             msg = "بيانات دخول المطور غير صحيحة."
 
+    # حماية صارمة للوحة المطور
     if not session.get("is_admin"):
         return f"""
         <html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>دخول المطور</title>
@@ -387,7 +453,7 @@ def admin_panel():
         button{{width:100%;padding:12px;background:#ccff00;color:#000;border:0;border-radius:8px;font-weight:bold;cursor:pointer;}}
         </style></head>
         <body><div class="box">
-        <h2>🔐 دخول لوحة المطور</h2>
+        <h2>🔐 دخول لوحة المطور المحمية</h2>
         <form method="post">
         <input type="hidden" name="login_admin" value="1">
         <input type="email" name="email" placeholder="بريد المطور" required>
@@ -403,7 +469,6 @@ def admin_panel():
         if request.method == "POST":
             action = request.form.get("action")
             
-            # رفع وتغيير تصميم البانر الرئيسي من التليفون
             if action == "upload_banner":
                 file = request.files.get("banner_file")
                 if file and file.filename != "":
@@ -413,7 +478,14 @@ def admin_panel():
                     banner_url = url_for('static', filename=f'uploads/{filename}')
                     db.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('custom_banner', ?)", (banner_url,))
                     db.commit()
-                    msg = "✅ تم رفع وتحديث تصميم الواجهة الرئيسية بنجاح!"
+                    msg = "✅ تم تحديث وعرض الصورة بالكامل بنجاح!"
+
+            elif action == "add_news":
+                title = request.form.get("title")
+                content = request.form.get("content")
+                db.execute("INSERT INTO news (title, content, created_at) VALUES (?, ?, ?)", (title, content, int(time.time())))
+                db.commit()
+                msg = "✅ تم إضافة خبر المجتمع بنجاح!"
 
             elif action == "add_player":
                 name = request.form.get("name")
@@ -446,25 +518,35 @@ def admin_panel():
     <html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>لوحة المطور</title>
     <style>body{{background:#07090e;color:#fff;font-family:Cairo,sans-serif;padding:30px;}}
     .box{{background:#0e121d;padding:20px;border:1px solid #ccff00;border-radius:14px;max-width:550px;margin:0 auto 20px;}}
-    input, select{{width:100%;padding:10px;margin:6px 0;background:#07090e;border:1px solid #1e2638;border-radius:8px;color:#fff;box-sizing:border-box;}}
+    input, textarea, select{{width:100%;padding:10px;margin:6px 0;background:#07090e;border:1px solid #1e2638;border-radius:8px;color:#fff;box-sizing:border-box;font-family:Cairo;}}
     button{{padding:10px 20px;background:#ccff00;color:#000;border:0;border-radius:8px;font-weight:bold;cursor:pointer;}}
     </style></head>
     <body><div style="max-width:550px;margin:auto;">
-    <h2 style="color:#ccff00;">⚙️ لوحة تحكم المطور</h2>
+    <h2 style="color:#ccff00;">⚙️ لوحة تحكم المطور الحصرية</h2>
     <p style="color:#35eaa1;font-weight:bold;">{msg}</p>
     <a href="/" style="color:#00d2ff;text-decoration:none;display:block;margin-bottom:15px;">← العودة للتطبيق</a>
 
     <div class="box">
-      <h3>🖼️ رفع تصميم / بانر الواجهة الرئيسية من الهاتف</h3>
+      <h3>🖼️ رفع وعرض الصورة كاملة في الواجهة</h3>
       <form method="post" enctype="multipart/form-data">
         <input type="hidden" name="action" value="upload_banner">
         <input type="file" name="banner_file" accept="image/*" required>
-        <button type="submit" style="margin-top:10px;">تحديث واجهة التطبيق 🚀</button>
+        <button type="submit" style="margin-top:10px;">عرض الصورة بالكامل 🚀</button>
       </form>
     </div>
 
     <div class="box">
-      <h3>⚽ إضافة لاعب جديد (رفع صورة من الهاتف)</h3>
+      <h3>📢 إضافة خبر جديد لأخبار المجتمع</h3>
+      <form method="post">
+        <input type="hidden" name="action" value="add_news">
+        <input name="title" placeholder="عنوان الخبر (مثال: تحديثات الخميس)" required>
+        <textarea name="content" placeholder="محتوى الخبر..." rows="3" required></textarea>
+        <button type="submit" style="background:#229ED9;color:#fff;margin-top:10px;">نشر الخبر للمجتمع</button>
+      </form>
+    </div>
+
+    <div class="box">
+      <h3>⚽ إضافة لاعب جديد</h3>
       <form method="post" enctype="multipart/form-data">
         <input type="hidden" name="action" value="add_player">
         <input name="name" placeholder="اسم اللاعب" required>
@@ -496,12 +578,14 @@ def home():
     
     with get_db() as db:
         players = [dict(row) for row in db.execute("SELECT * FROM players ORDER BY overall_max DESC").fetchall()]
+        news = [dict(row) for row in db.execute("SELECT * FROM news ORDER BY id DESC LIMIT 3").fetchall()]
         banner_res = db.execute("SELECT value FROM settings WHERE key = 'custom_banner'").fetchone()
         custom_banner = banner_res["value"] if banner_res else ""
 
     return render_template_string(
         PAGE_TEMPLATE,
         players=players,
+        news=news,
         user=user,
         custom_banner=custom_banner,
         telegram_dev=TELEGRAM_DEV,
