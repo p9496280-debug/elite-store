@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import secrets
 import sqlite3
 import requests
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -16,7 +17,7 @@ from flask import (
 )
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_ehub_2026_secret_key")
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_ehub_ultimate_2026")
 
 UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -52,6 +53,13 @@ def init_db():
         """)
 
         db.execute("""
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
+
+        db.execute("""
             CREATE TABLE IF NOT EXISTS players (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
@@ -68,26 +76,7 @@ def init_db():
             )
         """)
 
-        # إدخال بيانات تجريبية مطابقة لـ eFHUB (مثل Raphael Varane)
-        cursor = db.execute("SELECT COUNT(*) as count FROM players")
-        if cursor.fetchone()["count"] == 0:
-            varane_stats = json.dumps({
-                "speed": 81, "acceleration": 76, "shoting": 69,
-                "jumping": 78, "physical": 80, "balance": 61, "stamina": 74,
-                "defensive_awareness": 88, "tackling": 88, "aggression": 84
-            })
-            varane_skills = json.dumps(["مهارة الرأس", "حصن", "مراقبة لاعب", "التمرير الموزون"])
-
-            sample_players = [
-                ("Raphael Varane", 84, 88, "CB", "Real Madrid", "France", "Epic / Big Time", 0, "https://i.imgur.com/8Q9PzZ1.png", varane_stats, varane_skills),
-                ("Yaya Touré", 86, 96, "DMF", "FC Barcelona", "Ivory Coast", "Epic", 0, "https://i.imgur.com/2Xy5kK3.png", varane_stats, varane_skills),
-                ("Clarence Seedorf", 87, 97, "CMF", "AC Milan", "Netherlands", "Showtime", 0, "https://i.imgur.com/9aL3pKq.png", varane_stats, varane_skills),
-                ("Lionel Messi", 88, 102, "RWF", "Inter Miami", "Argentina", "Big Time Leaked", 1, "https://i.imgur.com/3Z4M8pK.png", varane_stats, varane_skills)
-            ]
-            db.executemany("""
-                INSERT INTO players (name, overall_base, overall_max, position, team, nationality, card_type, is_upcoming, image_url, stats_json, skills_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, sample_players)
+        db.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('custom_banner', '')")
 
 
 init_db()
@@ -95,10 +84,9 @@ init_db()
 
 def send_verification_code_to_channel(email, code):
     try:
-        # إرسال الكود إلى قناة الأكواد Telegram MidoWorld بشكل سري وآمن
-        requests.post(f"https://api.telegram.org/botYOUR_BOT_TOKEN/sendMessage", json={
+        requests.post("https://api.telegram.org/botYOUR_BOT_TOKEN/sendMessage", json={
             "chat_id": "@MidoWorld",
-            "text": f"🔐 طلب تسجيل جديد في منصة eHUB\nالبريد: {email[:3]}***@***\nكود التحقق: {code}"
+            "text": f"🔐 كود تحقق جديد لمنصة eHUB\nالبريد: {email[:3]}***@***\nالكود: {code}"
         }, timeout=2)
     except Exception:
         pass
@@ -110,7 +98,7 @@ PAGE_TEMPLATE = r"""
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NOVA eHUB 26 | eFootball Player Database</title>
+<title>NOVA eHUB 26 | eFootball Database</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
 :root {
@@ -122,19 +110,22 @@ PAGE_TEMPLATE = r"""
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans-serif; min-height: 100vh; }
+body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans-serif; min-height: 100vh; display: flex; flex-direction: column; justify-content: space-between; }
 
 .navbar { background: #090d16; border-bottom: 2px solid var(--neon-green); padding: 12px 4%; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; flex-wrap: wrap; gap: 10px; }
 .brand { font-weight: 900; font-size: 22px; color: #fff; text-decoration: none; display: flex; align-items: center; gap: 8px; }
 .brand span { color: var(--neon-green); }
 .brand-badge { background: var(--neon-green); color: #000; padding: 2px 6px; border-radius: 6px; font-size: 12px; }
 
-.search-box input { width: 260px; padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border-color); background: #141a29; color: #fff; font-family: 'Cairo'; outline: none; }
+.search-box input { width: 240px; padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border-color); background: #141a29; color: #fff; font-family: 'Cairo'; outline: none; }
 .search-box input:focus { border-color: var(--neon-green); }
 
 .user-actions { display: flex; gap: 8px; align-items: center; }
 .btn-action { padding: 6px 14px; background: #141a29; border: 1px solid var(--border-color); border-radius: 8px; color: #fff; text-decoration: none; font-size: 12px; font-weight: bold; }
 .btn-action.primary { background: var(--neon-green); color: #000; border: 0; }
+
+.custom-banner { width: 100%; max-height: 250px; overflow: hidden; margin-bottom: 20px; border-bottom: 2px solid var(--border-color); }
+.custom-banner img { width: 100%; height: 100%; object-fit: cover; }
 
 .tabs { display: flex; gap: 10px; margin: 20px 4%; flex-wrap: wrap; }
 .tab-btn { padding: 8px 18px; background: #141a29; border: 1px solid var(--border-color); border-radius: 8px; color: #fff; cursor: pointer; font-family: 'Cairo'; font-weight: 700; font-size: 13px; }
@@ -149,70 +140,78 @@ body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans
 .overall { font-size: 20px; color: var(--neon-green); }
 .position { font-size: 11px; background: #1a233a; padding: 2px 6px; border-radius: 4px; color: #00d2ff; }
 
-.player-img { width: 100%; height: 115px; object-fit: contain; margin: 6px 0; }
+.player-img { width: 100%; height: 115px; object-fit: contain; margin: 6px 0; background:#07090e; border-radius:8px; }
 .player-name { font-size: 13px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* نافذة إحصائيات وتفاصيل اللاعب المطابقة لـ eFHUB */
+/* النافذة المنبثقة للتفاصيل */
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); z-index: 200; align-items: center; justify-content: center; }
-.modal-content { background: #0e1320; border: 2px solid var(--neon-green); border-radius: 18px; max-width: 480px; width: 92%; padding: 22px; position: relative; max-height: 90vh; overflow-y: auto; }
-.stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1a233a; font-size: 13px; }
+.modal-content { background: #0e1320; border: 2px solid var(--neon-green); border-radius: 18px; max-width: 450px; width: 92%; padding: 22px; position: relative; max-height: 90vh; overflow-y: auto; }
+.stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1e2638; font-size: 13px; }
 .stat-val-green { font-weight: bold; color: var(--neon-green); }
-.stat-val-red { font-weight: bold; color: #ff4d4d; }
 .close-btn { position: absolute; top: 12px; left: 15px; background: none; border: 0; color: #fff; font-size: 18px; cursor: pointer; }
 
-/* أزرار أسفل التطبيق */
-.footer-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 30px 0; padding: 0 4%; }
+/* الأزرار الثلاثة أسفل التطبيق تماماً فوق الفوتر */
+.bottom-section { margin-top: auto; border-top: 1px solid var(--border-color); padding-top: 25px; background: #05070c; }
+.footer-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; padding: 0 4%; }
 .f-btn { padding: 10px 20px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 12px; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
 .f-btn-dev { background: #2563eb; color: #fff; }
 .f-btn-main { background: #7c3aed; color: #fff; }
 .f-btn-bot { background: #0284c7; color: #fff; }
 .f-btn:hover { transform: translateY(-2px); opacity: 0.9; }
 
-footer { text-align: center; padding: 20px; background: #05070c; border-top: 1px solid var(--border-color); color: #64748b; font-size: 11px; }
+footer { text-align: center; padding: 15px; color: #64748b; font-size: 11px; }
 </style>
 </head>
 <body>
 
-<header class="navbar">
-  <a href="/" class="brand">
-    <div class="brand-badge">26</div>
-    NOVA <span>eHUB</span>
-  </a>
-  <div class="search-box">
-    <input type="text" id="searchInput" placeholder="ابحث عن لاعب..." onkeyup="filterCards()">
-  </div>
-  <div class="user-actions">
-    {% if user %}
-      <span style="font-size:12px; color:var(--neon-green);">👤 {{ user["name"] }}</span>
-      <a href="/logout" class="btn-action" style="color:#fca5a5;">خروج</a>
-    {% else %}
-      <a href="/login" class="btn-action">دخول</a>
-      <a href="/register" class="btn-action primary">حساب جديد</a>
-    {% endif %}
-    <a href="/admin" class="btn-action" style="background:#7f1d1d;">⚙️ المطور</a>
-  </div>
-</header>
-
-<div class="tabs">
-  <button class="tab-btn active" onclick="switchTab('all', this)">⚡ جميع اللاعبين والأساطير</button>
-  <button class="tab-btn" onclick="switchTab('upcoming', this)">🔮 التسريبات (Upcoming)</button>
-</div>
-
-<div class="card-grid" id="playersGrid">
-  {% for p in players %}
-  <div class="player-card" data-upcoming="{{ p['is_upcoming'] }}" onclick='showPlayerStats({{ p|tojson }})'>
-    <div class="card-header">
-      <span class="overall">{{ p['overall_max'] }}</span>
-      <span class="position">{{ p['position'] }}</span>
+<div>
+  <header class="navbar">
+    <a href="/" class="brand">
+      <div class="brand-badge">26</div>
+      eHUB <span>NOVA</span>
+    </a>
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="ابحث عن لاعب..." onkeyup="filterCards()">
     </div>
-    <img class="player-img" src="{{ p['image_url'] }}" alt="{{ p['name'] }}" onerror="this.src='https://i.imgur.com/8Q9PzZ1.png'">
-    <div class="player-name">{{ p['name'] }}</div>
-    <div style="font-size:9px; color:#8fa0c0; margin-top:2px;">{{ p['card_type'] }}</div>
+    <div class="user-actions">
+      {% if user %}
+        <span style="font-size:12px; color:var(--neon-green);">👤 {{ user["name"] }}</span>
+        <a href="/logout" class="btn-action" style="color:#fca5a5;">خروج</a>
+      {% else %}
+        <a href="/login" class="btn-action">دخول</a>
+        <a href="/register" class="btn-action primary">حساب جديد</a>
+      {% endif %}
+      <a href="/admin" class="btn-action" style="background:#7f1d1d;">⚙️ المطور</a>
+    </div>
+  </header>
+
+  {% if custom_banner %}
+  <div class="custom-banner">
+    <img src="{{ custom_banner }}" alt="Main Banner">
   </div>
-  {% endfor %}
+  {% endif %}
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('all', this)">⚡ جميع اللاعبين والأساطير</button>
+    <button class="tab-btn" onclick="switchTab('upcoming', this)">🔮 التسريبات (Upcoming)</button>
+  </div>
+
+  <div class="card-grid" id="playersGrid">
+    {% for p in players %}
+    <div class="player-card" data-upcoming="{{ p['is_upcoming'] }}" onclick='showPlayerStats({{ p|tojson }})'>
+      <div class="card-header">
+        <span class="overall">{{ p['overall_max'] }}</span>
+        <span class="position">{{ p['position'] }}</span>
+      </div>
+      <img class="player-img" src="{{ p['image_url'] }}" alt="{{ p['name'] }}" onerror="this.src='https://via.placeholder.com/150/121826/ccff00?text=eFootball'">
+      <div class="player-name">{{ p['name'] }}</div>
+      <div style="font-size:9px; color:#8fa0c0; margin-top:2px;">{{ p['card_type'] }}</div>
+    </div>
+    {% endfor %}
+  </div>
 </div>
 
-<!-- نافذة إحصائيات اللاعب التفصيلية المطابقة لـ eFHUB -->
+<!-- النافذة المنبثقة للتفاصيل -->
 <div class="modal-overlay" id="statsModal">
   <div class="modal-content">
     <button class="close-btn" onclick="closeModal()">✕</button>
@@ -224,24 +223,24 @@ footer { text-align: center; padding: 20px; background: #05070c; border-top: 1px
         <span id="modalCardType" style="font-size:10px; background:#1a233a; padding:2px 6px; border-radius:4px; color:#00d2ff;"></span>
       </div>
     </div>
-    <h4 style="font-size:12px; color:#cbd5e1; margin-bottom:8px; border-bottom:1px solid #1e2638; padding-bottom:4px;">📊 الإحصائيات الكاملة (Stats):</h4>
+    <h4 style="font-size:12px; color:#cbd5e1; margin-bottom:8px; border-bottom:1px solid #1e2638; padding-bottom:4px;">📊 الإحصائيات (Stats):</h4>
     <div id="statsContainer"></div>
-    <h4 style="font-size:12px; color:#cbd5e1; margin:12px 0 8px; border-bottom:1px solid #1e2638; padding-bottom:4px;">⭐ المهارات (Skills):</h4>
-    <div id="skillsContainer" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
   </div>
 </div>
 
-<!-- الأزرار المطلوبة في الأسفل -->
-<div class="footer-buttons">
-  <a href="{{ telegram_dev }}" target="_blank" class="f-btn f-btn-dev">👨‍💻 التواصل مع المطور</a>
-  <a href="{{ telegram_main }}" target="_blank" class="f-btn f-btn-main">📢 القناة الأساسية</a>
-  <a href="{{ telegram_bot }}" target="_blank" class="f-btn f-btn-bot">🤖 البوت الخاص بنا</a>
-</div>
+<!-- الأزرار الثلاثة أسفل التطبيق تماماً فوق الفوتر -->
+<div class="bottom-section">
+  <div class="footer-buttons">
+    <a href="{{ telegram_dev }}" target="_blank" class="f-btn f-btn-dev">👨‍💻 التواصل مع المطور</a>
+    <a href="{{ telegram_main }}" target="_blank" class="f-btn f-btn-main">📢 القناة الأساسية</a>
+    <a href="{{ telegram_bot }}" target="_blank" class="f-btn f-btn-bot">🤖 البوت الخاص بنا</a>
+  </div>
 
-<footer>
-  <p>قناة التنبيهات والأكواد الرسمية: <a href="{{ telegram_codes_channel }}" target="_blank" style="color:var(--neon-green); text-decoration:none;">MidoWorld ✈️</a></p>
-  <p style="margin-top:5px;">© 2026 NOVA eHUB - جميع الحقوق محفوظة</p>
-</footer>
+  <footer>
+    <p>قناة التنبيهات والأكواد الرسمية: <a href="{{ telegram_codes_channel }}" target="_blank" style="color:var(--neon-green); text-decoration:none;">MidoWorld ✈️</a></p>
+    <p style="margin-top:5px;">© 2026 NOVA eHUB - جميع الحقوق محفوظة</p>
+  </footer>
+</div>
 
 <script>
 function showPlayerStats(player) {
@@ -253,20 +252,10 @@ function showPlayerStats(player) {
   let stats = JSON.parse(player.stats_json || '{}');
   let html = '';
   for(let key in stats) {
-    let val = stats[key];
-    let colorClass = val >= 80 ? 'stat-val-green' : 'stat-val-red';
     let statName = key.replace('_', ' ').toUpperCase();
-    html += `<div class="stat-row"><span>${statName}</span><span class="${colorClass}">${val}</span></div>`;
+    html += `<div class="stat-row"><span>${statName}</span><span class="stat-val-green">${stats[key]}</span></div>`;
   }
   document.getElementById('statsContainer').innerHTML = html;
-
-  let skills = JSON.parse(player.skills_json || '[]');
-  let skillsHtml = '';
-  skills.forEach(skill => {
-    skillsHtml += `<span style="background:#141a29; border:1px solid var(--border-color); padding:3px 8px; border-radius:6px; font-size:10px; color:#38bdf8;">${skill}</span>`;
-  });
-  document.getElementById('skillsContainer').innerHTML = skillsHtml || '<span style="font-size:11px; color:#888;">لا توجد مهارات مسجلة</span>';
-
   document.getElementById('statsModal').style.display = 'flex';
 }
 
@@ -330,7 +319,6 @@ def register():
     </style></head>
     <body><div class="box">
     <h2>إنشاء حساب جديد</h2>
-    <p style="font-size:11px;color:#8fa0c0;margin-bottom:15px;">سيتم إرسال كود التحقق سرياً إلى قناة {TELEGRAM_CODES_CHANNEL}</p>
     <form method="post">
     <input name='name' placeholder='الاسم الكامل' required>
     <input type='email' name='email' placeholder='البريد الإلكتروني' required>
@@ -413,66 +401,87 @@ def admin_panel():
 
     with get_db() as db:
         if request.method == "POST":
-            name = request.form.get("name")
-            overall_base = int(request.form.get("overall_base", 80))
-            overall_max = int(request.form.get("overall_max", 90))
-            position = request.form.get("position")
-            team = request.form.get("team")
-            card_type = request.form.get("card_type")
-            is_upcoming = 1 if request.form.get("is_upcoming") else 0
+            action = request.form.get("action")
+            
+            # رفع وتغيير تصميم البانر الرئيسي من التليفون
+            if action == "upload_banner":
+                file = request.files.get("banner_file")
+                if file and file.filename != "":
+                    filename = secure_filename(file.filename)
+                    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    file.save(filepath)
+                    banner_url = url_for('static', filename=f'uploads/{filename}')
+                    db.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('custom_banner', ?)", (banner_url,))
+                    db.commit()
+                    msg = "✅ تم رفع وتحديث تصميم الواجهة الرئيسية بنجاح!"
 
-            image_url = ""
-            file = request.files.get("image_file")
-            if file and file.filename != "":
-                filename = secure_filename(file.filename)
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(filepath)
-                image_url = url_for('static', filename=f'uploads/{filename}')
-            else:
-                image_url = "https://i.imgur.com/8Q9PzZ1.png"
+            elif action == "add_player":
+                name = request.form.get("name")
+                overall_base = int(request.form.get("overall_base", 80))
+                overall_max = int(request.form.get("overall_max", 90))
+                position = request.form.get("position")
+                team = request.form.get("team")
+                card_type = request.form.get("card_type")
+                is_upcoming = 1 if request.form.get("is_upcoming") else 0
 
-            stats = {
-                "speed": int(request.form.get("speed", 80)),
-                "acceleration": int(request.form.get("acceleration", 80)),
-                "defensive_awareness": int(request.form.get("def', 85") or 85),
-                "tackling": int(request.form.get("tackling", 85))
-            }
-            skills = ["حصن", "مهارة الرأس", "مراقبة لاعب"]
+                image_url = ""
+                file = request.files.get("image_file")
+                if file and file.filename != "":
+                    filename = secure_filename(file.filename)
+                    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    file.save(filepath)
+                    image_url = url_for('static', filename=f'uploads/{filename}')
+                else:
+                    image_url = "https://via.placeholder.com/150/121826/ccff00?text=eFootball"
 
-            db.execute("""
-                INSERT INTO players (name, overall_base, overall_max, position, team, card_type, is_upcoming, image_url, stats_json, skills_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (name, overall_base, overall_max, position, team, card_type, is_upcoming, image_url, json.dumps(stats), json.dumps(skills)))
-            db.commit()
-            msg = "✅ تم إضافة بطاقة اللاعب وطاقاته بنجاح!"
+                stats = {"speed": 85, "finishing": 82}
+                db.execute("""
+                    INSERT INTO players (name, overall_base, overall_max, position, team, card_type, is_upcoming, image_url, stats_json, skills_json)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (name, overall_base, overall_max, position, team, card_type, is_upcoming, image_url, json.dumps(stats), json.dumps([])))
+                db.commit()
+                msg = "✅ تم إضافة اللاعب بنجاح!"
 
     return f"""
     <html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>لوحة المطور</title>
     <style>body{{background:#07090e;color:#fff;font-family:Cairo,sans-serif;padding:30px;}}
-    .box{{background:#0e121d;padding:20px;border:1px solid #ccff00;border-radius:14px;max-width:500px;margin:auto;}}
+    .box{{background:#0e121d;padding:20px;border:1px solid #ccff00;border-radius:14px;max-width:550px;margin:0 auto 20px;}}
     input, select{{width:100%;padding:10px;margin:6px 0;background:#07090e;border:1px solid #1e2638;border-radius:8px;color:#fff;box-sizing:border-box;}}
     button{{padding:10px 20px;background:#ccff00;color:#000;border:0;border-radius:8px;font-weight:bold;cursor:pointer;}}
     </style></head>
-    <body><div class="box">
-    <h2 style="color:#ccff00;">⚙️ إضافة لاعب جديد</h2>
+    <body><div style="max-width:550px;margin:auto;">
+    <h2 style="color:#ccff00;">⚙️ لوحة تحكم المطور</h2>
     <p style="color:#35eaa1;font-weight:bold;">{msg}</p>
-    <form method="post" enctype="multipart/form-data">
-    <input name="name" placeholder="اسم اللاعب (مثال: Raphael Varane)" required>
-    <input type="number" name="overall_base" placeholder="الطاقة الأساسية (Base)" required>
-    <input type="number" name="overall_max" placeholder="الطاقة القصوى (Max Rating)" required>
-    <input name="position" placeholder="المركز (مثال: CB)" required>
-    <input name="team" placeholder="الفريق / النادي" required>
-    <select name="card_type">
-      <option value="Epic / Big Time">Epic / Big Time</option>
-      <option value="Showtime">Showtime</option>
-      <option value="Highlight">Highlight</option>
-    </select>
-    <label><input type="checkbox" name="is_upcoming" value="1"> لاعب تسريبات (Upcoming)</label>
-    <label style="display:block;margin-top:10px;font-size:11px;">صورة اللاعب:</label>
-    <input type="file" name="image_file" accept="image/*">
-    <button type="submit" style="margin-top:10px;">إضافة اللاعب 🚀</button>
-    </form>
-    <br><a href="/" style="color:#00d2ff;text-decoration:none;">← العودة للتطبيق</a>
+    <a href="/" style="color:#00d2ff;text-decoration:none;display:block;margin-bottom:15px;">← العودة للتطبيق</a>
+
+    <div class="box">
+      <h3>🖼️ رفع تصميم / بانر الواجهة الرئيسية من الهاتف</h3>
+      <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="action" value="upload_banner">
+        <input type="file" name="banner_file" accept="image/*" required>
+        <button type="submit" style="margin-top:10px;">تحديث واجهة التطبيق 🚀</button>
+      </form>
+    </div>
+
+    <div class="box">
+      <h3>⚽ إضافة لاعب جديد (رفع صورة من الهاتف)</h3>
+      <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="action" value="add_player">
+        <input name="name" placeholder="اسم اللاعب" required>
+        <input type="number" name="overall_base" placeholder="الطاقة الأساسية (Base)" required>
+        <input type="number" name="overall_max" placeholder="الطاقة القصوى (Max Rating)" required>
+        <input name="position" placeholder="المركز (مثال: CB)" required>
+        <input name="team" placeholder="الفريق / النادي" required>
+        <select name="card_type">
+          <option value="Epic / Big Time">Epic / Big Time</option>
+          <option value="Showtime">Showtime</option>
+        </select>
+        <label><input type="checkbox" name="is_upcoming" value="1"> لاعب تسريبات (Upcoming)</label>
+        <label style="display:block;margin-top:8px;font-size:11px;">صورة بطاقة اللاعب:</label>
+        <input type="file" name="image_file" accept="image/*">
+        <button type="submit" style="margin-top:10px;">إضافة اللاعب</button>
+      </form>
+    </div>
     </div></body></html>
     """
 
@@ -487,11 +496,14 @@ def home():
     
     with get_db() as db:
         players = [dict(row) for row in db.execute("SELECT * FROM players ORDER BY overall_max DESC").fetchall()]
+        banner_res = db.execute("SELECT value FROM settings WHERE key = 'custom_banner'").fetchone()
+        custom_banner = banner_res["value"] if banner_res else ""
 
     return render_template_string(
         PAGE_TEMPLATE,
         players=players,
         user=user,
+        custom_banner=custom_banner,
         telegram_dev=TELEGRAM_DEV,
         telegram_main=TELEGRAM_MAIN,
         telegram_bot=TELEGRAM_BOT,
