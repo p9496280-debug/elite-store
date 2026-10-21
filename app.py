@@ -93,6 +93,16 @@ def init_db():
             )
         """)
 
+        # التأكد التام من إضافة الأعمدة الجديدة لقاعدة البيانات القديمة لو لم تكن موجودة لمنع أي خطأ
+        try:
+            db.execute("ALTER TABLE managers ADD COLUMN age INTEGER DEFAULT 50")
+        except Exception:
+            pass
+        try:
+            db.execute("ALTER TABLE managers ADD COLUMN team TEXT DEFAULT 'Unattached'")
+        except Exception:
+            pass
+
         db.execute("""
             CREATE TABLE IF NOT EXISTS players (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -398,7 +408,48 @@ function filterCards() { let query = document.getElementById('searchInput').valu
 """
 
 
-# صفحة باني الفرقة المحدثة مع ميزة تعديل وتغيير المركز لأي لاعب داخل الملعب
+MANAGER_DETAIL_TEMPLATE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ manager['name'] }} | Manager Profile</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
+:root { --bg-dark: #07090e; --panel-bg: #0e121d; --neon-green: #ccff00; --neon-blue: #00d2ff; --border-color: #1e2638; }
+body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans-serif; padding: 20px; display: grid; place-items: center; min-height: 100vh; margin: 0; }
+.manager-box { background: linear-gradient(145deg, #0e121d, #07090e); border: 2px solid var(--neon-green); border-radius: 20px; padding: 30px; width: 100%; max-width: 480px; text-align: center; box-shadow: 0 0 25px rgba(204,255,0,0.15); }
+.manager-img-large { width: 110px; height: 110px; border-radius: 50%; object-fit: cover; border: 3px solid var(--neon-green); margin-bottom: 12px; }
+.manager-title { font-size: 24px; font-weight: 900; color: #fff; margin-bottom: 4px; }
+.manager-sub { font-size: 12px; color: #94a3b8; margin-bottom: 18px; }
+.stats-list { background: #0e1320; border: 1px solid var(--border-color); border-radius: 14px; padding: 15px; text-align: right; margin-bottom: 20px; }
+.stat-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #1e2638; font-size: 13px; }
+.stat-item:last-child { border: 0; }
+.back-btn { display: block; width: 100%; padding: 12px; background: var(--neon-green); color: #000; border-radius: 12px; font-weight: 900; text-decoration: none; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="manager-box">
+  <img class="manager-img-large" src="{{ manager['image_url'] }}" onerror="this.src='https://via.placeholder.com/110/121826/ccff00?text=Coach'">
+  <div class="manager-title">{{ manager['name'] }}</div>
+  <div class="manager-sub">👔 بطاقة المدير الفني الرسمي</div>
+
+  <div class="stats-list">
+    <div class="stat-item"><span style="color:#94a3b8;">السن / العمر:</span> <b>{{ manager['age'] }} سنة</b></div>
+    <div class="stat-item"><span style="color:#94a3b8;">الفريق / الجنسية:</span> <b style="color:var(--neon-blue);">{{ manager['team'] }}</b></div>
+    <div class="stat-item"><span style="color:#94a3b8;">أسلوب اللعب المفضل:</span> <b style="color:var(--neon-green);">{{ manager['playstyle'] }}</b></div>
+    <div class="stat-item"><span style="color:#94a3b8;">تطوير اللاعبين (Coaching Affinity):</span> <b>{{ manager['affinity'] }}</b></div>
+    <div class="stat-item"><span style="color:#94a3b8;">طاقة المهارة التكتيكية:</span> <b style="color:var(--neon-green);">88/100</b></div>
+  </div>
+
+  <a href="/" class="back-btn">← العودة للصفحة الرئيسية</a>
+</div>
+</body>
+</html>
+"""
+
+
 SQUAD_BUILDER_TEMPLATE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -541,7 +592,6 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
   </div>
 </div>
 
-<!-- نافذة اختيار وتغيير المركز المباشر -->
 <div class="modal" id="posModal">
   <div class="modal-content" style="max-width:320px; text-align:center;">
     <h3 style="color:var(--neon-green); font-size:14px; margin-bottom:12px;">⚽ تغيير مركز اللاعب</h3>
@@ -636,7 +686,7 @@ document.querySelectorAll('.pos-slot').forEach(slot => {
 const TACTICAL_CONFIG = {
   "Possession": {
     tips: [
-      { title: "✅ Create Angles (خلق زوايا التمرير)", desc: "التحرك في المساحة لاستلام الكرة بوضعية جسم مفتوحة لتسهيل التمرير." },
+      { title: "✅ Create Angles (خلق زوايا التمرير)", desc: "التحرك في المساحة لاستلاستلام الكرة بوضعية جسم مفتوحة لتسهيل التمرير." },
       { title: "✅ Support Play (المساندة القريبة)", desc: "توفر خيارات تمرير قريبة من حامل الكرة لضمان الاستحواذ وعدم فقدانها." },
       { title: "✅ Find Space Between Lines (المساحات بين الخطوط)", desc: "التحرك في الثغرات بين دفاع ووسط الخصم للاستلام في مناطق خطيرة." },
       { title: "✅ Drop Deep to Collect (النزول للاستلام)", desc: "نزول لاعب الوسط لعمق الدفاع لبناء اللعب وتدوير الكرة من الخلف." }
