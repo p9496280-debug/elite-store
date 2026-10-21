@@ -290,7 +290,7 @@ body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans
 .card-header { display: flex; justify-content: space-between; font-weight: 900; }
 .overall { font-size: 20px; color: var(--neon-green); }
 .position { font-size: 11px; background: #1a233a; padding: 2px 6px; border-radius: 4px; color: #00d2ff; }
-.player-img { width: 100%; height: 115px; object-fit: contain; margin: 6px 0; background:#07090e; border-radius:8px; }
+.player-img { width: 100%; height: 115px; object-fit: cover; margin: 6px 0; background: #121826; border-radius: 8px; }
 .player-name { font-size: 13px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .bottom-section { margin-top: auto; border-top: 1px solid var(--border-color); padding-top: 25px; background: #05070c; }
@@ -480,7 +480,7 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
 
 .pos-slot { width: 68px; height: 88px; background: rgba(14, 18, 29, 0.92); border: 1px dashed var(--neon-green); border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: var(--neon-green); cursor: move; position: absolute; z-index: 10; transition: border-color 0.2s, box-shadow 0.2s; text-align: center; user-select: none; touch-action: none; }
 .pos-slot:active { z-index: 20; border-style: solid; box-shadow: 0 0 15px rgba(204,255,0,0.5); }
-.pos-slot img { width: 42px; height: 42px; object-fit: contain; border-radius: 6px; pointer-events: none; }
+.pos-slot img { width: 42px; height: 42px; object-fit: cover; border-radius: 6px; pointer-events: none; }
 .delete-btn { position: absolute; top: -5px; right: -5px; background: #ef4444; color: #fff; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 25; }
 .edit-pos-btn { position: absolute; bottom: -5px; left: -5px; background: #00d2ff; color: #000; border-radius: 50%; width: 18px; height: 18px; font-size: 9px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 25; }
 
@@ -844,7 +844,7 @@ function initDraggableSlots() {
 const TACTICAL_CONFIG = {
   "Possession": {
     tips: [
-      { title: "✅ Create Angles (خلق زوايا التمرير)", desc: "التحرك في المساحة لاستلام الكرة بوضعية جسم مفتوحة لتسهيل التمرير." },
+      { title: "✅ Create Angles (خلق زوايا التمرير)", desc: "التحرك في المساحة لاستلاستلام الكرة بوضعية جسم مفتوحة لتسهيل التمرير." },
       { title: "✅ Support Play (المساندة القريبة)", desc: "توفر خيارات تمرير قريبة من حامل الكرة لضمان الاستحواذ وعدم فقدانها." },
       { title: "✅ Find Space Between Lines (المساحات بين الخطوط)", desc: "التحرك في الثغرات بين دفاع ووسط الخصم للاستلام في مناطق خطيرة." },
       { title: "✅ Drop Deep to Collect (النزول للاستلام)", desc: "نزول لاعب الوسط لعمق الدفاع لبناء اللعب وتدوير الكرة من الخلف." }
@@ -981,7 +981,7 @@ function renderModalPlayers(list) {
     html += `
       <div class="search-item" onclick="selectPlayer('${p.name}', '${p.image_url}', '${p.overall_max}', '${p.position}')">
         <div style="display:flex; align-items:center; gap:8px;">
-          <img src="${p.image_url}" style="width:30px; height:30px; object-fit:contain;">
+          <img src="${p.image_url}" style="width:30px; height:30px; object-fit:cover; border-radius:4px;">
           <div>
             <div style="font-size:12px; font-weight:bold;">${p.name}</div>
             <div style="font-size:9px; color:#8fa0c0;">${p.position}</div>
@@ -1115,7 +1115,7 @@ body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans
 .efhub-layout { max-width: 1000px; margin: auto; display: grid; grid-template-columns: 320px 1fr; gap: 20px; }
 @media(max-width: 850px) { .efhub-layout { grid-template-columns: 1fr; } }
 .card-box { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; text-align: center; }
-.card-img-large { width: 190px; height: 230px; object-fit: contain; margin: 10px auto; border-radius: 12px; background: #05070c; border: 2px solid var(--neon-green); padding: 5px; }
+.card-img-large { width: 190px; height: 230px; object-fit: cover; margin: 10px auto; border-radius: 12px; background: #121826; border: 2px solid var(--neon-green); padding: 5px; }
 .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
 .section-box { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 15px; }
 .section-header { font-size: 13px; font-weight: 900; color: #8fa0c0; margin-bottom: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 4px; }
@@ -1188,7 +1188,7 @@ SKILLS_TEMPLATE = r"""
 body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans-serif; padding: 25px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; margin-top: 20px; }
 .card { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 15px; text-align: center; }
-.card img { width: 60px; height: 60px; object-fit: contain; margin-bottom: 10px; border-radius:8px; }
+.card img { width: 60px; height: 60px; object-fit: cover; margin-bottom: 10px; border-radius:8px; }
 .back-btn { display: inline-block; margin-bottom: 20px; padding: 8px 16px; background: #141a29; border: 1px solid var(--border-color); color: #fff; border-radius: 8px; text-decoration: none; font-weight: bold; }
 </style>
 </head>
