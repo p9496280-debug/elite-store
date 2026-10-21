@@ -93,7 +93,6 @@ def init_db():
             )
         """)
 
-        # التأكد التام من إضافة الأعمدة الجديدة لقاعدة البيانات القديمة لو لم تكن موجودة لمنع أي خطأ
         try:
             db.execute("ALTER TABLE managers ADD COLUMN age INTEGER DEFAULT 50")
         except Exception:
@@ -686,7 +685,7 @@ document.querySelectorAll('.pos-slot').forEach(slot => {
 const TACTICAL_CONFIG = {
   "Possession": {
     tips: [
-      { title: "✅ Create Angles (خلق زوايا التمرير)", desc: "التحرك في المساحة لاستلاستلام الكرة بوضعية جسم مفتوحة لتسهيل التمرير." },
+      { title: "✅ Create Angles (خلق زوايا التمرير)", desc: "التحرك في المساحة لاستلام الكرة بوضعية جسم مفتوحة لتسهيل التمرير." },
       { title: "✅ Support Play (المساندة القريبة)", desc: "توفر خيارات تمرير قريبة من حامل الكرة لضمان الاستحواذ وعدم فقدانها." },
       { title: "✅ Find Space Between Lines (المساحات بين الخطوط)", desc: "التحرك في الثغرات بين دفاع ووسط الخصم للاستلام في مناطق خطيرة." },
       { title: "✅ Drop Deep to Collect (النزول للاستلام)", desc: "نزول لاعب الوسط لعمق الدفاع لبناء اللعب وتدوير الكرة من الخلف." }
@@ -1207,7 +1206,7 @@ def admin_panel():
                     banner_url = url_for('static', filename=f'uploads/{filename}')
                     db.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('custom_banner', ?)", (banner_url,))
                     db.commit()
-                    msg = "✅ تم تحديث وعرض البانر بنجاح!"
+                    msg = "✅ تم تحديث وعرض بانر الصفحة الرئيسية بنجاح!"
 
             elif action == "upload_managers_card":
                 file = request.files.get("card_file")
@@ -1319,6 +1318,15 @@ def admin_panel():
         <input name="title" placeholder="عنوان الرسالة / التنبيه" required>
         <textarea name="content" placeholder="محتوى الرسالة..." rows="3" required></textarea>
         <button type="submit" style="margin-top:10px;">إرسال للجميع 🚀</button>
+      </form>
+    </div>
+
+    <div class="box">
+      <h3>🖼️ رفع وتحديث بانر الصفحة الرئيسية</h3>
+      <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="action" value="upload_banner">
+        <input type="file" name="banner_file" accept="image/*" required>
+        <button type="submit" style="margin-top:10px;">حفظ وعرض البانر 🚀</button>
       </form>
     </div>
 
