@@ -17,8 +17,9 @@ from flask import (
     Response,
 )
 
-# استدعاء الملف المنفصل والدوال الخاصة به
+# استدعاء الملفات المنفصلة والدوال الخاصة بها
 from leagues_and_clubs import get_all_leagues, get_club_logo
+from classic_players import get_classic_players  # استدعاء ملف الكروت القديمة والأساطير
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_ehub_master_key_2026")
@@ -520,6 +521,23 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
 
   <div class="control-row">
     <div style="display:flex; flex-direction:column; gap:4px; flex-grow:1;">
+      <label style="font-size:12px; font-weight:bold;">📋 اختر خطة اللعب (Formation):</label>
+      <select id="formationSelect" onchange="changeFormation()">
+        <option value="4-2-3-1">4-2-3-1 (المتوازنة)</option>
+        <option value="3-4-3">3-4-3 (الهجومية الضغط العالي)</option>
+        <option value="4-5-1">4-5-1 (التحكم والوسط)</option>
+        <option value="4-4-2-diamond">4-4-2 Diamond (الجوهرة)</option>
+        <option value="4-3-3">4-3-3 (الكلاسيكية)</option>
+        <option value="4-4-1-1">4-4-1-1 (المهاجم الوهمي)</option>
+        <option value="3-3-1-3">3-3-1-3 (الهجوم الشامل)</option>
+        <option value="4-4-2">4-4-2 (الصلبة)</option>
+        <option value="3-5-2">3-5-2 (الأطراف القوية)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="control-row">
+    <div style="display:flex; flex-direction:column; gap:4px; flex-grow:1;">
       <label style="font-size:12px; font-weight:bold;">🏆 الفريق والدوري المفضل:</label>
       <select id="clubSelect" onchange="updateClubPreview()">
         <option value="">-- اختر الفريق --</option>
@@ -556,20 +574,7 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
     <g id="overlayContent"></g>
   </svg>
 
-  <div class="pos-slot" style="top:5%; left:15%;" id="slot_LWF"><span id="pos_LWF">LWF</span><br>+</div>
-  <div class="pos-slot" style="top:5%; left:43%;" id="slot_CF"><span id="pos_CF">CF</span><br>+</div>
-  <div class="pos-slot" style="top:5%; left:71%;" id="slot_RWF"><span id="pos_RWF">RWF</span><br>+</div>
-
-  <div class="pos-slot" style="top:28%; left:15%;" id="slot_CMF1"><span id="pos_CMF1">CMF</span><br>+</div>
-  <div class="pos-slot" style="top:26%; left:43%;" id="slot_AMF"><span id="pos_AMF">AMF</span><br>+</div>
-  <div class="pos-slot" style="top:28%; left:71%;" id="slot_CMF2"><span id="pos_CMF2">CMF</span><br>+</div>
-
-  <div class="pos-slot" style="top:55%; left:10%;" id="slot_LB"><span id="pos_LB">LB</span><br>+</div>
-  <div class="pos-slot" style="top:55%; left:33%;" id="slot_CB1"><span id="pos_CB1">CB</span><br>+</div>
-  <div class="pos-slot" style="top:55%; left:53%;" id="slot_CB2"><span id="pos_CB2">CB</span><br>+</div>
-  <div class="pos-slot" style="top:55%; left:76%;" id="slot_RB"><span id="pos_RB">RB</span><br>+</div>
-
-  <div class="pos-slot" style="top:80%; left:43%;" id="slot_GK"><span id="pos_GK">GK</span><br>+</div>
+  <div id="slotsContainer"></div>
 </div>
 
 <div class="tactics-board">
@@ -619,68 +624,221 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
 let allPlayers = {{ players | tojson }};
 let currentSlot = '';
 let activePosSlot = '';
+let squadPlayersData = {};
 
-document.querySelectorAll('.pos-slot').forEach(slot => {
-  let isDragging = false;
-  let startX, startY, origLeft, origTop;
+const FORMATIONS = {
+  "4-2-3-1": [
+    {id: "CF", name: "CF", top: "5%", left: "43%"},
+    {id: "LWF", name: "LWF", top: "18%", left: "12%"},
+    {id: "AMF", name: "AMF", top: "18%", left: "43%"},
+    {id: "RWF", name: "RWF", top: "18%", left: "74%"},
+    {id: "DMF1", name: "DMF", top: "38%", left: "28%"},
+    {id: "DMF2", name: "DMF", top: "38%", left: "58%"},
+    {id: "LB", name: "LB", top: "60%", left: "10%"},
+    {id: "CB1", name: "CB", top: "62%", left: "33%"},
+    {id: "CB2", name: "CB", top: "62%", left: "53%"},
+    {id: "RB", name: "RB", top: "60%", left: "76%"},
+    {id: "GK", name: "GK", top: "82%", left: "43%"}
+  ],
+  "3-4-3": [
+    {id: "LW", name: "LWF", top: "5%", left: "15%"},
+    {id: "CF", name: "CF", top: "5%", left: "43%"},
+    {id: "RW", name: "RWF", top: "5%", left: "71%"},
+    {id: "LM", name: "LMF", top: "30%", left: "10%"},
+    {id: "CM1", name: "CMF", top: "30%", left: "35%"},
+    {id: "CM2", name: "CMF", top: "30%", left: "53%"},
+    {id: "RM", name: "RMF", top: "30%", left: "76%"},
+    {id: "CB1", name: "CB", top: "60%", left: "20%"},
+    {id: "CB2", name: "CB", top: "62%", left: "43%"},
+    {id: "CB3", name: "CB", top: "60%", left: "68%"},
+    {id: "GK", name: "GK", top: "82%", left: "43%"}
+  ],
+  "4-5-1": [
+    {id: "CF", name: "CF", top: "5%", left: "43%"},
+    {id: "LM", name: "LMF", top: "25%", left: "12%"},
+    {id: "CM1", name: "CMF", top: "30%", left: "30%"},
+    {id: "AMF", name: "AMF", top: "20%", left: "43%"},
+    {id: "CM2", name: "CMF", top: "30%", left: "58%"},
+    {id: "RM", name: "RMF", top: "25%", left: "74%"},
+    {id: "LB", name: "LB", top: "58%", left: "10%"},
+    {id: "CB1", name: "CB", top: "60%", left: "33%"},
+    {id: "CB2", name: "CB", top: "60%", left: "53%"},
+    {id: "RB", name: "RB", top: "58%", left: "76%"},
+    {id: "GK", name: "GK", top: "82%", left: "43%"}
+  ],
+  "4-4-2-diamond": [
+    {id: "CF1", name: "CF", top: "5%", left: "32%"},
+    {id: "CF2", name: "CF", top: "5%", left: "55%"},
+    {id: "AMF", name: "AMF", top: "20%", left: "43%"},
+    {id: "LM", name: "LMF", top: "38%", left: "15%"},
+    {id: "DMF", name: "DMF", top: "38%", left: "43%"},
+    {id: "RM", name: "RMF", top: "38%", left: "71%"},
+    {id: "LB", name: "LB", top: "60%", left: "10%"},
+    {id: "CB1", name: "CB", top: "62%", left: "33%"},
+    {id: "CB2", name: "CB", top: "62%", left: "53%"},
+    {id: "RB", name: "RB", top: "60%", left: "76%"},
+    {id: "GK", name: "GK", top: "82%", left: "43%"}
+  ],
+  "4-3-3": [
+    {id: "LWF", name: "LWF", top: "5%", left: "15%"},
+    {id: "CF", name: "CF", top: "5%", left: "43%"},
+    {id: "RWF", name: "RWF", top: "5%", left: "71%"},
+    {id: "CM1", name: "CMF", top: "32%", left: "22%"},
+    {id: "DMF", name: "DMF", top: "36%", left: "43%"},
+    {id: "CM2", name: "CMF", top: "32%", left: "64%"},
+    {id: "LB", name: "LB", top: "58%", left: "10%"},
+    {id: "CB1", name: "CB", top: "60%", left: "33%"},
+    {id: "CB2", name: "CB", top: "60%", left: "53%"},
+    {id: "RB", name: "RB", top: "58%", left: "76%"},
+    {id: "GK", name: "GK", top: "82%", left: "43%"}
+  ],
+  "4-4-1-1": [
+    {id: "CF", name: "CF", top: "5%", left: "43%"},
+    {id: "SS", name: "SS", top: "18%", left: "43%"},
+    {id: "LM", name: "LMF", top: "38%", left: "12%"},
+    {id: "CM1", name: "CMF", top: "38%", left: "33%"},
+    {id: "CM2", name: "CMF", top: "38%", left: "53%"},
+    {id: "RM", name: "RMF", top: "38%", left: "74%"},
+    {id: "LB", name: "LB", top: "60%", left: "10%"},
+    {id: "CB1", name: "CB", top: "62%", left: "33%"},
+    {id: "CB2", name: "CB", top: "62%", left: "53%"},
+    {id: "RB", name: "RB", top: "60%", left: "76%"},
+    {id: "GK", name: "GK", top: "82%", left: "43%"}
+  ],
+  "3-3-1-3": [
+    {id: "LWF", name: "LWF", top: "5%", left: "15%"},
+    {id: "CF", name: "CF", top: "5%", left: "43%"},
+    {id: "RWF", name: "RWF", top: "5%", left: "71%"},
+    {id: "AMF", name: "AMF", top: "22%", left: "43%"},
+    {id: "CM1", name: "CMF", top: "40%", left: "22%"},
+    {id: "DMF", name: "DMF", top: "42%", left: "43%"},
+    {id: "CM2", name: "CMF", top: "40%", left: "64%"},
+    {id: "CB1", name: "CB", top: "62%", left: "22%"},
+    {id: "CB2", name: "CB", top: "64%", left: "43%"},
+    {id: "CB3", name: "CB", top: "62%", left: "64%"},
+    {id: "GK", name: "GK", top: "82%", left: "43%"}
+  ],
+  "4-4-2": [
+    {id: "CF1", name: "CF", top: "5%", left: "33%"},
+    {id: "CF2", name: "CF", top: "5%", left: "53%"},
+    {id: "LM", name: "LMF", top: "35%", left: "10%"},
+    {id: "CM1", name: "CMF", top: "38%", left: "33%"},
+    {id: "CM2", name: "CMF", top: "38%", left: "53%"},
+    {id: "RM", name: "RMF", top: "35%", left: "76%"},
+    {id: "LB", name: "LB", top: "60%", left: "10%"},
+    {id: "CB1", name: "CB", top: "62%", left: "33%"},
+    {id: "CB2", name: "CB", top: "62%", left: "53%"},
+    {id: "RB", name: "RB", top: "60%", left: "76%"},
+    {id: "GK", name: "GK", top: "82%", left: "43%"}
+  ],
+  "3-5-2": [
+    {id: "CF1", name: "CF", top: "5%", left: "33%"},
+    {id: "CF2", name: "CF", top: "5%", left: "53%"},
+    {id: "AMF", name: "AMF", top: "20%", left: "43%"},
+    {id: "LM", name: "LMF", top: "38%", left: "10%"},
+    {id: "CM1", name: "CMF", top: "40%", left: "33%"},
+    {id: "CM2", name: "CMF", top: "40%", left: "53%"},
+    {id: "RM", name: "RMF", top: "38%", left: "76%"},
+    {id: "CB1", name: "CB", top: "62%", left: "22%"},
+    {id: "CB2", name: "CB", top: "64%", left: "43%"},
+    {id: "CB3", name: "CB", top: "62%", left: "64%"},
+    {id: "GK", name: "GK", top: "82%", left: "43%"}
+  ]
+};
 
-  const startDrag = (e) => {
-    if(e.target.classList.contains('delete-btn') || e.target.classList.contains('edit-pos-btn')) return;
-    isDragging = true;
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    
-    startX = clientX;
-    startY = clientY;
-    
-    const rect = slot.getBoundingClientRect();
-    const pitchRect = document.getElementById('pitch').getBoundingClientRect();
-    
-    origLeft = rect.left - pitchRect.left;
-    origTop = rect.top - pitchRect.top;
-    
-    slot.dataset.hasMoved = 'false';
-  };
-
-  const doDrag = (e) => {
-    if (!isDragging) return;
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    
-    const deltaX = clientX - startX;
-    const deltaY = clientY - startY;
-    
-    if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
-      slot.dataset.hasMoved = 'true';
+function changeFormation() {
+  let fSelect = document.getElementById('formationSelect').value;
+  let slots = FORMATIONS[fSelect] || FORMATIONS["4-2-3-1"];
+  let container = document.getElementById('slotsContainer');
+  
+  let html = '';
+  slots.forEach(s => {
+    let saved = squadPlayersData[s.id];
+    if(saved) {
+      html += `
+        <div class="pos-slot" style="top:${s.top}; left:${s.left};" id="slot_${s.id}">
+          <div class="delete-btn" onclick="event.stopPropagation(); removePlayer('${s.id}')">🗑️</div>
+          <div class="edit-pos-btn" onclick="openPosModal(event, '${s.id}')" title="تغيير المركز">✎</div>
+          <img src="${saved.img}">
+          <span id="pos_${s.id}" style="font-size:9px; color:#00d2ff; font-weight:bold;">${saved.pos}</span>
+          <span style="font-size:9px; color:var(--neon-green);">${saved.overall}</span>
+        </div>
+      `;
+    } else {
+      html += `
+        <div class="pos-slot" style="top:${s.top}; left:${s.left};" id="slot_${s.id}">
+          <span id="pos_${s.id}">${s.name}</span><br>+
+        </div>
+      `;
     }
-    
-    const pitch = document.getElementById('pitch');
-    let newLeft = origLeft + deltaX;
-    let newTop = origTop + deltaY;
-    
-    newLeft = Math.max(0, Math.min(newLeft, pitch.clientWidth - slot.clientWidth));
-    newTop = Math.max(0, Math.min(newTop, pitch.clientHeight - slot.clientHeight));
-    
-    slot.style.left = newLeft + 'px';
-    slot.style.top = newTop + 'px';
-  };
+  });
+  container.innerHTML = html;
+  initDraggableSlots();
+}
 
-  const stopDrag = (e) => {
-    if (!isDragging) return;
-    isDragging = false;
-    if (slot.dataset.hasMoved === 'false') {
-      openSearch(slot.id.replace('slot_', ''));
-    }
-  };
+function initDraggableSlots() {
+  document.querySelectorAll('.pos-slot').forEach(slot => {
+    let isDragging = false;
+    let startX, startY, origLeft, origTop;
 
-  slot.addEventListener('mousedown', startDrag);
-  document.addEventListener('mousemove', doDrag);
-  document.addEventListener('mouseup', stopDrag);
+    const startDrag = (e) => {
+      if(e.target.classList.contains('delete-btn') || e.target.classList.contains('edit-pos-btn')) return;
+      isDragging = true;
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      
+      startX = clientX;
+      startY = clientY;
+      
+      const rect = slot.getBoundingClientRect();
+      const pitchRect = document.getElementById('pitch').getBoundingClientRect();
+      
+      origLeft = rect.left - pitchRect.left;
+      origTop = rect.top - pitchRect.top;
+      
+      slot.dataset.hasMoved = 'false';
+    };
 
-  slot.addEventListener('touchstart', startDrag, {passive: false});
-  document.addEventListener('touchmove', doDrag, {passive: false});
-  document.addEventListener('touchend', stopDrag);
-});
+    const doDrag = (e) => {
+      if (!isDragging) return;
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      
+      const deltaX = clientX - startX;
+      const deltaY = clientY - startY;
+      
+      if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+        slot.dataset.hasMoved = 'true';
+      }
+      
+      const pitch = document.getElementById('pitch');
+      let newLeft = origLeft + deltaX;
+      let newTop = origTop + deltaY;
+      
+      newLeft = Math.max(0, Math.min(newLeft, pitch.clientWidth - slot.clientWidth));
+      newTop = Math.max(0, Math.min(newTop, pitch.clientHeight - slot.clientHeight));
+      
+      slot.style.left = newLeft + 'px';
+      slot.style.top = newTop + 'px';
+    };
+
+    const stopDrag = (e) => {
+      if (!isDragging) return;
+      isDragging = false;
+      if (slot.dataset.hasMoved === 'false') {
+        openSearch(slot.id.replace('slot_', ''));
+      }
+    };
+
+    slot.addEventListener('mousedown', startDrag);
+    document.addEventListener('mousemove', doDrag);
+    document.addEventListener('mouseup', stopDrag);
+
+    slot.addEventListener('touchstart', startDrag, {passive: false});
+    document.addEventListener('touchmove', doDrag, {passive: false});
+    document.addEventListener('touchend', stopDrag);
+  });
+}
 
 const TACTICAL_CONFIG = {
   "Possession": {
@@ -751,6 +909,7 @@ function updateTacticalOverlayAndBoard() {
 }
 
 updateTacticalOverlayAndBoard();
+changeFormation();
 
 function updateManagerPreview() {
   let select = document.getElementById('managerSelect');
@@ -808,6 +967,9 @@ function changePosition(newPos) {
   if(activePosSlot) {
     let posSpan = document.getElementById('pos_' + activePosSlot);
     if(posSpan) posSpan.textContent = newPos;
+    if(squadPlayersData[activePosSlot]) {
+      squadPlayersData[activePosSlot].pos = newPos;
+    }
   }
   closePosModal();
 }
@@ -816,7 +978,7 @@ function renderModalPlayers(list) {
   let html = '';
   list.forEach(p => {
     html += `
-      <div class="search-item" onclick="selectPlayer('${p.name}', '${p.image_url}', '${p.overall_max}')">
+      <div class="search-item" onclick="selectPlayer('${p.name}', '${p.image_url}', '${p.overall_max}', '${p.position}')">
         <div style="display:flex; align-items:center; gap:8px;">
           <img src="${p.image_url}" style="width:30px; height:30px; object-fit:contain;">
           <div>
@@ -837,20 +999,21 @@ function filterModalPlayers() {
   renderModalPlayers(filtered);
 }
 
-function selectPlayer(name, img, overall) {
+function selectPlayer(name, img, overall, defaultPos) {
+  squadPlayersData[currentSlot] = {img: img, overall: overall, pos: defaultPos};
   let slot = document.getElementById('slot_' + currentSlot);
-  let currentPos = document.getElementById('pos_' + currentSlot).textContent;
   slot.innerHTML = `
     <div class="delete-btn" onclick="event.stopPropagation(); removePlayer('${currentSlot}')">🗑️</div>
     <div class="edit-pos-btn" onclick="openPosModal(event, '${currentSlot}')" title="تغيير المركز">✎</div>
     <img src="${img}">
-    <span id="pos_${currentSlot}" style="font-size:9px; color:#00d2ff; font-weight:bold;">${currentPos}</span>
+    <span id="pos_${currentSlot}" style="font-size:9px; color:#00d2ff; font-weight:bold;">${defaultPos}</span>
     <span style="font-size:9px; color:var(--neon-green);">${overall}</span>
   `;
   closeSearch();
 }
 
 function removePlayer(slotId) {
+  delete squadPlayersData[slotId];
   let slot = document.getElementById('slot_' + slotId);
   slot.innerHTML = `<span id="pos_${slotId}">${slotId.replace(/[0-9]/g, '')}</span><br>+`;
 }
@@ -1048,11 +1211,13 @@ body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans
 @app.route('/squad-builder')
 def squad_builder():
     with get_db() as db:
-        players = [dict(row) for row in db.execute("SELECT name, position, overall_max, image_url FROM players").fetchall()]
+        db_players = [dict(row) for row in db.execute("SELECT name, position, overall_max, image_url FROM players").fetchall()]
         managers = [dict(row) for row in db.execute("SELECT name, playstyle, image_url FROM managers").fetchall()]
     
+    classic_players = get_classic_players()
+    all_players_combined = db_players + classic_players
     leagues = get_all_leagues()
-    return render_template_string(SQUAD_BUILDER_TEMPLATE, players=players, managers=managers, leagues=leagues)
+    return render_template_string(SQUAD_BUILDER_TEMPLATE, players=all_players_combined, managers=managers, leagues=leagues)
 
 
 @app.route('/managers')
@@ -1074,6 +1239,15 @@ def manager_detail(manager_id):
 def player_detail(player_id):
     with get_db() as db:
         player = db.execute("SELECT * FROM players WHERE id = ?", (player_id,)).fetchone()
+    
+    if not player:
+        # البحث في الكروت القديمة والأسطورية
+        classic_players = get_classic_players()
+        for cp in classic_players:
+            if cp["id"] == player_id:
+                player = cp
+                break
+    
     if not player: return "اللاعب غير موجود", 404
     return render_template_string(PLAYER_DETAIL_TEMPLATE, player=player)
 
@@ -1421,7 +1595,7 @@ def home():
         with get_db() as db: user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
     
     with get_db() as db:
-        players = [dict(row) for row in db.execute("SELECT * FROM players ORDER BY overall_max DESC").fetchall()]
+        db_players = [dict(row) for row in db.execute("SELECT * FROM players ORDER BY overall_max DESC").fetchall()]
         news = [dict(row) for row in db.execute("SELECT * FROM news ORDER BY id DESC LIMIT 5").fetchall()]
         managers = [dict(row) for row in db.execute("SELECT * FROM managers ORDER BY id DESC").fetchall()]
         banner_res = db.execute("SELECT value FROM settings WHERE key = 'custom_banner'").fetchone()
@@ -1430,9 +1604,13 @@ def home():
         custom_banner = banner_res["value"] if banner_res else ""
         managers_card_img = m_card_res["value"] if m_card_res else ""
 
+    # دمج لاعبي قاعدة البيانات مع الكروت القديمة والأساطير من الملف المنفصل
+    classic_players = get_classic_players()
+    all_players_combined = db_players + classic_players
+
     return render_template_string(
         HOME_TEMPLATE,
-        players=players,
+        players=all_players_combined,
         news=news,
         managers=managers,
         custom_banner=custom_banner,
