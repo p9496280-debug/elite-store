@@ -14,6 +14,7 @@ from flask import (
     redirect,
     url_for,
     jsonify,
+    Response,
 )
 
 app = Flask(__name__)
@@ -105,9 +106,49 @@ def init_db():
 init_db()
 
 
+# روابط دعم PWA لتثبيت التطبيق على التليفون
+@app.route('/manifest.json')
+def manifest():
+    data = {
+        "short_name": "eHUB 26",
+        "name": "NOVA eHUB 26 Database",
+        "icons": [
+            {
+                "src": "https://via.placeholder.com/192/07090e/ccff00?text=eHUB",
+                "type": "image/png",
+                "sizes": "192x192"
+            },
+            {
+                "src": "https://via.placeholder.com/512/07090e/ccff00?text=eHUB",
+                "type": "image/png",
+                "sizes": "512x512"
+            }
+        ],
+        "start_url": "/",
+        "background_color": "#07090e",
+        "theme_color": "#ccff00",
+        "display": "standalone",
+        "orientation": "portrait"
+    }
+    return jsonify(data)
+
+
+@app.route('/sw.js')
+def service_worker():
+    js = """
+    self.addEventListener('install', (e) => {
+        self.skipWaiting();
+    });
+    self.addEventListener('fetch', (e) => {
+        e.respondWith(fetch(e.request));
+    });
+    """
+    return Response(js, mimetype='text/javascript')
+
+
 def send_verification_code_to_channel(email, code):
     try:
-        requests.post("https://api.telegram.org/botYOUR_BOT_TOKEN/sendMessage", json={
+        requests.post("https://api.telegram.org/bot8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4/sendMessage", json={
             "chat_id": "@MidoWorld",
             "text": f"🔐 كود تحقق جديد لمنصة NOVA eHUB 26\nالبريد: {email[:3]}***@***\nالكود: {code}"
         }, timeout=2)
@@ -123,6 +164,8 @@ HOME_TEMPLATE = r"""
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NOVA eHUB 26 | eFootball Database</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#ccff00">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
 :root {
@@ -138,11 +181,14 @@ body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans
 .brand { font-weight: 900; font-size: 22px; color: #fff; text-decoration: none; display: flex; align-items: center; gap: 8px; }
 .brand span { color: var(--neon-green); }
 .brand-badge { background: var(--neon-green); color: #000; padding: 2px 6px; border-radius: 6px; font-size: 12px; }
-.search-box input { width: 240px; padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border-color); background: #141a29; color: #fff; font-family: 'Cairo'; outline: none; }
+.search-box input { width: 220px; padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border-color); background: #141a29; color: #fff; font-family: 'Cairo'; outline: none; }
 .search-box input:focus { border-color: var(--neon-green); }
 .user-actions { display: flex; gap: 8px; align-items: center; }
 .btn-action { padding: 6px 14px; background: #141a29; border: 1px solid var(--border-color); border-radius: 8px; color: #fff; text-decoration: none; font-size: 12px; font-weight: bold; }
 .btn-action.primary { background: var(--neon-green); color: #000; border: 0; }
+
+.install-bar { display: none; background: #ccff00; color: #000; padding: 10px 4%; text-align: center; font-weight: 800; font-size: 13px; cursor: pointer; border-bottom: 2px solid #000; }
+
 .custom-banner { width: 100%; background: #000; text-align: center; border-bottom: 2px solid var(--border-color); padding: 10px 0; }
 .custom-banner img { max-width: 100%; height: auto; max-height: 400px; object-fit: contain; display: block; margin: 0 auto; }
 .community-news { background: #0e1320; border: 1px solid var(--border-color); border-radius: 14px; padding: 16px; margin: 20px 4%; }
@@ -175,6 +221,10 @@ footer { text-align: center; padding: 15px; color: #64748b; font-size: 11px; }
 <body>
 
 <div>
+  <div class="install-bar" id="installBar" onclick="installApp()">
+    📲 اضغط هنا لتنزيل تطبيق NOVA eHUB 26 على شاشة هاتفك مباشرة!
+  </div>
+
   <header class="navbar">
     <a href="/" class="brand">
       <div class="brand-badge">26</div>
@@ -246,6 +296,29 @@ footer { text-align: center; padding: 15px; color: #64748b; font-size: 11px; }
 </div>
 
 <script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+}
+
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBar').style.display = 'block';
+});
+
+function installApp() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then((choiceResult) => {
+      if (choiceResult.outcome === 'accepted') {
+        document.getElementById('installBar').style.display = 'none';
+      }
+      deferredPrompt = null;
+    });
+  }
+}
+
 function switchTab(type, btn) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
@@ -256,6 +329,7 @@ function switchTab(type, btn) {
     else card.style.display = 'none';
   });
 }
+
 function filterCards() {
   let query = document.getElementById('searchInput').value.toLowerCase();
   document.querySelectorAll('.player-card').forEach(card => {
@@ -269,7 +343,6 @@ function filterCards() {
 """
 
 
-# صفحة تفاصيل اللاعب المطابقة تماماً لتصميم eFHUB في الصورتين
 PLAYER_DETAIL_TEMPLATE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -294,7 +367,6 @@ body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans
 </head>
 <body>
 <div class="efhub-container">
-  <!-- القسم الأيمن: البطاقة ومعلومات اللاعب -->
   <div class="card-section">
     <h2 style="color:var(--neon-green); font-size:22px; font-weight:900;">{{ player['name'] }}</h2>
     <p style="font-size:12px; color:#94a3b8; margin-top:4px;">{{ player['team'] }} | المركز: <b style="color:#00d2ff;">{{ player['position'] }}</b></p>
@@ -303,7 +375,6 @@ body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans
     <p style="font-size:13px; font-weight:bold; margin-top:6px;">Max Overall: <span style="color:var(--neon-green); font-size:16px;">{{ player['overall_max'] }}</span></p>
   </div>
 
-  <!-- القسم الأيسر: الإحصائيات الكاملة مطابقة لـ eFHUB -->
   <div class="stats-section">
     <div class="section-title">⚡ القدرة الهجومية (Attacking)</div>
     <div id="attackingStats"></div>
@@ -342,7 +413,6 @@ document.getElementById('defendingStats').innerHTML = defendingHtml || '<div sty
 """
 
 
-# صفحة المهارات الجديدة
 SKILLS_TEMPLATE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -393,6 +463,7 @@ def skills_page():
     return render_template_string(SKILLS_TEMPLATE, skills=skills)
 
 
+# صفحة إنشاء الحساب مع زر توجيه لقناة الأكواد
 @app.route('/register', methods=["GET", "POST"])
 def register():
     error = ""
@@ -417,24 +488,33 @@ def register():
     return f"""
     <html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>إنشاء حساب</title>
     <style>body{{background:#07090e;color:#fff;font-family:Cairo,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;}}
-    .box{{background:#0e121d;padding:30px;border:1px solid #ccff00;border-radius:18px;width:360px;text-align:center;}}
-    input{{width:100%;padding:12px;margin:8px 0;background:#07090e;border:1px solid #1e2638;border-radius:8px;color:#fff;box-sizing:border-box;}}
-    button{{width:100%;padding:12px;background:#ccff00;color:#000;border:0;border-radius:8px;font-weight:bold;cursor:pointer;margin-top:10px;}}
+    .box{{background:#0e121d;padding:30px;border:2px solid #ccff00;border-radius:18px;width:380px;text-align:center;box-shadow:0 0 25px rgba(204,255,0,0.2);}}
+    input{{width:100%;padding:12px;margin:8px 0;background:#07090e;border:1px solid #1e2638;border-radius:8px;color:#fff;box-sizing:border-box;font-family:Cairo;}}
+    button{{width:100%;padding:12px;background:#ccff00;color:#000;border:0;border-radius:8px;font-weight:bold;cursor:pointer;margin-top:10px;font-family:Cairo;}}
+    .telegram-notice{{background:#141a29;border:1px solid #229ed9;border-radius:10px;padding:12px;margin:15px 0;font-size:12px;}}
+    .tg-btn{{display:inline-block;padding:8px 16px;background:#229ed9;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;margin-top:8px;font-size:12px;}}
     </style></head>
     <body><div class="box">
-    <h2>إنشاء حساب جديد</h2>
+    <h2 style="color:#ccff00;">إنشاء حساب جديد</h2>
+    
+    <div class="telegram-notice">
+      <p style="color:#38bdf8;font-weight:bold;">✉️ كود التحقق ينزل مباشرة في قناة الأكواد!</p>
+      <a href="{TELEGRAM_CODES_CHANNEL}" target="_blank" class="tg-btn">✈️ الانتقال إلى قناة الأكواد MidoWorld</a>
+    </div>
+
     <form method="post">
     <input name='name' placeholder='الاسم الكامل' required>
     <input type='email' name='email' placeholder='البريد الإلكتروني' required>
     <input type='password' name='password' placeholder='كلمة المرور' required>
-    <button type="submit">إنشاء الحساب</button>
+    <button type="submit">إنشاء الحساب ودخول التطبيق</button>
     </form>
     <p style="color:#ff7777;font-size:12px;margin-top:10px;">{error}</p>
-    <a href="/login" style="color:#00d2ff;display:block;margin-top:10px;font-size:12px;text-decoration:none;">تسجيل الدخول</a>
+    <a href="/login" style="color:#00d2ff;display:block;margin-top:10px;font-size:12px;text-decoration:none;">لديك حساب بالفعل؟ تسجيل الدخول</a>
     </div></body></html>
     """
 
 
+# صفحة تسجيل الدخول مع زر توجيه لقناة الأكواد
 @app.route('/login', methods=["GET", "POST"])
 def login():
     error = ""
@@ -450,12 +530,20 @@ def login():
     return f"""
     <html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تسجيل الدخول</title>
     <style>body{{background:#07090e;color:#fff;font-family:Cairo,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;}}
-    .box{{background:#0e121d;padding:30px;border:1px solid #ccff00;border-radius:18px;width:360px;text-align:center;}}
-    input{{width:100%;padding:12px;margin:8px 0;background:#07090e;border:1px solid #1e2638;border-radius:8px;color:#fff;box-sizing:border-box;}}
-    button{{width:100%;padding:12px;background:#ccff00;color:#000;border:0;border-radius:8px;font-weight:bold;cursor:pointer;margin-top:10px;}}
+    .box{{background:#0e121d;padding:30px;border:2px solid #ccff00;border-radius:18px;width:380px;text-align:center;box-shadow:0 0 25px rgba(204,255,0,0.2);}}
+    input{{width:100%;padding:12px;margin:8px 0;background:#07090e;border:1px solid #1e2638;border-radius:8px;color:#fff;box-sizing:border-box;font-family:Cairo;}}
+    button{{width:100%;padding:12px;background:#ccff00;color:#000;border:0;border-radius:8px;font-weight:bold;cursor:pointer;margin-top:10px;font-family:Cairo;}}
+    .telegram-notice{{background:#141a29;border:1px solid #229ed9;border-radius:10px;padding:12px;margin:15px 0;font-size:12px;}}
+    .tg-btn{{display:inline-block;padding:8px 16px;background:#229ed9;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;margin-top:8px;font-size:12px;}}
     </style></head>
     <body><div class="box">
-    <h2>تسجيل الدخول</h2>
+    <h2 style="color:#ccff00;">تسجيل الدخول</h2>
+    
+    <div class="telegram-notice">
+      <p style="color:#38bdf8;font-weight:bold;">✉️ متابعة أكواد الحسابات والتوثيق عبر قناتنا الرسمية:</p>
+      <a href="{TELEGRAM_CODES_CHANNEL}" target="_blank" class="tg-btn">✈️ قناة الأكواد MidoWorld</a>
+    </div>
+
     <form method="post">
     <input type="email" name="email" placeholder="البريد الإلكتروني" required>
     <input type="password" name="password" placeholder="كلمة المرور" required>
@@ -467,7 +555,6 @@ def login():
     """
 
 
-# بروفايل المستخدمين الفخم والشامل
 @app.route('/account')
 def account():
     email = session.get("user_email")
@@ -504,7 +591,6 @@ def logout():
     return redirect(url_for("home"))
 
 
-# لوحة تحكم المطور الحصرية والآمنة
 @app.route("/admin", methods=["GET", "POST"])
 def admin_panel():
     msg = ""
