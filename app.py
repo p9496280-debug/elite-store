@@ -398,49 +398,7 @@ function filterCards() { let query = document.getElementById('searchInput').valu
 """
 
 
-# صفحة تفاصيل المدرب الشاملة (السن، الفريق، أسلوب اللعب، الطاقات، والتوافقية)
-MANAGER_DETAIL_TEMPLATE = r"""
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{ manager['name'] }} | Manager Profile</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
-:root { --bg-dark: #07090e; --panel-bg: #0e121d; --neon-green: #ccff00; --neon-blue: #00d2ff; --border-color: #1e2638; }
-body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans-serif; padding: 20px; display: grid; place-items: center; min-height: 100vh; margin: 0; }
-.manager-box { background: linear-gradient(145deg, #0e121d, #07090e); border: 2px solid var(--neon-green); border-radius: 20px; padding: 30px; width: 100%; max-width: 480px; text-align: center; box-shadow: 0 0 25px rgba(204,255,0,0.15); }
-.manager-img-large { width: 110px; height: 110px; border-radius: 50%; object-fit: cover; border: 3px solid var(--neon-green); margin-bottom: 12px; }
-.manager-title { font-size: 24px; font-weight: 900; color: #fff; margin-bottom: 4px; }
-.manager-sub { font-size: 12px; color: #94a3b8; margin-bottom: 18px; }
-.stats-list { background: #0e1320; border: 1px solid var(--border-color); border-radius: 14px; padding: 15px; text-align: right; margin-bottom: 20px; }
-.stat-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #1e2638; font-size: 13px; }
-.stat-item:last-child { border: 0; }
-.back-btn { display: block; width: 100%; padding: 12px; background: var(--neon-green); color: #000; border-radius: 12px; font-weight: 900; text-decoration: none; font-size: 13px; }
-</style>
-</head>
-<body>
-<div class="manager-box">
-  <img class="manager-img-large" src="{{ manager['image_url'] }}" onerror="this.src='https://via.placeholder.com/110/121826/ccff00?text=Coach'">
-  <div class="manager-title">{{ manager['name'] }}</div>
-  <div class="manager-sub">👔 بطاقة المدير الفني الرسمي</div>
-
-  <div class="stats-list">
-    <div class="stat-item"><span style="color:#94a3b8;">السن / العمر:</span> <b>{{ manager['age'] }} سنة</b></div>
-    <div class="stat-item"><span style="color:#94a3b8;">الفريق / الجنسية:</span> <b style="color:var(--neon-blue);">{{ manager['team'] }}</b></div>
-    <div class="stat-item"><span style="color:#94a3b8;">أسلوب اللعب المفضل:</span> <b style="color:var(--neon-green);">{{ manager['playstyle'] }}</b></div>
-    <div class="stat-item"><span style="color:#94a3b8;">تطوير اللاعبين (Coaching Affinity):</span> <b>{{ manager['affinity'] }}</b></div>
-    <div class="stat-item"><span style="color:#94a3b8;">طاقة المهارة التكتيكية:</span> <b style="color:var(--neon-green);">88/100</b></div>
-  </div>
-
-  <a href="/" class="back-btn">← العودة للصفحة الرئيسية</a>
-</div>
-</body>
-</html>
-"""
-
-
+# صفحة باني الفرقة المحدثة مع ميزة تعديل وتغيير المركز لأي لاعب داخل الملعب
 SQUAD_BUILDER_TEMPLATE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -471,7 +429,8 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
 .pos-slot { width: 68px; height: 88px; background: rgba(14, 18, 29, 0.92); border: 1px dashed var(--neon-green); border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: var(--neon-green); cursor: move; position: absolute; z-index: 10; transition: border-color 0.2s, box-shadow 0.2s; text-align: center; user-select: none; touch-action: none; }
 .pos-slot:active { z-index: 20; border-style: solid; box-shadow: 0 0 15px rgba(204,255,0,0.5); }
 .pos-slot img { width: 42px; height: 42px; object-fit: contain; border-radius: 6px; pointer-events: none; }
-.delete-btn { position: absolute; top: -5px; right: -5px; background: #ef4444; color: #fff; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.delete-btn { position: absolute; top: -5px; right: -5px; background: #ef4444; color: #fff; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 25; }
+.edit-pos-btn { position: absolute; bottom: -5px; left: -5px; background: #00d2ff; color: #000; border-radius: 50%; width: 18px; height: 18px; font-size: 9px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 25; }
 
 .tactics-board { max-width: 500px; margin: 20px auto 10px; background: #fdfdfd; color: #000; border-radius: 16px; border: 4px solid #cbd5e1; padding: 18px; box-shadow: 0 0 20px rgba(255,255,255,0.1); font-family: 'Cairo', sans-serif; }
 .board-header { font-size: 16px; font-weight: 900; border-bottom: 3px solid #ef4444; padding-bottom: 6px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; color: #0f172a; }
@@ -547,20 +506,20 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
     <g id="overlayContent"></g>
   </svg>
 
-  <div class="pos-slot" style="top:5%; left:15%;" id="slot_LWF"><span>LWF</span><br>+</div>
-  <div class="pos-slot" style="top:5%; left:43%;" id="slot_CF"><span>CF</span><br>+</div>
-  <div class="pos-slot" style="top:5%; left:71%;" id="slot_RWF"><span>RWF</span><br>+</div>
+  <div class="pos-slot" style="top:5%; left:15%;" id="slot_LWF"><span id="pos_LWF">LWF</span><br>+</div>
+  <div class="pos-slot" style="top:5%; left:43%;" id="slot_CF"><span id="pos_CF">CF</span><br>+</div>
+  <div class="pos-slot" style="top:5%; left:71%;" id="slot_RWF"><span id="pos_RWF">RWF</span><br>+</div>
 
-  <div class="pos-slot" style="top:28%; left:15%;" id="slot_CMF1"><span>CMF</span><br>+</div>
-  <div class="pos-slot" style="top:26%; left:43%;" id="slot_AMF"><span>AMF</span><br>+</div>
-  <div class="pos-slot" style="top:28%; left:71%;" id="slot_CMF2"><span>CMF</span><br>+</div>
+  <div class="pos-slot" style="top:28%; left:15%;" id="slot_CMF1"><span id="pos_CMF1">CMF</span><br>+</div>
+  <div class="pos-slot" style="top:26%; left:43%;" id="slot_AMF"><span id="pos_AMF">AMF</span><br>+</div>
+  <div class="pos-slot" style="top:28%; left:71%;" id="slot_CMF2"><span id="pos_CMF2">CMF</span><br>+</div>
 
-  <div class="pos-slot" style="top:55%; left:10%;" id="slot_LB"><span>LB</span><br>+</div>
-  <div class="pos-slot" style="top:55%; left:33%;" id="slot_CB1"><span>CB</span><br>+</div>
-  <div class="pos-slot" style="top:55%; left:53%;" id="slot_CB2"><span>CB</span><br>+</div>
-  <div class="pos-slot" style="top:55%; left:76%;" id="slot_RB"><span>RB</span><br>+</div>
+  <div class="pos-slot" style="top:55%; left:10%;" id="slot_LB"><span id="pos_LB">LB</span><br>+</div>
+  <div class="pos-slot" style="top:55%; left:33%;" id="slot_CB1"><span id="pos_CB1">CB</span><br>+</div>
+  <div class="pos-slot" style="top:55%; left:53%;" id="slot_CB2"><span id="pos_CB2">CB</span><br>+</div>
+  <div class="pos-slot" style="top:55%; left:76%;" id="slot_RB"><span id="pos_RB">RB</span><br>+</div>
 
-  <div class="pos-slot" style="top:80%; left:43%;" id="slot_GK"><span>GK</span><br>+</div>
+  <div class="pos-slot" style="top:80%; left:43%;" id="slot_GK"><span id="pos_GK">GK</span><br>+</div>
 </div>
 
 <div class="tactics-board">
@@ -582,18 +541,42 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
   </div>
 </div>
 
+<!-- نافذة اختيار وتغيير المركز المباشر -->
+<div class="modal" id="posModal">
+  <div class="modal-content" style="max-width:320px; text-align:center;">
+    <h3 style="color:var(--neon-green); font-size:14px; margin-bottom:12px;">⚽ تغيير مركز اللاعب</h3>
+    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:15px;" id="positionsGrid">
+      <button onclick="changePosition('CF')" style="padding:8px; background:#141a29; border:1px solid #ccff00; color:#fff; border-radius:8px; cursor:pointer; font-weight:bold;">CF</button>
+      <button onclick="changePosition('SS')" style="padding:8px; background:#141a29; border:1px solid #ccff00; color:#fff; border-radius:8px; cursor:pointer; font-weight:bold;">SS</button>
+      <button onclick="changePosition('LWF')" style="padding:8px; background:#141a29; border:1px solid #ccff00; color:#fff; border-radius:8px; cursor:pointer; font-weight:bold;">LWF</button>
+      <button onclick="changePosition('RWF')" style="padding:8px; background:#141a29; border:1px solid #ccff00; color:#fff; border-radius:8px; cursor:pointer; font-weight:bold;">RWF</button>
+      <button onclick="changePosition('AMF')" style="padding:8px; background:#141a29; border:1px solid #ccff00; color:#fff; border-radius:8px; cursor:pointer; font-weight:bold;">AMF</button>
+      <button onclick="changePosition('CMF')" style="padding:8px; background:#141a29; border:1px solid #ccff00; color:#fff; border-radius:8px; cursor:pointer; font-weight:bold;">CMF</button>
+      <button onclick="changePosition('DMF')" style="padding:8px; background:#141a29; border:1px solid #ccff00; color:#fff; border-radius:8px; cursor:pointer; font-weight:bold;">DMF</button>
+      <button onclick="changePosition('LMF')" style="padding:8px; background:#141a29; border:1px solid #ccff00; color:#fff; border-radius:8px; cursor:pointer; font-weight:bold;">LMF</button>
+      <button onclick="changePosition('RMF')" style="padding:8px; background:#141a29; border:1px solid #ccff00; color:#fff; border-radius:8px; cursor:pointer; font-weight:bold;">RMF</button>
+      <button onclick="changePosition('LB')" style="padding:8px; background:#141a29; border:1px solid #ccff00; color:#fff; border-radius:8px; cursor:pointer; font-weight:bold;">LB</button>
+      <button onclick="changePosition('CB')" style="padding:8px; background:#141a29; border:1px solid #ccff00; color:#fff; border-radius:8px; cursor:pointer; font-weight:bold;">CB</button>
+      <button onclick="changePosition('RB')" style="padding:8px; background:#141a29; border:1px solid #ccff00; color:#fff; border-radius:8px; cursor:pointer; font-weight:bold;">RB</button>
+      <button onclick="changePosition('GK')" style="padding:8px; background:#141a29; border:1px solid #ccff00; color:#fff; border-radius:8px; cursor:pointer; font-weight:bold; grid-column:span 3;">GK</button>
+    </div>
+    <button onclick="closePosModal()" style="padding:8px; background:#ef4444; color:#fff; border:0; border-radius:8px; width:100%; font-weight:bold; cursor:pointer;">إلغاء</button>
+  </div>
+</div>
+
 <a href="/" class="back-btn">← العودة للرئيسية</a>
 
 <script>
 let allPlayers = {{ players | tojson }};
 let currentSlot = '';
+let activePosSlot = '';
 
 document.querySelectorAll('.pos-slot').forEach(slot => {
   let isDragging = false;
   let startX, startY, origLeft, origTop;
 
   const startDrag = (e) => {
-    if(e.target.classList.contains('delete-btn')) return;
+    if(e.target.classList.contains('delete-btn') || e.target.classList.contains('edit-pos-btn')) return;
     isDragging = true;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -667,7 +650,7 @@ const TACTICAL_CONFIG = {
   "Quick Counter": {
     tips: [
       { title: "⚡ Make Forward Runs (الانطلاق للأمام)", desc: "الركض السريع المباشر وتجاوز خط وسط الخصم فور استعادة الكرة للتسجيل." },
-      { title: "⚡ Chase Down Loose Balls (الضغط العالي السريع)", desc: "الضغط على مدافعي الخصم فوراً لاستعادة الكرة في مناطق متتقدمة." },
+      { title: "⚡ Chase Down Loose Balls (الضغط العالي السريع)", desc: "الضغط على مدافعي الخصم فوراً لاستعادة الكرة في مناطق متقدمة." },
       { title: "⚡ Fast Transitions (التحول السريع)", desc: "نقل الكرة بحد أقصى لمستين للربط السريع مع أجنحة ومهاجم الفريق." }
     ],
     svg: `
@@ -702,7 +685,6 @@ function updateTacticalOverlayAndBoard() {
   document.getElementById('boardTacticBadge').textContent = tactic;
   
   let config = TACTICAL_CONFIG[tactic] || TACTICAL_CONFIG["Possession"];
-  
   document.getElementById('overlayContent').innerHTML = config.svg;
   
   let html = '';
@@ -763,6 +745,24 @@ function openSearch(slotId) {
 
 function closeSearch() { document.getElementById('searchModal').style.display = 'none'; }
 
+function openPosModal(event, slotId) {
+  event.stopPropagation();
+  activePosSlot = slotId;
+  document.getElementById('posModal').style.display = 'flex';
+}
+
+function closePosModal() {
+  document.getElementById('posModal').style.display = 'none';
+}
+
+function changePosition(newPos) {
+  if(activePosSlot) {
+    let posSpan = document.getElementById('pos_' + activePosSlot);
+    if(posSpan) posSpan.textContent = newPos;
+  }
+  closePosModal();
+}
+
 function renderModalPlayers(list) {
   let html = '';
   list.forEach(p => {
@@ -790,10 +790,12 @@ function filterModalPlayers() {
 
 function selectPlayer(name, img, overall) {
   let slot = document.getElementById('slot_' + currentSlot);
+  let currentPos = document.getElementById('pos_' + currentSlot).textContent;
   slot.innerHTML = `
     <div class="delete-btn" onclick="event.stopPropagation(); removePlayer('${currentSlot}')">🗑️</div>
+    <div class="edit-pos-btn" onclick="openPosModal(event, '${currentSlot}')" title="تغيير المركز">✎</div>
     <img src="${img}">
-    <span style="font-size:9px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%;">${name}</span>
+    <span id="pos_${currentSlot}" style="font-size:9px; color:#00d2ff; font-weight:bold;">${currentPos}</span>
     <span style="font-size:9px; color:var(--neon-green);">${overall}</span>
   `;
   closeSearch();
@@ -801,7 +803,7 @@ function selectPlayer(name, img, overall) {
 
 function removePlayer(slotId) {
   let slot = document.getElementById('slot_' + slotId);
-  slot.innerHTML = `<span>${slotId.replace(/[0-9]/g, '')}</span><br>+`;
+  slot.innerHTML = `<span id="pos_${slotId}">${slotId.replace(/[0-9]/g, '')}</span><br>+`;
 }
 </script>
 </body>
