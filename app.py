@@ -395,7 +395,7 @@ function filterCards() { let query = document.getElementById('searchInput').valu
 """
 
 
-# صفحة باني التشكيلة المربوطة بملف leagues_and_clubs.py لعرض الشعارات والدوريات
+# صفحة باني التشكيلة المحدثة بالكامل مع السبورة التكتيكية التفاعلية النصائح المطابقة للصورة!
 SQUAD_BUILDER_TEMPLATE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -416,16 +416,26 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
 .manager-preview-img { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid var(--neon-green); display: none; }
 .club-preview-img { width: 35px; height: 35px; object-fit: contain; display: none; }
 
-.pitch-container { max-width: 500px; margin: 0 auto; background: linear-gradient(180deg, #0b2512, #051408); border: 2px solid var(--neon-green); border-radius: 20px; padding: 20px 10px; position: relative; min-height: 580px; display: flex; flex-direction: column; justify-content: space-between; }
+.pitch-container { max-width: 500px; margin: 0 auto; background: linear-gradient(180deg, #0b2512, #051408); border: 2px solid var(--neon-green); border-radius: 20px; padding: 20px 10px; position: relative; min-height: 580px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
 .pitch-line { position: absolute; border: 1px solid rgba(204, 255, 0, 0.2); pointer-events: none; }
 .line-center { top: 50%; left: 0; right: 0; }
 .line-circle { top: 50%; left: 50%; width: 100px; height: 100px; border-radius: 50%; transform: translate(-50%, -50%); }
+
+/* خطوط وأسهم التكتيك التفاعلية فوق الملعب */
+.tactical-overlay { position: absolute; top:0; left:0; right:0; bottom:0; pointer-events:none; z-index:5; opacity: 0.8; }
 
 .field-row { display: flex; justify-content: space-around; width: 100%; margin: 10px 0; z-index: 10; }
 .pos-slot { width: 70px; height: 90px; background: rgba(14, 18, 29, 0.9); border: 1px dashed var(--neon-green); border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: var(--neon-green); cursor: pointer; position: relative; transition: 0.2s; text-align: center; }
 .pos-slot:hover { border-style: solid; background: #141a29; }
 .pos-slot img { width: 45px; height: 45px; object-fit: contain; border-radius: 6px; }
 .delete-btn { position: absolute; top: -5px; right: -5px; background: #ef4444; color: #fff; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+/* سبورة التكتيك والنصائح المطابقة للصورة */
+.tactics-board { max-width: 500px; margin: 20px auto 10px; background: #fdfdfd; color: #000; border-radius: 16px; border: 4px solid #cbd5e1; padding: 18px; box-shadow: 0 0 20px rgba(255,255,255,0.1); font-family: 'Cairo', sans-serif; }
+.board-header { font-size: 18px; font-weight: 900; border-bottom: 3px solid #ef4444; padding-bottom: 6px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; color: #0f172a; }
+.board-tip-item { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; background: #f1f5f9; padding: 8px 12px; border-radius: 10px; border-right: 4px solid #10b981; }
+.board-tip-title { font-weight: 900; font-size: 13px; color: #0f172a; }
+.board-tip-desc { font-size: 11px; color: #475569; margin-top: 2px; }
 
 .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; }
 .modal-content { background: #0e121d; border: 2px solid var(--neon-green); border-radius: 16px; padding: 20px; width: 90%; max-width: 400px; max-height: 80vh; overflow-y: auto; }
@@ -458,7 +468,7 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
     </div>
   </div>
 
-  <!-- اختيار الدوري والنادي بشعارهم المباشر -->
+  <!-- اختيار الدوري والنادي -->
   <div class="control-row">
     <div style="display:flex; flex-direction:column; gap:4px; flex-grow:1;">
       <label style="font-size:12px; font-weight:bold;">🏆 الفريق والدوري المفضل:</label>
@@ -478,13 +488,14 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
     </div>
   </div>
 
-  <!-- اختيار التكتيك -->
+  <!-- اختيار التكتيك لتغيير النصائح والسبورة التكتيكية تلقائياً -->
   <div class="control-row">
     <label style="font-size:12px; font-weight:bold;">❌⭕ التكتيك المفضل:</label>
-    <select id="tacticSelect">
-      <option value="Possession">الاستحواذ (Possession)</option>
+    <select id="tacticSelect" onchange="updateTacticalBoard()">
+      <option value="Possession">الاستحواذ (Possession Game)</option>
       <option value="Quick Counter">المرتدة السريعة (Quick Counter)</option>
       <option value="Out Wide">العرضيات (Out Wide)</option>
+      <option value="Long Ball">الكرات الطويلة (Long Ball Counter)</option>
     </select>
   </div>
 </div>
@@ -492,6 +503,13 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
 <div class="pitch-container">
   <div class="pitch-line line-center"></div>
   <div class="pitch-line line-circle"></div>
+
+  <!-- طبقة التكتيك بأسهم التحرك فوق الملعب -->
+  <svg class="tactical-overlay" id="tacticalSvg" viewBox="0 0 100 100" preserveAspectRatio="none">
+    <!-- رسم زوايا تحرك التمرير والوسط الموضحة بالصورة -->
+    <polygon points="50,30 25,48 75,48" fill="rgba(204,255,0,0.12)" stroke="rgba(204,255,0,0.4)" stroke-dasharray="2,2"/>
+    <path d="M 25 48 Q 50 20 75 48" fill="none" stroke="#00d2ff" stroke-width="1" stroke-dasharray="2,2"/>
+  </svg>
 
   <!-- هجوم -->
   <div class="field-row">
@@ -521,6 +539,15 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
   </div>
 </div>
 
+<!-- سبورة نصائح تحركات لاعبي خط الوسط والهجوم التلقائية المحدثة -->
+<div class="tactics-board">
+  <div class="board-header">
+    <span>📋 نصائح وتعليمات التكتيك (Tactical Tips)</span>
+    <span id="boardTacticBadge" style="font-size:11px; background:#10b981; color:#fff; padding:2px 8px; border-radius:6px;">الاستحواذ</span>
+  </div>
+  <div id="boardTipsList"></div>
+</div>
+
 <div class="modal" id="searchModal">
   <div class="modal-content">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
@@ -538,6 +565,51 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
 let allPlayers = {{ players | tojson }};
 let currentSlot = '';
 
+// قاعدة بيانات النصائح التكتيكية المقترنة بصورة التكتيك
+const TACTICAL_TIPS = {
+  "Possession": [
+    { title: "✅ Create Angles (خلق زوايا التمرير)", desc: "التحرك في المساحة لاستلام الكرة بوضعية جسم مفتوحة لتسهيل التمرير." },
+    { title: "✅ Support Play (المساندة القريبة)", desc: "توفر خيارات تمرير قريبة من حامل الكرة لضمان الاستحواذ وعدم فقدانها." },
+    { title: "✅ Find Space Between Lines (المساحات بين الخطوط)", desc: "التحرك في الثغرات بين دفاع ووسط الخصم للاستلام في مناطق خطيرة." },
+    { title: "✅ Drop Deep to Collect (النزول للاستلام)", desc: "نزول لاعب الوسط لعمق الدفاع لبناء اللعب وتدوير الكرة من الخلف." }
+  ],
+  "Quick Counter": [
+    { title: "⚡ Make Forward Runs (الانطلاق للأمام)", desc: "الركض السريع المباشر وتجاوز خط وسط الخصم فور استعادة الكرة للتسجيل." },
+    { title: "⚡ Chase Down Loose Balls (الضغط العالي السريع)", desc: "الضغط على مدافعي الخصم فوراً لاستعادة الكرة في مناطق متقدمة." },
+    { title: "⚡ Fast Transitions (التحول السريع)", desc: "نقل الكرة بحد أقصى لمستين للربط السريع مع أجنحة ومهاجم الفريق." }
+  ],
+  "Out Wide": [
+    { title: "📐 Switch Positions & Flanks (تغيير اتجاه اللعب)", desc: "تمرير الكرة للجهة العكسية لخلخلة توازن دفاع الخصم وفتح مساحات." },
+    { title: "📐 Overlapping Runs (صعود الأظهيرة)", desc: "تقدم الأظهيرة LB/RB خلف الأجنحة لإرسال عرضيات متقنة للـ CF." }
+  ],
+  "Long Ball": [
+    { title: "🚀 Second Ball Control (الكرة الثانية)", desc: "تمركُز لاعبي الوسط AM/CM لقنص الكرات المرتدة من التحامات المهاجم." },
+    { title: "🚀 Direct Target Play (المهاجم المحطة)", desc: "إرسال الكرات الطويلة المباشرة للمهاجم CF لتفريغ المساحات للقادمين." }
+  ]
+};
+
+function updateTacticalBoard() {
+  let tactic = document.getElementById('tacticSelect').value;
+  document.getElementById('boardTacticBadge').textContent = tactic;
+  
+  let tips = TACTICAL_TIPS[tactic] || TACTICAL_TIPS["Possession"];
+  let html = '';
+  tips.forEach(item => {
+    html += `
+      <div class="board-tip-item">
+        <div>
+          <div class="board-tip-title">${item.title}</div>
+          <div class="board-tip-desc">${item.desc}</div>
+        </div>
+      </div>
+    `;
+  });
+  document.getElementById('boardTipsList').innerHTML = html;
+}
+
+// تشغيل النصائح تلقائياً عند فتح الصفحة
+updateTacticalBoard();
+
 function updateManagerPreview() {
   let select = document.getElementById('managerSelect');
   let opt = select.options[select.selectedIndex];
@@ -550,6 +622,10 @@ function updateManagerPreview() {
     document.getElementById('mName').textContent = opt.value;
     document.getElementById('mStyle').textContent = style;
     document.getElementById('mInfo').style.display = 'block';
+    if(style && TACTICAL_TIPS[style]) {
+      document.getElementById('tacticSelect').value = style;
+      updateTacticalBoard();
+    }
   } else {
     document.getElementById('mImg').style.display = 'none';
     document.getElementById('mInfo').style.display = 'none';
@@ -813,7 +889,6 @@ def squad_builder():
         players = [dict(row) for row in db.execute("SELECT name, position, overall_max, image_url FROM players").fetchall()]
         managers = [dict(row) for row in db.execute("SELECT name, playstyle, image_url FROM managers").fetchall()]
     
-    # جلب الدوريات والشعارات من الملف المنفصل
     leagues = get_all_leagues()
     return render_template_string(SQUAD_BUILDER_TEMPLATE, players=players, managers=managers, leagues=leagues)
 
