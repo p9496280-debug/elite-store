@@ -395,7 +395,7 @@ function filterCards() { let query = document.getElementById('searchInput').valu
 """
 
 
-# صفحة باني التشكيلة المحدثة بالكامل مع السبورة التكتيكية التفاعلية النصائح المطابقة للصورة!
+# صفحة باني الفرقة المحدثة مع تحريك الكروت وتغيير رسومات الملعب تلقائياً حسب التكتيك!
 SQUAD_BUILDER_TEMPLATE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -416,23 +416,23 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
 .manager-preview-img { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid var(--neon-green); display: none; }
 .club-preview-img { width: 35px; height: 35px; object-fit: contain; display: none; }
 
-.pitch-container { max-width: 500px; margin: 0 auto; background: linear-gradient(180deg, #0b2512, #051408); border: 2px solid var(--neon-green); border-radius: 20px; padding: 20px 10px; position: relative; min-height: 580px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
+.pitch-container { max-width: 500px; margin: 0 auto; background: linear-gradient(180deg, #0b2512, #051408); border: 2px solid var(--neon-green); border-radius: 20px; padding: 20px 10px; position: relative; min-height: 580px; overflow: hidden; }
 .pitch-line { position: absolute; border: 1px solid rgba(204, 255, 0, 0.2); pointer-events: none; }
 .line-center { top: 50%; left: 0; right: 0; }
 .line-circle { top: 50%; left: 50%; width: 100px; height: 100px; border-radius: 50%; transform: translate(-50%, -50%); }
 
-/* خطوط وأسهم التكتيك التفاعلية فوق الملعب */
-.tactical-overlay { position: absolute; top:0; left:0; right:0; bottom:0; pointer-events:none; z-index:5; opacity: 0.8; }
+/* طبقة الرسومات التكتيكية التفاعلية فوق الملعب المطابقة للصورة بالضبط */
+.tactical-overlay { position: absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:5; }
 
-.field-row { display: flex; justify-content: space-around; width: 100%; margin: 10px 0; z-index: 10; }
-.pos-slot { width: 70px; height: 90px; background: rgba(14, 18, 29, 0.9); border: 1px dashed var(--neon-green); border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: var(--neon-green); cursor: pointer; position: relative; transition: 0.2s; text-align: center; }
-.pos-slot:hover { border-style: solid; background: #141a29; }
-.pos-slot img { width: 45px; height: 45px; object-fit: contain; border-radius: 6px; }
+/* الكروت القابلة للتحريك والسحب بمرونة داخل الملعب */
+.pos-slot { width: 68px; height: 88px; background: rgba(14, 18, 29, 0.92); border: 1px dashed var(--neon-green); border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: var(--neon-green); cursor: move; position: absolute; z-index: 10; transition: border-color 0.2s, box-shadow 0.2s; text-align: center; user-select: none; touch-action: none; }
+.pos-slot:active { z-index: 20; border-style: solid; box-shadow: 0 0 15px rgba(204,255,0,0.5); }
+.pos-slot img { width: 42px; height: 42px; object-fit: contain; border-radius: 6px; pointer-events: none; }
 .delete-btn { position: absolute; top: -5px; right: -5px; background: #ef4444; color: #fff; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 
-/* سبورة التكتيك والنصائح المطابقة للصورة */
+/* سبورة التكتيك والنصائح */
 .tactics-board { max-width: 500px; margin: 20px auto 10px; background: #fdfdfd; color: #000; border-radius: 16px; border: 4px solid #cbd5e1; padding: 18px; box-shadow: 0 0 20px rgba(255,255,255,0.1); font-family: 'Cairo', sans-serif; }
-.board-header { font-size: 18px; font-weight: 900; border-bottom: 3px solid #ef4444; padding-bottom: 6px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; color: #0f172a; }
+.board-header { font-size: 16px; font-weight: 900; border-bottom: 3px solid #ef4444; padding-bottom: 6px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; color: #0f172a; }
 .board-tip-item { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; background: #f1f5f9; padding: 8px 12px; border-radius: 10px; border-right: 4px solid #10b981; }
 .board-tip-title { font-weight: 900; font-size: 13px; color: #0f172a; }
 .board-tip-desc { font-size: 11px; color: #475569; margin-top: 2px; }
@@ -488,10 +488,10 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
     </div>
   </div>
 
-  <!-- اختيار التكتيك لتغيير النصائح والسبورة التكتيكية تلقائياً -->
+  <!-- اختيار التكتيك لتغيير الرسومات والنصائح تلقائياً -->
   <div class="control-row">
     <label style="font-size:12px; font-weight:bold;">❌⭕ التكتيك المفضل:</label>
-    <select id="tacticSelect" onchange="updateTacticalBoard()">
+    <select id="tacticSelect" onchange="updateTacticalOverlayAndBoard()">
       <option value="Possession">الاستحواذ (Possession Game)</option>
       <option value="Quick Counter">المرتدة السريعة (Quick Counter)</option>
       <option value="Out Wide">العرضيات (Out Wide)</option>
@@ -500,46 +500,33 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
   </div>
 </div>
 
-<div class="pitch-container">
+<div class="pitch-container" id="pitch">
   <div class="pitch-line line-center"></div>
   <div class="pitch-line line-circle"></div>
 
-  <!-- طبقة التكتيك بأسهم التحرك فوق الملعب -->
+  <!-- رسم خطوط زوايا التمرير والمساحات التفاعلية بالكامل مع التكتيك المختار -->
   <svg class="tactical-overlay" id="tacticalSvg" viewBox="0 0 100 100" preserveAspectRatio="none">
-    <!-- رسم زوايا تحرك التمرير والوسط الموضحة بالصورة -->
-    <polygon points="50,30 25,48 75,48" fill="rgba(204,255,0,0.12)" stroke="rgba(204,255,0,0.4)" stroke-dasharray="2,2"/>
-    <path d="M 25 48 Q 50 20 75 48" fill="none" stroke="#00d2ff" stroke-width="1" stroke-dasharray="2,2"/>
+    <g id="overlayContent"></g>
   </svg>
 
-  <!-- هجوم -->
-  <div class="field-row">
-    <div class="pos-slot" onclick="openSearch('LWF')" id="slot_LWF"><span>LWF</span><br>+</div>
-    <div class="pos-slot" onclick="openSearch('CF')" id="slot_CF"><span>CF</span><br>+</div>
-    <div class="pos-slot" onclick="openSearch('RWF')" id="slot_RWF"><span>RWF</span><br>+</div>
-  </div>
+  <!-- مراكز اللاعبين القابلة للتحريك والتنقل بمرونة ✋ -->
+  <div class="pos-slot" style="top:5%; left:15%;" id="slot_LWF"><span>LWF</span><br>+</div>
+  <div class="pos-slot" style="top:5%; left:43%;" id="slot_CF"><span>CF</span><br>+</div>
+  <div class="pos-slot" style="top:5%; left:71%;" id="slot_RWF"><span>RWF</span><br>+</div>
 
-  <!-- خط وسط -->
-  <div class="field-row">
-    <div class="pos-slot" onclick="openSearch('CMF1')" id="slot_CMF1"><span>CMF</span><br>+</div>
-    <div class="pos-slot" onclick="openSearch('AMF')" id="slot_AMF"><span>AMF</span><br>+</div>
-    <div class="pos-slot" onclick="openSearch('CMF2')" id="slot_CMF2"><span>CMF</span><br>+</div>
-  </div>
+  <div class="pos-slot" style="top:28%; left:15%;" id="slot_CMF1"><span>CMF</span><br>+</div>
+  <div class="pos-slot" style="top:26%; left:43%;" id="slot_AMF"><span>AMF</span><br>+</div>
+  <div class="pos-slot" style="top:28%; left:71%;" id="slot_CMF2"><span>CMF</span><br>+</div>
 
-  <!-- دفاع -->
-  <div class="field-row">
-    <div class="pos-slot" onclick="openSearch('LB')" id="slot_LB"><span>LB</span><br>+</div>
-    <div class="pos-slot" onclick="openSearch('CB1')" id="slot_CB1"><span>CB</span><br>+</div>
-    <div class="pos-slot" onclick="openSearch('CB2')" id="slot_CB2"><span>CB</span><br>+</div>
-    <div class="pos-slot" onclick="openSearch('RB')" id="slot_RB"><span>RB</span><br>+</div>
-  </div>
+  <div class="pos-slot" style="top:55%; left:10%;" id="slot_LB"><span>LB</span><br>+</div>
+  <div class="pos-slot" style="top:55%; left:33%;" id="slot_CB1"><span>CB</span><br>+</div>
+  <div class="pos-slot" style="top:55%; left:53%;" id="slot_CB2"><span>CB</span><br>+</div>
+  <div class="pos-slot" style="top:55%; left:76%;" id="slot_RB"><span>RB</span><br>+</div>
 
-  <!-- حارس -->
-  <div class="field-row" style="justify-content: center;">
-    <div class="pos-slot" onclick="openSearch('GK')" id="slot_GK"><span>GK</span><br>+</div>
-  </div>
+  <div class="pos-slot" style="top:80%; left:43%;" id="slot_GK"><span>GK</span><br>+</div>
 </div>
 
-<!-- سبورة نصائح تحركات لاعبي خط الوسط والهجوم التلقائية المحدثة -->
+<!-- سبورة نصائح تحركات اللاعبين والتكتيك -->
 <div class="tactics-board">
   <div class="board-header">
     <span>📋 نصائح وتعليمات التكتيك (Tactical Tips)</span>
@@ -565,36 +552,135 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
 let allPlayers = {{ players | tojson }};
 let currentSlot = '';
 
-// قاعدة بيانات النصائح التكتيكية المقترنة بصورة التكتيك
-const TACTICAL_TIPS = {
-  "Possession": [
-    { title: "✅ Create Angles (خلق زوايا التمرير)", desc: "التحرك في المساحة لاستلام الكرة بوضعية جسم مفتوحة لتسهيل التمرير." },
-    { title: "✅ Support Play (المساندة القريبة)", desc: "توفر خيارات تمرير قريبة من حامل الكرة لضمان الاستحواذ وعدم فقدانها." },
-    { title: "✅ Find Space Between Lines (المساحات بين الخطوط)", desc: "التحرك في الثغرات بين دفاع ووسط الخصم للاستلام في مناطق خطيرة." },
-    { title: "✅ Drop Deep to Collect (النزول للاستلام)", desc: "نزول لاعب الوسط لعمق الدفاع لبناء اللعب وتدوير الكرة من الخلف." }
-  ],
-  "Quick Counter": [
-    { title: "⚡ Make Forward Runs (الانطلاق للأمام)", desc: "الركض السريع المباشر وتجاوز خط وسط الخصم فور استعادة الكرة للتسجيل." },
-    { title: "⚡ Chase Down Loose Balls (الضغط العالي السريع)", desc: "الضغط على مدافعي الخصم فوراً لاستعادة الكرة في مناطق متقدمة." },
-    { title: "⚡ Fast Transitions (التحول السريع)", desc: "نقل الكرة بحد أقصى لمستين للربط السريع مع أجنحة ومهاجم الفريق." }
-  ],
-  "Out Wide": [
-    { title: "📐 Switch Positions & Flanks (تغيير اتجاه اللعب)", desc: "تمرير الكرة للجهة العكسية لخلخلة توازن دفاع الخصم وفتح مساحات." },
-    { title: "📐 Overlapping Runs (صعود الأظهيرة)", desc: "تقدم الأظهيرة LB/RB خلف الأجنحة لإرسال عرضيات متقنة للـ CF." }
-  ],
-  "Long Ball": [
-    { title: "🚀 Second Ball Control (الكرة الثانية)", desc: "تمركُز لاعبي الوسط AM/CM لقنص الكرات المرتدة من التحامات المهاجم." },
-    { title: "🚀 Direct Target Play (المهاجم المحطة)", desc: "إرسال الكرات الطويلة المباشرة للمهاجم CF لتفريغ المساحات للقادمين." }
-  ]
+// جعل كافة الكروت قابلة للتحريك باللمس والماوس داخل الملعب
+document.querySelectorAll('.pos-slot').forEach(slot => {
+  let isDragging = false;
+  let startX, startY, origLeft, origTop;
+
+  const startDrag = (e) => {
+    if(e.target.classList.contains('delete-btn')) return;
+    isDragging = true;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    startX = clientX;
+    startY = clientY;
+    
+    const rect = slot.getBoundingClientRect();
+    const pitchRect = document.getElementById('pitch').getBoundingClientRect();
+    
+    origLeft = rect.left - pitchRect.left;
+    origTop = rect.top - pitchRect.top;
+    
+    // عند النقر البسيط دون سحب، تفتح نافذة البحث
+    slot.dataset.hasMoved = 'false';
+  };
+
+  const doDrag = (e) => {
+    if (!isDragging) return;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    const deltaX = clientX - startX;
+    const deltaY = clientY - startY;
+    
+    if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+      slot.dataset.hasMoved = 'true';
+    }
+    
+    const pitch = document.getElementById('pitch');
+    let newLeft = origLeft + deltaX;
+    let newTop = origTop + deltaY;
+    
+    // الحفاظ على تحريك اللاعب داخل حدود الملعب فقط
+    newLeft = Math.max(0, Math.min(newLeft, pitch.clientWidth - slot.clientWidth));
+    newTop = Math.max(0, Math.min(newTop, pitch.clientHeight - slot.clientHeight));
+    
+    slot.style.left = newLeft + 'px';
+    slot.style.top = newTop + 'px';
+  };
+
+  const stopDrag = (e) => {
+    if (!isDragging) return;
+    isDragging = false;
+    if (slot.dataset.hasMoved === 'false') {
+      openSearch(slot.id.replace('slot_', ''));
+    }
+  };
+
+  slot.addEventListener('mousedown', startDrag);
+  document.addEventListener('mousemove', doDrag);
+  document.addEventListener('mouseup', stopDrag);
+
+  slot.addEventListener('touchstart', startDrag, {passive: false});
+  document.addEventListener('touchmove', doDrag, {passive: false});
+  document.addEventListener('touchend', stopDrag);
+});
+
+// قاعدة بيانات النصائح التكتيكية والرسومات المباشرة على الملعب
+const TACTICAL_CONFIG = {
+  "Possession": {
+    tips: [
+      { title: "✅ Create Angles (خلق زوايا التمرير)", desc: "التحرك في المساحة لاستلام الكرة بوضعية جسم مفتوحة لتسهيل التمرير." },
+      { title: "✅ Support Play (المساندة القريبة)", desc: "توفر خيارات تمرير قريبة من حامل الكرة لضمان الاستحواذ وعدم فقدانها." },
+      { title: "✅ Find Space Between Lines (المساحات بين الخطوط)", desc: "التحرك في الثغرات بين دفاع ووسط الخصم للاستلام في مناطق خطيرة." },
+      { title: "✅ Drop Deep to Collect (النزول للاستلام)", desc: "نزول لاعب الوسط لعمق الدفاع لبناء اللعب وتدوير الكرة من الخلف." }
+    ],
+    svg: `
+      <!-- زوايا التمرير والمثلث الاستحواذي المطابق للصورة تماماً -->
+      <polygon points="50,22 25,38 75,38" fill="rgba(204,255,0,0.15)" stroke="#ccff00" stroke-width="1.5" stroke-dasharray="3,3"/>
+      <path d="M 25 38 Q 50 15 75 38" fill="none" stroke="#00d2ff" stroke-width="2" stroke-dasharray="4,4"/>
+      <line x1="50" y1="22" x2="50" y2="10" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="2,2"/>
+    `
+  },
+  "Quick Counter": {
+    tips: [
+      { title: "⚡ Make Forward Runs (الانطلاق للأمام)", desc: "الركض السريع المباشر وتجاوز خط وسط الخصم فور استعادة الكرة للتسجيل." },
+      { title: "⚡ Chase Down Loose Balls (الضغط العالي السريع)", desc: "الضغط على مدافعي الخصم فوراً لاستعادة الكرة في مناطق متقدمة." },
+      { title: "⚡ Fast Transitions (التحول السريع)", desc: "نقل الكرة بحد أقصى لمستين للربط السريع مع أجنحة ومهاجم الفريق." }
+    ],
+    svg: `
+      <!-- أسهم التحول المرتد السريع -->
+      <line x1="20" y1="60" x2="20" y2="12" stroke="#00d2ff" stroke-width="2" stroke-dasharray="3,3"/>
+      <line x1="80" y1="60" x2="80" y2="12" stroke="#00d2ff" stroke-width="2" stroke-dasharray="3,3"/>
+      <line x1="50" y1="40" x2="50" y2="10" stroke="#ccff00" stroke-width="2.5"/>
+    `
+  },
+  "Out Wide": {
+    tips: [
+      { title: "📐 Switch Positions & Flanks (تغيير اتجاه اللعب)", desc: "تمرير الكرة للجهة العكسية لخلخلة توازن دفاع الخصم وفتح مساحات." },
+      { title: "📐 Overlapping Runs (صعود الأظهيرة)", desc: "تقدم الأظهيرة LB/RB خلف الأجنحة لإرسال عرضيات متقنة للـ CF." }
+    ],
+    svg: `
+      <!-- فتح الأطراف وصعود الأظهيرة -->
+      <path d="M 15 65 Q 5 35 20 10" fill="none" stroke="#ccff00" stroke-width="2" stroke-dasharray="3,3"/>
+      <path d="M 85 65 Q 95 35 80 10" fill="none" stroke="#ccff00" stroke-width="2" stroke-dasharray="3,3"/>
+    `
+  },
+  "Long Ball": {
+    tips: [
+      { title: "🚀 Second Ball Control (الكرة الثانية)", desc: "تمركُز لاعبي الوسط AM/CM لقنص الكرات المرتدة من التحامات المهاجم." },
+      { title: "🚀 Direct Target Play (المهاجم المحطة)", desc: "إرسال الكرات الطويلة المباشرة للمهاجم CF لتفريغ المساحات للقادمين." }
+    ],
+    svg: `
+      <!-- تمرير طويل مباشر نحو المهاجم -->
+      <path d="M 50 85 Q 20 45 50 10" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-dasharray="4,4"/>
+    `
+  }
 };
 
-function updateTacticalBoard() {
+function updateTacticalOverlayAndBoard() {
   let tactic = document.getElementById('tacticSelect').value;
   document.getElementById('boardTacticBadge').textContent = tactic;
   
-  let tips = TACTICAL_TIPS[tactic] || TACTICAL_TIPS["Possession"];
+  let config = TACTICAL_CONFIG[tactic] || TACTICAL_CONFIG["Possession"];
+  
+  // تحديث الرسم داخل الملعب
+  document.getElementById('overlayContent').innerHTML = config.svg;
+  
+  // تحديث النصائح والتعليمات
   let html = '';
-  tips.forEach(item => {
+  config.tips.forEach(item => {
     html += `
       <div class="board-tip-item">
         <div>
@@ -607,8 +693,8 @@ function updateTacticalBoard() {
   document.getElementById('boardTipsList').innerHTML = html;
 }
 
-// تشغيل النصائح تلقائياً عند فتح الصفحة
-updateTacticalBoard();
+// تشغيل التأثيرات والنصائح فور فتح الصفحة
+updateTacticalOverlayAndBoard();
 
 function updateManagerPreview() {
   let select = document.getElementById('managerSelect');
@@ -622,9 +708,9 @@ function updateManagerPreview() {
     document.getElementById('mName').textContent = opt.value;
     document.getElementById('mStyle').textContent = style;
     document.getElementById('mInfo').style.display = 'block';
-    if(style && TACTICAL_TIPS[style]) {
+    if(style && TACTICAL_CONFIG[style]) {
       document.getElementById('tacticSelect').value = style;
-      updateTacticalBoard();
+      updateTacticalOverlayAndBoard();
     }
   } else {
     document.getElementById('mImg').style.display = 'none';
