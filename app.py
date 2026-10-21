@@ -23,8 +23,8 @@ UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@novastore.com")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "nova_store.db")
 
 ADMIN_TELEGRAM_USERNAME = "Mido_M9do"
