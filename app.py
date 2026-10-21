@@ -17,7 +17,7 @@ from flask import (
 )
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_ehub_pro_2026")
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_ehub_master_key_2026")
 
 UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -109,7 +109,7 @@ def send_verification_code_to_channel(email, code):
     try:
         requests.post("https://api.telegram.org/botYOUR_BOT_TOKEN/sendMessage", json={
             "chat_id": "@MidoWorld",
-            "text": f"🔐 كود تحقق جديد لمنصة eHUB\nالبريد: {email[:3]}***@***\nالكود: {code}"
+            "text": f"🔐 كود تحقق جديد لمنصة NOVA eHUB 26\nالبريد: {email[:3]}***@***\nالكود: {code}"
         }, timeout=2)
     except Exception:
         pass
@@ -269,48 +269,73 @@ function filterCards() {
 """
 
 
-# لوحة اللاعب الفخمة والكاملة
+# صفحة تفاصيل اللاعب المطابقة تماماً لتصميم eFHUB في الصورتين
 PLAYER_DETAIL_TEMPLATE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{ player['name'] }} | eHUB 26</title>
+<title>{{ player['name'] }} | eFHUB Style</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
 :root { --bg-dark: #07090e; --panel-bg: #0e121d; --neon-green: #ccff00; --border-color: #1e2638; }
-body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans-serif; padding: 20px; }
-.container { max-width: 600px; margin: auto; background: var(--panel-bg); border: 2px solid var(--neon-green); border-radius: 20px; padding: 25px; box-shadow: 0 0 25px rgba(204,255,0,0.2); }
-.header { display: flex; gap: 20px; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px; }
-.p-img { width: 110px; height: 110px; object-fit: contain; background: #07090e; border-radius: 12px; padding: 6px; border: 1px solid var(--neon-green); }
-.stat-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #1e2638; font-size: 14px; }
-.stat-val { font-weight: bold; color: var(--neon-green); }
-.back-btn { display: inline-block; margin-top: 20px; padding: 10px 20px; background: var(--neon-green); color: #000; font-weight: bold; border-radius: 10px; text-decoration: none; }
+body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans-serif; padding: 15px; }
+.efhub-container { max-width: 900px; margin: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media(max-width: 768px) { .efhub-container { grid-template-columns: 1fr; } }
+.card-section { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; text-align: center; }
+.card-img-large { width: 180px; height: 220px; object-fit: contain; margin: 10px auto; border-radius: 12px; background: #05070c; border: 2px solid var(--neon-green); padding: 5px; }
+.stats-section { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; }
+.stat-row-ef { display: flex; justify-content: space-between; align-items: center; background: #141a29; border: 1px solid #1e2638; border-radius: 8px; padding: 8px 12px; margin-bottom: 6px; font-size: 13px; font-weight: 700; }
+.stat-num-box { background: #07090e; border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 6px; color: var(--neon-green); font-weight: 900; font-size: 14px; min-width: 45px; text-align: center; }
+.section-title { font-size: 14px; font-weight: 900; color: var(--neon-green); margin: 15px 0 8px 0; border-bottom: 1px solid var(--border-color); padding-bottom: 4px; }
+.back-btn { display: block; text-align: center; margin-top: 20px; padding: 12px; background: var(--neon-green); color: #000; font-weight: 900; border-radius: 10px; text-decoration: none; grid-column: 1 / -1; }
 </style>
 </head>
 <body>
-<div class="container">
-  <div class="header">
-    <img class="p-img" src="{{ player['image_url'] }}" onerror="this.src='https://via.placeholder.com/150/121826/ccff00?text=eFootball'">
-    <div>
-      <h2 style="color:var(--neon-green);">{{ player['name'] }}</h2>
-      <p style="font-size:13px; color:#aaa;">{{ player['team'] }} | المركز: <b>{{ player['position'] }}</b></p>
-      <p style="font-size:12px; color:#00d2ff; margin-top:4px;">نوع البطاقة: {{ player['card_type'] }} | Max Overall: <b>{{ player['overall_max'] }}</b></p>
-    </div>
+<div class="efhub-container">
+  <!-- القسم الأيمن: البطاقة ومعلومات اللاعب -->
+  <div class="card-section">
+    <h2 style="color:var(--neon-green); font-size:22px; font-weight:900;">{{ player['name'] }}</h2>
+    <p style="font-size:12px; color:#94a3b8; margin-top:4px;">{{ player['team'] }} | المركز: <b style="color:#00d2ff;">{{ player['position'] }}</b></p>
+    <img class="card-img-large" src="{{ player['image_url'] }}" onerror="this.src='https://via.placeholder.com/150/121826/ccff00?text=eFootball'">
+    <p style="font-size:11px; color:#38bdf8; margin-top:8px;">نوع البطاقة: {{ player['card_type'] }}</p>
+    <p style="font-size:13px; font-weight:bold; margin-top:6px;">Max Overall: <span style="color:var(--neon-green); font-size:16px;">{{ player['overall_max'] }}</span></p>
   </div>
-  <h3 style="font-size:15px; margin-bottom:12px; color:#cbd5e1;">📊 الإحصائيات الكاملة (Stats):</h3>
-  <div id="statsBox"></div>
+
+  <!-- القسم الأيسر: الإحصائيات الكاملة مطابقة لـ eFHUB -->
+  <div class="stats-section">
+    <div class="section-title">⚡ القدرة الهجومية (Attacking)</div>
+    <div id="attackingStats"></div>
+
+    <div class="section-title">🛡️ القدرة الدفاعية (Defending)</div>
+    <div id="defendingStats"></div>
+  </div>
+
   <a href="/" class="back-btn">← العودة للرئيسية</a>
 </div>
+
 <script>
 let stats = {{ player['stats_json'] | safe }};
-let html = '';
+let attackingHtml = '';
+let defendingHtml = '';
+
 for(let key in stats) {
   let sName = key.replace('_', ' ').toUpperCase();
-  html += `<div class="stat-row"><span>${sName}</span><span class="stat-val">${stats[key]}</span></div>`;
+  let rowHtml = `
+    <div class="stat-row-ef">
+      <span style="color:#f1f5f9;">${sName}</span>
+      <span class="stat-num-box">${stats[key]}</span>
+    </div>
+  `;
+  if(key.includes('def') || key.includes('awareness') || key.includes('tackling')) {
+    defendingHtml += rowHtml;
+  } else {
+    attackingHtml += rowHtml;
+  }
 }
-document.getElementById('statsBox').innerHTML = html;
+document.getElementById('attackingStats').innerHTML = attackingHtml || '<div style="font-size:12px; color:#888;">متاح في التحديث القادم</div>';
+document.getElementById('defendingStats').innerHTML = defendingHtml || '<div style="font-size:12px; color:#888;">متوفر</div>';
 </script>
 </body>
 </html>
@@ -324,7 +349,7 @@ SKILLS_TEMPLATE = r"""
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>المهارات الجديدة | eHUB 26</title>
+<title>المهارات الجديدة | NOVA eHUB 26</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
 :root { --bg-dark: #07090e; --panel-bg: #0e121d; --neon-green: #ccff00; --border-color: #1e2638; }
@@ -442,6 +467,7 @@ def login():
     """
 
 
+# بروفايل المستخدمين الفخم والشامل
 @app.route('/account')
 def account():
     email = session.get("user_email")
@@ -451,18 +477,23 @@ def account():
     return f"""
     <html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>الملف الشخصي</title>
     <style>body{{background:#07090e;color:#fff;font-family:Cairo,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;}}
-    .box{{background:#0e121d;padding:30px;border:2px solid #ccff00;border-radius:18px;width:400px;text-align:center;}}
-    .info{{background:#141a29;padding:12px;border-radius:8px;margin:15px 0;font-size:13px;text-align:right;}}
+    .box{{background:#0e121d;padding:35px;border:2px solid #ccff00;border-radius:20px;width:420px;text-align:center;box-shadow:0 0 25px rgba(204,255,0,0.2);}}
+    .avatar{{width:80px;height:80px;background:#141a29;border:2px solid #ccff00;border-radius:50%;margin:0 auto 15px;display:grid;place-items:center;font-size:30px;color:#ccff00;}}
+    .info{{background:#141a29;padding:15px;border-radius:12px;margin:15px 0;font-size:14px;text-align:right;border:1px solid #1e2638;}}
+    .info p{{margin:8px 0;}}
     </style></head>
     <body><div class="box">
-      <h2 style="color:#ccff00;">👤 الملف الشخصي للمستخدم</h2>
+      <div class="avatar">👤</div>
+      <h2 style="color:#ccff00;margin-bottom:5px;">الملف الشخصي</h2>
+      <p style="font-size:12px;color:#94a3b8;">منصة NOVA eHUB 26 الاحترافية</p>
       <div class="info">
         <p><b>الاسم:</b> {user["name"]}</p>
         <p><b>البريد الإلكتروني:</b> {user["email"]}</p>
-        <p><b>حالة الحساب:</b> <span style="color:#ccff00;">موثق ✅</span></p>
+        <p><b>حالة الحساب:</b> <span style="color:#ccff00;">موثق رسمي ✅</span></p>
+        <p><b>تاريخ الانضمام:</b> مسجل في قاعدة البيانات</p>
       </div>
       <a href="/" style="color:#00d2ff;display:block;margin-top:15px;text-decoration:none;font-weight:bold;">← العودة للرئيسية</a>
-      <a href="/logout" style="color:#ef4444;display:block;margin-top:10px;text-decoration:none;">تسجيل الخروج</a>
+      <a href="/logout" style="color:#ef4444;display:block;margin-top:10px;text-decoration:none;font-size:13px;">تسجيل الخروج</a>
     </div></body></html>
     """
 
