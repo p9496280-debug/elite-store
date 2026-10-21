@@ -17,6 +17,9 @@ from flask import (
     Response,
 )
 
+# استدعاء الملف المنفصل والدوال الخاصة به
+from leagues_and_clubs import get_all_leagues, get_club_logo
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_ehub_master_key_2026")
 
@@ -392,7 +395,7 @@ function filterCards() { let query = document.getElementById('searchInput').valu
 """
 
 
-# صفحة باني التشكيلة المحدثة مع ظهور صورة المدرب بجانبه في الجنب!
+# صفحة باني التشكيلة المربوطة بملف leagues_and_clubs.py لعرض الشعارات والدوريات
 SQUAD_BUILDER_TEMPLATE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -409,9 +412,9 @@ body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans
 .control-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 select, input { background: #07090e; border: 1px solid var(--border-color); color: #fff; padding: 8px; border-radius: 8px; font-family: 'Cairo'; font-size: 12px; }
 
-/* عرض صورة المدرب بجانبه شيك في الجنب */
 .manager-preview-box { display: flex; align-items: center; gap: 10px; background: #141a29; border: 1px solid var(--neon-blue); border-radius: 10px; padding: 6px 12px; }
 .manager-preview-img { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid var(--neon-green); display: none; }
+.club-preview-img { width: 35px; height: 35px; object-fit: contain; display: none; }
 
 .pitch-container { max-width: 500px; margin: 0 auto; background: linear-gradient(180deg, #0b2512, #051408); border: 2px solid var(--neon-green); border-radius: 20px; padding: 20px 10px; position: relative; min-height: 580px; display: flex; flex-direction: column; justify-content: space-between; }
 .pitch-line { position: absolute; border: 1px solid rgba(204, 255, 0, 0.2); pointer-events: none; }
@@ -435,6 +438,7 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
 <h2 style="text-align:center; color:var(--neon-green); margin-bottom:10px;">⚽ تكتيك الملعب وباني الفرقة</h2>
 
 <div class="squad-controls">
+  <!-- اختيار المدرب -->
   <div class="control-row">
     <div style="display:flex; flex-direction:column; gap:4px; flex-grow:1;">
       <label style="font-size:12px; font-weight:bold;">👔 اختر المدرب:</label>
@@ -454,16 +458,27 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
     </div>
   </div>
 
+  <!-- اختيار الدوري والنادي بشعارهم المباشر -->
   <div class="control-row">
-    <label style="font-size:12px; font-weight:bold;">🏆 الفريق والدوري المفضل:</label>
-    <select id="leagueSelect">
-      <option value="Premier League">الدوري الإنجليزي (Premier League)</option>
-      <option value="La Liga">الدوري الإسباني (La Liga)</option>
-      <option value="Serie A">الدوري الإيطالي (Serie A)</option>
-      <option value="eFootball Team">فريق eFootball المفضل</option>
-    </select>
+    <div style="display:flex; flex-direction:column; gap:4px; flex-grow:1;">
+      <label style="font-size:12px; font-weight:bold;">🏆 الفريق والدوري المفضل:</label>
+      <select id="clubSelect" onchange="updateClubPreview()">
+        <option value="">-- اختر الفريق --</option>
+        {% for league in leagues %}
+          <optgroup label="{{ league['name'] }}">
+            {% for club in league['clubs'] %}
+            <option value="{{ club['name'] }}" data-logo="{{ club['logo_url'] }}">{{ club['name'] }}</option>
+            {% endfor %}
+          </optgroup>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="padding: 4px;">
+      <img id="clubLogoImg" class="club-preview-img">
+    </div>
   </div>
 
+  <!-- اختيار التكتيك -->
   <div class="control-row">
     <label style="font-size:12px; font-weight:bold;">❌⭕ التكتيك المفضل:</label>
     <select id="tacticSelect">
@@ -541,6 +556,18 @@ function updateManagerPreview() {
   }
 }
 
+function updateClubPreview() {
+  let select = document.getElementById('clubSelect');
+  let opt = select.options[select.selectedIndex];
+  let logo = opt.getAttribute('data-logo');
+  if(opt.value && logo) {
+    document.getElementById('clubLogoImg').src = logo;
+    document.getElementById('clubLogoImg').style.display = 'block';
+  } else {
+    document.getElementById('clubLogoImg').style.display = 'none';
+  }
+}
+
 function openSearch(slotId) {
   currentSlot = slotId;
   document.getElementById('searchModal').style.display = 'flex';
@@ -595,7 +622,6 @@ function removePlayer(slotId) {
 """
 
 
-# صفحة البروفايل الشيك والفخمة للغاية
 ACCOUNT_TEMPLATE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -786,7 +812,10 @@ def squad_builder():
     with get_db() as db:
         players = [dict(row) for row in db.execute("SELECT name, position, overall_max, image_url FROM players").fetchall()]
         managers = [dict(row) for row in db.execute("SELECT name, playstyle, image_url FROM managers").fetchall()]
-    return render_template_string(SQUAD_BUILDER_TEMPLATE, players=players, managers=managers)
+    
+    # جلب الدوريات والشعارات من الملف المنفصل
+    leagues = get_all_leagues()
+    return render_template_string(SQUAD_BUILDER_TEMPLATE, players=players, managers=managers, leagues=leagues)
 
 
 @app.route('/managers')
