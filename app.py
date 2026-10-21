@@ -108,13 +108,13 @@ def init_db():
         db.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('custom_banner', '')")
         db.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('managers_card_img', '')")
 
-        # إضافة أخبار افتراضية
+        # أخبار افتراضية
         cursor_n = db.execute("SELECT COUNT(*) as count FROM news")
         if cursor_n.fetchone()["count"] == 0:
             db.execute("INSERT INTO news (title, content, created_at) VALUES (?, ?, ?)", 
                        ("تحديث صيانة الخميس القادم", "وصول بطاقات Epic جديدة وتسريبات قوية لميسي ورونالدو.", int(time.time())))
 
-        # إضافة مدربين افتراضيين
+        # مدربين افتراضيين
         cursor_m = db.execute("SELECT COUNT(*) as count FROM managers")
         if cursor_m.fetchone()["count"] == 0:
             db.execute("INSERT INTO managers (name, playstyle, affinity, image_url) VALUES (?, ?, ?, ?)",
@@ -124,41 +124,21 @@ def init_db():
             db.execute("INSERT INTO managers (name, playstyle, affinity, image_url) VALUES (?, ?, ?, ?)",
                        ("R. Rodriguez", "Out Wide", 83, "https://via.placeholder.com/150/121826/ccff00?text=Rodriguez"))
 
-        # إضافة لاعبي الأساطير بالكامل مع الطاقات المفصلة
+        # لاعبين افتراضيين بطاقاتهم التفصيلية
         cursor_p = db.execute("SELECT COUNT(*) as count FROM players")
         if cursor_p.fetchone()["count"] == 0:
-            varane_stats = {
-                "attacking": {"وعي هجومي": 52, "التحكم في الكرة": 66, "المراوغة": 70, "إنهاء الهجمة": 50, "مهارة الرأس": 79},
-                "physical": {"السرعة": 81, "التسارع": 76, "القفز": 78, "الالتحام الجسدي": 80, "قوة التحمل": 74},
-                "defending": {"وعي دفاعي": 88, "احتكاك دفاعي": 88, "قطع الكرة": 87, "الشراسة": 84}
-            }
-            seedorf_stats = {
-                "attacking": {"وعي هجومي": 88, "التحكم في الكرة": 92, "المراوغة": 90, "التمريرات المنخفضة": 93, "إنهاء الهجمة": 85},
-                "physical": {"السرعة": 88, "التسارع": 85, "قوة في الركل": 92, "قوة التحمل": 90},
-                "defending": {"وعي دفاعي": 78, "احتكاك دفاعي": 80, "قطع الكرة": 79}
-            }
-            messi_stats = {
-                "attacking": {"وعي هجومي": 96, "التحكم في الكرة": 98, "المراوغة": 99, "التمريرات": 94, "إنهاء الهجمة": 96},
-                "physical": {"السرعة": 92, "التسارع": 95, "توازن": 98, "قوة التحمل": 85},
-                "defending": {"وعي دفاعي": 40, "قطع الكرة": 45}
-            }
-            ronaldo_stats = {
-                "attacking": {"وعي هجومي": 95, "التحكم في الكرة": 88, "المراوغة": 88, "إنهاء الهجمة": 98, "مهارة الرأس": 95},
-                "physical": {"السرعة": 93, "التسارع": 90, "القفز": 98, "قوة التحمل": 88},
-                "defending": {"وعي دفاعي": 45, "قطع الكرة": 40}
-            }
-            neymar_stats = {
-                "attacking": {"وعي هجومي": 90, "التحكم في الكرة": 97, "المراوغة": 98, "إنهاء الهجمة": 89, "التمريرات": 90},
-                "physical": {"السرعة": 94, "التسارع": 96, "توازن": 95, "قوة التحمل": 82},
-                "defending": {"وعي دفاعي": 38, "قطع الكرة": 35}
-            }
+            varane_stats = {"attacking": {"وعي هجومي": 52, "التحكم في الكرة": 66, "المراوغة": 70, "إنهاء الهجمة": 50}, "physical": {"السرعة": 81, "التسارع": 76, "القفز": 78}, "defending": {"وعي دفاعي": 88, "احتكاك دفاعي": 88, "قطع الكرة": 87}}
+            seedorf_stats = {"attacking": {"وعي هجومي": 88, "التحكم في الكرة": 92, "التمريرات": 93, "إنهاء الهجمة": 85}, "physical": {"السرعة": 88, "قوة في الركل": 92}, "defending": {"وعي دفاعي": 78, "قطع الكرة": 79}}
+            messi_stats = {"attacking": {"وعي هجومي": 96, "التحكم في الكرة": 98, "المراوغة": 99, "إنهاء الهجمة": 96}, "physical": {"السرعة": 92, "التسارع": 95}, "defending": {"وعي دفاعي": 40}}
+            ronaldo_stats = {"attacking": {"وعي هجومي": 95, "التحكم في الكرة": 88, "إنهاء الهجمة": 98}, "physical": {"السرعة": 93, "القفز": 98}, "defending": {"وعي دفاعي": 45}}
+            neymar_stats = {"attacking": {"وعي هجومي": 90, "المراوغة": 98, "إنهاء الهجمة": 89}, "physical": {"السرعة": 94, "التسارع": 96}, "defending": {"وعي دفاعي": 38}}
 
             default_players = [
-                ("Raphael Varane", 88, 103, "CB", "Manchester United", "Showtime", 0, "https://via.placeholder.com/150/121826/ccff00?text=Varane", json.dumps(varane_stats), json.dumps(["مهارة الرأس", "حصن", "مراقبة لاعب"])),
-                ("Seedorf", 94, 106, "CM", "AC Milan", "Epic / Big Time", 0, "https://via.placeholder.com/150/121826/ccff00?text=Seedorf", json.dumps(seedorf_stats), json.dumps(["التمرير الموزون", "تسديدات بعيدة"])),
-                ("Lionel Messi", 96, 108, "RWF", "Inter Miami", "Epic / Big Time", 0, "https://via.placeholder.com/150/121826/ccff00?text=Messi", json.dumps(messi_stats), json.dumps(["المراوغة السريعة", "إنهاء فائق"])),
-                ("Cristiano Ronaldo", 95, 107, "ST", "Al Nassr", "Epic / Big Time", 0, "https://via.placeholder.com/150/121826/ccff00?text=Ronaldo", json.dumps(ronaldo_stats), json.dumps(["رأسيات قوية", "تسديدات بعيدة"])),
-                ("Neymar Jr", 94, 105, "LWF", "Al Hilal", "Showtime", 1, "https://via.placeholder.com/150/121826/ccff00?text=Neymar", json.dumps(neymar_stats), json.dumps(["المراوغة المزدوجة", "لمسة سحرية"]))
+                ("Raphael Varane", 88, 103, "CB", "Manchester United", "Showtime", 0, "https://via.placeholder.com/150/121826/ccff00?text=Varane", json.dumps(varane_stats), json.dumps(["مهارة الرأس", "حصن"])),
+                ("Seedorf", 94, 106, "CMF", "AC Milan", "Epic / Big Time", 0, "https://via.placeholder.com/150/121826/ccff00?text=Seedorf", json.dumps(seedorf_stats), json.dumps(["التمرير الموزون"])),
+                ("Lionel Messi", 96, 108, "RWF", "Inter Miami", "Epic / Big Time", 0, "https://via.placeholder.com/150/121826/ccff00?text=Messi", json.dumps(messi_stats), json.dumps(["المراوغة السريعة"])),
+                ("Cristiano Ronaldo", 95, 107, "ST", "Al Nassr", "Epic / Big Time", 0, "https://via.placeholder.com/150/121826/ccff00?text=Ronaldo", json.dumps(ronaldo_stats), json.dumps(["رأسيات قوية"])),
+                ("Neymar Jr", 94, 105, "LWF", "Al Hilal", "Showtime", 1, "https://via.placeholder.com/150/121826/ccff00?text=Neymar", json.dumps(neymar_stats), json.dumps(["المراوغة المزدوجة"]))
             ]
             db.executemany("""
                 INSERT INTO players (name, overall_base, overall_max, position, team, card_type, is_upcoming, image_url, stats_json, skills_json)
@@ -232,7 +212,6 @@ body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans
 .custom-banner { width: 100%; background: #000; text-align: center; border-bottom: 2px solid var(--border-color); padding: 10px 0; }
 .custom-banner img { max-width: 100%; height: auto; max-height: 400px; object-fit: contain; display: block; margin: 0 auto; }
 
-/* قسم باني الفرقة المحدث */
 .squad-builder-card {
   margin: 20px 4%;
   background: linear-gradient(135deg, #091309, #0e1a14);
@@ -244,13 +223,12 @@ body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans
   align-items: center;
   box-shadow: 0 0 25px rgba(204, 255, 0, 0.15);
 }
-.squad-info { max-width: 55%; }
+.squad-info { max-width: 60%; }
 .squad-badge { color: var(--neon-green); font-size: 11px; font-weight: 800; text-transform: uppercase; }
 .squad-title { font-size: 26px; font-weight: 900; color: #fff; margin: 4px 0; }
 .squad-desc { font-size: 12px; color: #94a3b8; margin-bottom: 15px; }
 .btn-build { display: inline-block; padding: 10px 22px; background: var(--neon-green); color: #000; border-radius: 25px; font-weight: 900; font-size: 13px; text-decoration: none; box-shadow: 0 0 10px rgba(204,255,0,0.4); }
 
-/* قسم المدربين المحدث كلياً ببطاقة الصورة المصغرة القابلة للضغط */
 .managers-section { margin: 25px 4%; }
 .sec-title { font-size: 16px; font-weight: 900; color: #fff; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
 .managers-row { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 10px; align-items: center; }
@@ -349,7 +327,6 @@ footer { text-align: center; padding: 15px; color: #64748b; font-size: 11px; }
   <div class="managers-section">
     <div class="sec-title">👔 قائمة المدربين الرسمية</div>
     <div class="managers-row">
-      <!-- كارت القائمة المصغر الذي يفتح كل المدربين -->
       <a href="/managers" class="managers-main-card">
         <img class="managers-card-img" src="{{ managers_card_img if managers_card_img else 'https://via.placeholder.com/60/00d2ff/000000?text=ALL' }}" onerror="this.src='https://via.placeholder.com/60/00d2ff/000000?text=ALL'">
         <div style="font-size:12px; font-weight:900; color:var(--neon-green);">قائمة المدربين</div>
@@ -367,7 +344,7 @@ footer { text-align: center; padding: 15px; color: #64748b; font-size: 11px; }
   </div>
 
   <div class="community-news">
-    <div class="news-title">📢 أخبار المجتمع وتحديثات كونامي</div>
+    <div class="news-title">📢 أخبار المجتمع وتحديثات كونامي والرسائل</div>
     {% for n in news %}
     <div class="news-item"><b>{{ n['title'] }}</b>: {{ n['content'] }}</div>
     {% endfor %}
@@ -420,7 +397,183 @@ function filterCards() { let query = document.getElementById('searchInput').valu
 """
 
 
-# صفحة عرض جميع المدربين عند الضغط على الصورة المصغرة
+# صفحة باني التشكيلة الاحترافية الشاملة للبحث والمدربين والمهملات والتكتيك!
+SQUAD_BUILDER_TEMPLATE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تكتيك الملعب وباني الفرقة | NOVA eHUB 26</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
+:root { --bg-dark: #07090e; --panel-bg: #0e121d; --neon-green: #ccff00; --neon-blue: #00d2ff; --border-color: #1e2638; }
+body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans-serif; padding: 15px; }
+
+.squad-controls { max-width: 500px; margin: 0 auto 15px; background: #0e121d; border: 1px solid var(--border-color); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.control-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+select, input { background: #07090e; border: 1px solid var(--border-color); color: #fff; padding: 8px; border-radius: 8px; font-family: 'Cairo'; font-size: 12px; }
+
+.pitch-container { max-width: 500px; margin: 0 auto; background: linear-gradient(180deg, #0b2512, #051408); border: 2px solid var(--neon-green); border-radius: 20px; padding: 20px 10px; position: relative; min-height: 580px; display: flex; flex-direction: column; justify-content: space-between; }
+.pitch-line { position: absolute; border: 1px solid rgba(204, 255, 0, 0.2); pointer-events: none; }
+.line-center { top: 50%; left: 0; right: 0; }
+.line-circle { top: 50%; left: 50%; width: 100px; height: 100px; border-radius: 50%; transform: translate(-50%, -50%); }
+
+.field-row { display: flex; justify-content: space-around; width: 100%; margin: 10px 0; z-index: 10; }
+.pos-slot { width: 70px; height: 90px; background: rgba(14, 18, 29, 0.9); border: 1px dashed var(--neon-green); border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: var(--neon-green); cursor: pointer; position: relative; transition: 0.2s; text-align: center; }
+.pos-slot:hover { border-style: solid; background: #141a29; }
+.pos-slot img { width: 45px; height: 45px; object-fit: contain; border-radius: 6px; }
+.delete-btn { position: absolute; top: -5px; right: -5px; background: #ef4444; color: #fff; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+/* نافذة البحث المباشر عن اللاعبين */
+.modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; }
+.modal-content { background: #0e121d; border: 2px solid var(--neon-green); border-radius: 16px; padding: 20px; width: 90%; max-width: 400px; max-height: 80vh; overflow-y: auto; }
+.search-item { display: flex; align-items: center; justify-content: space-between; background: #141a29; padding: 8px; border-radius: 8px; margin-bottom: 6px; cursor: pointer; }
+.search-item:hover { border: 1px solid var(--neon-green); }
+
+.back-btn { display: block; text-align: center; margin: 20px auto; max-width: 500px; padding: 12px; background: var(--neon-green); color: #000; font-weight: 900; border-radius: 10px; text-decoration: none; }
+</style>
+</head>
+<body>
+<h2 style="text-align:center; color:var(--neon-green); margin-bottom:10px;">⚽ تكتيك الملعب وباني الفرقة</h2>
+
+<div class="squad-controls">
+  <div class="control-row">
+    <label style="font-size:12px; font-weight:bold;">👔 اختر المدرب:</label>
+    <select id="managerSelect">
+      <option value="">-- اختر المدرب --</option>
+      {% for m in managers %}
+      <option value="{{ m['name'] }}">{{ m['name'] }} ({{ m['playstyle'] }})</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="control-row">
+    <label style="font-size:12px; font-weight:bold;">🏆 الفريق والدوري المفضل:</label>
+    <select id="leagueSelect">
+      <option value="Premier League">الدوري الإنجليزي (Premier League)</option>
+      <option value="La Liga">الدوري الإسباني (La Liga)</option>
+      <option value="Serie A">الدوري الإيطالي (Serie A)</option>
+      <option value="eFootball Team">فريق eFootball المفضل</option>
+    </select>
+  </div>
+
+  <div class="control-row">
+    <label style="font-size:12px; font-weight:bold;">❌⭕ التكتيك المفضل:</label>
+    <select id="tacticSelect">
+      <option value="Possession">الاستحواذ (Possession)</option>
+      <option value="Quick Counter">المرتدة السريعة (Quick Counter)</option>
+      <option value="Out Wide">العرضيات (Out Wide)</option>
+    </select>
+  </div>
+</div>
+
+<div class="pitch-container">
+  <div class="pitch-line line-center"></div>
+  <div class="pitch-line line-circle"></div>
+
+  <!-- هجوم -->
+  <div class="field-row">
+    <div class="pos-slot" onclick="openSearch('LWF')" id="slot_LWF"><span>LWF</span><br>+</div>
+    <div class="pos-slot" onclick="openSearch('CF')" id="slot_CF"><span>CF</span><br>+</div>
+    <div class="pos-slot" onclick="openSearch('RWF')" id="slot_RWF"><span>RWF</span><br>+</div>
+  </div>
+
+  <!-- خط وسط -->
+  <div class="field-row">
+    <div class="pos-slot" onclick="openSearch('CMF1')" id="slot_CMF1"><span>CMF</span><br>+</div>
+    <div class="pos-slot" onclick="openSearch('AMF')" id="slot_AMF"><span>AMF</span><br>+</div>
+    <div class="pos-slot" onclick="openSearch('CMF2')" id="slot_CMF2"><span>CMF</span><br>+</div>
+  </div>
+
+  <!-- دفاع -->
+  <div class="field-row">
+    <div class="pos-slot" onclick="openSearch('LB')" id="slot_LB"><span>LB</span><br>+</div>
+    <div class="pos-slot" onclick="openSearch('CB1')" id="slot_CB1"><span>CB</span><br>+</div>
+    <div class="pos-slot" onclick="openSearch('CB2')" id="slot_CB2"><span>CB</span><br>+</div>
+    <div class="pos-slot" onclick="openSearch('RB')" id="slot_RB"><span>RB</span><br>+</div>
+  </div>
+
+  <!-- حارس -->
+  <div class="field-row" style="justify-content: center;">
+    <div class="pos-slot" onclick="openSearch('GK')" id="slot_GK"><span>GK</span><br>+</div>
+  </div>
+</div>
+
+<!-- نافذة البحث عن لاعب -->
+<div class="modal" id="searchModal">
+  <div class="modal-content">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <h3 style="color:var(--neon-green); font-size:14px;">🔎 البحث عن لاعب</h3>
+      <span onclick="closeSearch()" style="cursor:pointer; font-weight:bold;">❌</span>
+    </div>
+    <input type="text" id="modalSearchInput" placeholder="اكتب اسم اللاعب..." onkeyup="filterModalPlayers()" style="width:100%; margin-bottom:10px;">
+    <div id="modalPlayersList"></div>
+  </div>
+</div>
+
+<a href="/" class="back-btn">← العودة للرئيسية</a>
+
+<script>
+let allPlayers = {{ players | tojson }};
+let currentSlot = '';
+
+function openSearch(slotId) {
+  currentSlot = slotId;
+  document.getElementById('searchModal').style.display = 'flex';
+  renderModalPlayers(allPlayers);
+}
+
+function closeSearch() {
+  document.getElementById('searchModal').style.display = 'none';
+}
+
+function renderModalPlayers(list) {
+  let html = '';
+  list.forEach(p => {
+    html += `
+      <div class="search-item" onclick="selectPlayer('${p.name}', '${p.image_url}', '${p.overall_max}')">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <img src="${p.image_url}" style="width:30px; height:30px; object-fit:contain;">
+          <div>
+            <div style="font-size:12px; font-weight:bold;">${p.name}</div>
+            <div style="font-size:9px; color:#8fa0c0;">${p.position}</div>
+          </div>
+        </div>
+        <div style="color:var(--neon-green); font-weight:bold;">${p.overall_max}</div>
+      </div>
+    `;
+  });
+  document.getElementById('modalPlayersList').innerHTML = html || '<div style="font-size:12px; color:#888;">لا يوجد لاعبين</div>';
+}
+
+function filterModalPlayers() {
+  let q = document.getElementById('modalSearchInput').value.toLowerCase();
+  let filtered = allPlayers.filter(p => p.name.toLowerCase().includes(q));
+  renderModalPlayers(filtered);
+}
+
+function selectPlayer(name, img, overall) {
+  let slot = document.getElementById('slot_' + currentSlot);
+  slot.innerHTML = `
+    <div class="delete-btn" onclick="event.stopPropagation(); removePlayer('${currentSlot}')">🗑️</div>
+    <img src="${img}">
+    <span style="font-size:9px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%;">${name}</span>
+    <span style="font-size:9px; color:var(--neon-green);">${overall}</span>
+  `;
+  closeSearch();
+}
+
+function removePlayer(slotId) {
+  let slot = document.getElementById('slot_' + slotId);
+  slot.innerHTML = `<span>${slotId.replace(/[0-9]/g, '')}</span><br>+`;
+}
+</script>
+</body>
+</html>
+"""
+
+
 MANAGERS_LIST_TEMPLATE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -456,7 +609,6 @@ body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans
 """
 
 
-# صفحة تفاصيل اللاعب المطابقة لـ eFHUB بالكامل
 PLAYER_DETAIL_TEMPLATE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -470,33 +622,20 @@ PLAYER_DETAIL_TEMPLATE = r"""
 body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans-serif; padding: 15px; }
 .efhub-layout { max-width: 1000px; margin: auto; display: grid; grid-template-columns: 320px 1fr; gap: 20px; }
 @media(max-width: 850px) { .efhub-layout { grid-template-columns: 1fr; } }
-
 .card-box { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; text-align: center; }
 .card-img-large { width: 190px; height: 230px; object-fit: contain; margin: 10px auto; border-radius: 12px; background: #05070c; border: 2px solid var(--neon-green); padding: 5px; }
-
 .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-@media(max-width: 600px) { .stats-grid { grid-template-columns: 1fr; } }
-
 .section-box { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 15px; }
 .section-header { font-size: 13px; font-weight: 900; color: #8fa0c0; margin-bottom: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 4px; }
-
 .stat-row-ef { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #141a29; font-size: 12px; font-weight: 700; }
-.stat-val-badge { padding: 3px 8px; border-radius: 6px; font-weight: 900; font-size: 13px; min-width: 38px; text-align: center; color: #000; }
-
-.val-green { background: #ccff00; }
-.val-yellow { background: #facc15; }
-.val-orange { background: #fb923c; }
-.val-red { background: #ef4444; color: #fff; }
-
+.stat-val-badge { padding: 3px 8px; border-radius: 6px; font-weight: 900; font-size: 13px; min-width: 38px; text-align: center; color: #000; background: #ccff00; }
 .skills-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .skill-tag { background: #141a29; border: 1px solid #229ed9; color: #00d2ff; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: bold; }
-
 .back-btn { display: block; text-align: center; margin-top: 20px; padding: 12px; background: var(--neon-green); color: #000; font-weight: 900; border-radius: 10px; text-decoration: none; grid-column: 1 / -1; }
 </style>
 </head>
 <body>
 <div class="efhub-layout">
-  
   <div class="card-box">
     <h2 style="color:var(--neon-green); font-size:24px; font-weight:900;">{{ player['name'] }}</h2>
     <p style="font-size:12px; color:#94a3b8; margin-top:4px;">{{ player['team'] }} | المركز: <b style="color:#00d2ff;">{{ player['position'] }}</b></p>
@@ -504,134 +643,41 @@ body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans
     <p style="font-size:11px; color:#38bdf8; margin-top:8px;">نوع البطاقة: {{ player['card_type'] }}</p>
     <p style="font-size:14px; font-weight:bold; margin-top:6px;">Max Overall: <span style="color:var(--neon-green); font-size:18px;">{{ player['overall_max'] }}</span></p>
   </div>
-
   <div>
     <div class="stats-grid">
       <div class="section-box">
         <div class="section-header">🔥 مهاجمة (Attacking)</div>
         <div id="attackingStats"></div>
       </div>
-
       <div class="section-box">
-        <div class="section-header">⚡ القدرة البدنية (Physical)</div>
-        <div id="physicalStats"></div>
-      </div>
-
-      <div class="section-box" style="grid-column: 1 / -1;">
         <div class="section-header">🛡️ الدفاع (Defending)</div>
         <div id="defendingStats"></div>
       </div>
     </div>
-
     <div class="section-box" style="margin-top:15px;">
       <div class="section-header">✨ مهارات اللاعب (Skills)</div>
       <div class="skills-list" id="skillsList"></div>
     </div>
   </div>
-
   <a href="/" class="back-btn">← العودة للرئيسية</a>
 </div>
-
 <script>
 let fullStats = {{ player['stats_json'] | safe }};
 let skills = {{ player['skills_json'] | safe }};
-
-function getBadgeClass(val) {
-  if(val >= 85) return 'val-green';
-  if(val >= 75) return 'val-yellow';
-  if(val >= 60) return 'val-orange';
-  return 'val-red';
-}
-
 function renderSection(obj, containerId) {
   let html = '';
   for(let key in obj) {
     let val = obj[key];
-    html += `
-      <div class="stat-row-ef">
-        <span style="color:#cbd5e1;">${key}</span>
-        <span class="stat-val-badge ${getBadgeClass(val)}">${val}</span>
-      </div>
-    `;
+    html += `<div class="stat-row-ef"><span style="color:#cbd5e1;">${key}</span><span class="stat-val-badge">${val}</span></div>`;
   }
   document.getElementById(containerId).innerHTML = html || '<div style="font-size:11px;color:#666;">غير متاح</div>';
 }
-
 renderSection(fullStats.attacking || {}, 'attackingStats');
-renderSection(fullStats.physical || {}, 'physicalStats');
 renderSection(fullStats.defending || {}, 'defendingStats');
-
 let skillsHtml = '';
-if(Array.isArray(skills) && skills.length > 0) {
-  skills.forEach(s => { skillsHtml += `<span class="skill-tag">⚡ ${s}</span>`; });
-} else {
-  skillsHtml = '<span style="font-size:11px;color:#888;">لا توجد مهارات مسجلة</span>';
-}
-document.getElementById('skillsList').innerHTML = skillsHtml;
+if(Array.isArray(skills) && skills.length > 0) { skills.forEach(s => { skillsHtml += `<span class="skill-tag">⚡ ${s}</span>`; }); }
+document.getElementById('skillsList').innerHTML = skillsHtml || '<span style="font-size:11px;color:#888;">لا توجد مهارات</span>';
 </script>
-</body>
-</html>
-"""
-
-
-SQUAD_BUILDER_TEMPLATE = r"""
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>باني الفرقة | NOVA eHUB 26</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
-:root { --bg-dark: #07090e; --panel-bg: #0e121d; --neon-green: #ccff00; --border-color: #1e2638; }
-body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans-serif; padding: 15px; }
-.pitch-container { max-width: 500px; margin: 0 auto; background: linear-gradient(180deg, #0b2512, #051408); border: 2px solid var(--neon-green); border-radius: 20px; padding: 20px 10px; position: relative; min-height: 600px; display: flex; flex-direction: column; justify-content: space-between; }
-.pitch-line { position: absolute; border: 1px solid rgba(204, 255, 0, 0.2); pointer-events: none; }
-.line-center { top: 50%; left: 0; right: 0; }
-.line-circle { top: 50%; left: 50%; width: 100px; height: 100px; border-radius: 50%; transform: translate(-50%, -50%); }
-
-.field-row { display: flex; justify-content: space-around; width: 100%; margin: 15px 0; z-index: 10; }
-.pos-slot { width: 65px; height: 85px; background: rgba(14, 18, 29, 0.85); border: 1px dashed var(--neon-green); border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: var(--neon-green); cursor: pointer; transition: 0.2s; }
-.pos-slot:hover { background: var(--neon-green); color: #000; }
-.back-btn { display: block; text-align: center; margin: 20px auto; max-width: 500px; padding: 12px; background: var(--neon-green); color: #000; font-weight: 900; border-radius: 10px; text-decoration: none; }
-</style>
-</head>
-<body>
-<h2 style="text-align:center; color:var(--neon-green); margin-bottom:15px;">⚽ تكتيك الملعب وباني الفرقة</h2>
-
-<div class="pitch-container">
-  <div class="pitch-line line-center"></div>
-  <div class="pitch-line line-circle"></div>
-
-  <!-- هجوم -->
-  <div class="field-row">
-    <div class="pos-slot">LWF<br>+</div>
-    <div class="pos-slot">CF<br>+</div>
-    <div class="pos-slot">RWF<br>+</div>
-  </div>
-
-  <!-- خط وسط -->
-  <div class="field-row">
-    <div class="pos-slot">CMF<br>+</div>
-    <div class="pos-slot">AMF<br>+</div>
-    <div class="pos-slot">CMF<br>+</div>
-  </div>
-
-  <!-- دفاع -->
-  <div class="field-row">
-    <div class="pos-slot">LB<br>+</div>
-    <div class="pos-slot">CB<br>+</div>
-    <div class="pos-slot">CB<br>+</div>
-    <div class="pos-slot">RB<br>+</div>
-  </div>
-
-  <!-- حارس -->
-  <div class="field-row" style="justify-content: center;">
-    <div class="pos-slot">GK<br>+</div>
-  </div>
-</div>
-
-<a href="/" class="back-btn">← العودة للرئيسية</a>
 </body>
 </html>
 """
@@ -671,16 +717,19 @@ body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans
 """
 
 
+@app.route('/squad-builder')
+def squad_builder():
+    with get_db() as db:
+        players = [dict(row) for row in db.execute("SELECT name, position, overall_max, image_url FROM players").fetchall()]
+        managers = [dict(row) for row in db.execute("SELECT name, playstyle FROM managers").fetchall()]
+    return render_template_string(SQUAD_BUILDER_TEMPLATE, players=players, managers=managers)
+
+
 @app.route('/managers')
 def managers_page():
     with get_db() as db:
         managers = db.execute("SELECT * FROM managers ORDER BY id DESC").fetchall()
     return render_template_string(MANAGERS_LIST_TEMPLATE, managers=managers)
-
-
-@app.route('/squad-builder')
-def squad_builder():
-    return render_template_string(SQUAD_BUILDER_TEMPLATE)
 
 
 @app.route('/player/<int:player_id>')
@@ -814,7 +863,14 @@ def admin_panel():
         if request.method == "POST":
             action = request.form.get("action")
 
-            if action == "upload_banner":
+            if action == "send_news":
+                title = request.form.get("title")
+                content = request.form.get("content")
+                db.execute("INSERT INTO news (title, content, created_at) VALUES (?, ?, ?)", (title, content, int(time.time())))
+                db.commit()
+                msg = "✅ تم إرسال الرسالة والإشعار لجميع المستخدمين بنجاح!"
+
+            elif action == "upload_banner":
                 file = request.files.get("banner_file")
                 if file and file.filename != "":
                     filename = secure_filename(file.filename)
@@ -895,7 +951,7 @@ def admin_panel():
     <html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>لوحة المطور</title>
     <style>body{{background:#07090e;color:#fff;font-family:Cairo,sans-serif;padding:30px;}}
     .box{{background:#0e121d;padding:20px;border:1px solid #ccff00;border-radius:14px;max-width:550px;margin:0 auto 20px;}}
-    input, select{{width:100%;padding:10px;margin:6px 0;background:#07090e;border:1px solid #1e2638;border-radius:8px;color:#fff;box-sizing:border-box;}}
+    input, textarea, select{{width:100%;padding:10px;margin:6px 0;background:#07090e;border:1px solid #1e2638;border-radius:8px;color:#fff;box-sizing:border-box;font-family:Cairo;}}
     button{{padding:10px 20px;background:#ccff00;color:#000;border:0;border-radius:8px;font-weight:bold;cursor:pointer;}}
     </style></head>
     <body><div style="max-width:550px;margin:auto;">
@@ -903,11 +959,21 @@ def admin_panel():
     <p style="color:#35eaa1;font-weight:bold;">{msg}</p>
 
     <div class="box">
-      <h3>🖼️ رفع البانر الرئيسي للموقع</h3>
+      <h3>📢 إرسال رسالة أو إشعار لجميع المستخدمين</h3>
+      <form method="post">
+        <input type="hidden" name="action" value="send_news">
+        <input name="title" placeholder="عنوان الرسالة / التنبيه" required>
+        <textarea name="content" placeholder="محتوى الرسالة..." rows="3" required></textarea>
+        <button type="submit" style="margin-top:10px;">إرسال للجميع 🚀</button>
+      </form>
+    </div>
+
+    <div class="box">
+      <h3>🖼️ رفع البانر الرئيسي للموقع من الهاتف</h3>
       <form method="post" enctype="multipart/form-data">
         <input type="hidden" name="action" value="upload_banner">
         <input type="file" name="banner_file" accept="image/*" required>
-        <button type="submit" style="margin-top:10px;">عرض البانر الرئيسي 🚀</button>
+        <button type="submit" style="margin-top:10px;">رفع وعرض البانر الرئيسي 🚀</button>
       </form>
     </div>
 
@@ -916,12 +982,12 @@ def admin_panel():
       <form method="post" enctype="multipart/form-data">
         <input type="hidden" name="action" value="upload_managers_card">
         <input type="file" name="card_file" accept="image/*" required>
-        <button type="submit" style="margin-top:10px;">حفظ وتحديث الصورة المصغرة 🚀</button>
+        <button type="submit" style="margin-top:10px;">رفع وتحديث الصورة 🚀</button>
       </form>
     </div>
 
     <div class="box">
-      <h3>👔 إضافة مدرب جديد</h3>
+      <h3>👔 إضافة مدرب جديد مع الصورة</h3>
       <form method="post" enctype="multipart/form-data">
         <input type="hidden" name="action" value="add_manager">
         <input name="name" placeholder="اسم المدرب" required>
@@ -977,7 +1043,7 @@ def home():
     
     with get_db() as db:
         players = [dict(row) for row in db.execute("SELECT * FROM players ORDER BY overall_max DESC").fetchall()]
-        news = [dict(row) for row in db.execute("SELECT * FROM news ORDER BY id DESC LIMIT 3").fetchall()]
+        news = [dict(row) for row in db.execute("SELECT * FROM news ORDER BY id DESC LIMIT 5").fetchall()]
         managers = [dict(row) for row in db.execute("SELECT * FROM managers ORDER BY id DESC").fetchall()]
         banner_res = db.execute("SELECT value FROM settings WHERE key = 'custom_banner'").fetchone()
         m_card_res = db.execute("SELECT value FROM settings WHERE key = 'managers_card_img'").fetchone()
