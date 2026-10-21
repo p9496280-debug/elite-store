@@ -3,7 +3,6 @@ import json
 import time
 import secrets
 import sqlite3
-import math
 
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -24,14 +23,15 @@ UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@novastore.com")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "nova_store.db")
 
 ADMIN_TELEGRAM_USERNAME = "Mido_M9do"
 TELEGRAM_PRIMARY_CHANNEL = "https://t.me/Midomsn"
 TELEGRAM_WORLD_CHANNEL = "https://t.me/MidoWorld"
 TELEGRAM_BOT_URL = "https://t.me/midoassistantAIbot"
+VODAFONE_CASH_NUMBER = "01011541698"
 
 
 def get_db():
@@ -50,7 +50,9 @@ def init_db():
                 password_hash TEXT NOT NULL,
                 balance REAL NOT NULL DEFAULT 0.0,
                 verified INTEGER NOT NULL DEFAULT 1,
-                avatar TEXT DEFAULT '🤖',
+                avatar TEXT DEFAULT '⚡',
+                rank TEXT DEFAULT 'عضو ماسي 💎',
+                points INTEGER DEFAULT 150,
                 created_at INTEGER NOT NULL
             )
         """)
@@ -72,6 +74,13 @@ def init_db():
         """)
 
         db.execute("""
+            CREATE TABLE IF NOT EXISTS promo_codes (
+                code TEXT PRIMARY KEY,
+                discount REAL NOT NULL
+            )
+        """)
+
+        db.execute("""
             CREATE TABLE IF NOT EXISTS reviews (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_name TEXT NOT NULL,
@@ -81,24 +90,22 @@ def init_db():
             )
         """)
 
-        # الحساب الإداري
         admin_user = db.execute("SELECT id FROM users WHERE email = ?", (ADMIN_EMAIL,)).fetchone()
         if not admin_user:
             db.execute("""
-                INSERT INTO users (name, email, password_hash, balance, verified, avatar, created_at)
-                VALUES (?, ?, ?, 999999.0, 1, '👑', ?)
+                INSERT INTO users (name, email, password_hash, balance, verified, avatar, rank, points, created_at)
+                VALUES (?, ?, ?, 999999.0, 1, '👑', 'المطور الرئيسي 🚀', 5000, ?)
             """, ("المطور (ADMIN)", ADMIN_EMAIL, generate_password_hash(ADMIN_PASSWORD), int(time.time())))
 
-        # المنتجات الافتراضية
+        db.execute("INSERT OR IGNORE INTO promo_codes (code, discount) VALUES ('MIDO2026', 10.0)")
+
         cursor = db.execute("SELECT COUNT(*) as count FROM products")
         if cursor.fetchone()["count"] == 0:
             default_products = [
-                ("شحن فودافون كاش فوري", "شحن رصيد أو محفظة فودافون كاش فوراً", 100.00, "100 جـ", "VOD-01", "📱", "", "فودافون كاش", "#ef4444", "الأكثر مبيعا"),
-                ("بطاقة الائتمان الافتراضية (Visa)", "بطاقة مفعلة للشراء من جميع المتاجر العالمية", 50.00, "$50.00", "CC-02", "💳", "", "بطاقات الائتمان", "#38bdf8", "مميز"),
+                ("شحن فودافون كاش فوري", f"حول على رقمنا: {VODAFONE_CASH_NUMBER}", 100.00, "100 جـ", "VOD-01", "📱", "", "فودافون كاش", "#ef4444", "الأكثر مبيعا"),
+                ("بطاقة ائتمان (Visa / Master)", "حول من بطاقتك وتصل إلى فودافون كاش فوراً", 50.00, "$50.00", "CC-02", "💳", "", "بطاقات الائتمان", "#38bdf8", "مميز"),
                 ("كود جوجل بلاي (10$)", "الولايات المتحدة الأمريكية", 10.00, "$10.00", "GPLAY-10", "▶", "", "Google Play", "#35eaa1", None),
                 ("كود بلايستيشن (20$)", "متجر الولايات المتحدة", 20.00, "$20.00", "PSN-20", "PS", "", "PlayStation", "#62a0ff", None),
-                ("كود إكس بوكس (25$)", "بطاقة هدايا Xbox Game Pass", 25.00, "$25.00", "XBOX-25", "ⓧ", "", "Xbox", "#5dff9c", None),
-                ("كود ستيم (20$)", "محفظة ستيم", 20.00, "$20.00", "STEAM-20", "◉", "", "Steam", "#9bb8ff", None),
             ]
             db.executemany("""
                 INSERT INTO products (name, description, price_val, price, code, icon, image_url, category, color, badge)
@@ -107,7 +114,7 @@ def init_db():
 
         cursor_rev = db.execute("SELECT COUNT(*) as count FROM reviews")
         if cursor_rev.fetchone()["count"] == 0:
-            db.execute("INSERT INTO reviews (user_name, rating, comment, created_at) VALUES ('محمود علي', 5, 'متجر رائع جداً وسرعة في تسليم الأكواد!', ?)", (int(time.time()),))
+            db.execute("INSERT INTO reviews (user_name, rating, comment, created_at) VALUES ('محمود علي', 5, 'متجر رائع جداً وسرعة في تسليم الأكواد والتحويل!', ?)", (int(time.time()),))
 
 
 init_db()
@@ -125,7 +132,7 @@ def get_reviews():
         return [dict(row) for row in rows]
 
 
-# ==================== الصفحة الرئيسية الكاملة ====================
+# ==================== الواجهة الرئيسية ====================
 PAGE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -139,26 +146,22 @@ PAGE = r"""
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:#f4f7ff;font-family:'Cairo',sans-serif;min-height:100vh;}
 
-/* الهيدر العلوي */
 .topbar{height:76px;display:flex;align-items:center;justify-content:space-between;padding:0 3%;background:#040a1bed;border-bottom:1px solid #18284a;position:sticky;top:0;z-index:100;backdrop-filter:blur(12px);}
 .brand{display:flex;align-items:center;gap:10px;font-size:24px;font-weight:800;text-decoration:none;color:white;}
 .brand b{color:#754bff}
 .brand-mark{width:38px;height:38px;display:grid;place-items:center;font-size:30px;background:linear-gradient(140deg,#bc5bff,#276bff);color:white;clip-path:polygon(0 0,75% 0,100% 20%,100% 100%,27% 100%,0 78%)}
 
-.search-bar{height:42px;width:340px;display:flex;align-items:center;gap:10px;border:1px solid #263d70;border-radius:25px;padding:0 16px;background:#09132b;}
+.search-bar{height:42px;width:320px;display:flex;align-items:center;gap:10px;border:1px solid #263d70;border-radius:25px;padding:0 16px;background:#09132b;}
 .search-bar input{width:100%;border:0;outline:0;background:transparent;color:white;font-size:12px;font-family:'Cairo';}
 
 .top-actions{display:flex;align-items:center;gap:10px;}
-.lang-btn{background:#0b1734;border:1px solid #263d70;color:#fff;padding:6px 12px;border-radius:20px;font-size:11px;display:flex;align-items:center;gap:5px;cursor:pointer;}
 .cart-btn{position:relative;background:#0b1734;border:1px solid #263d70;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:#fff;text-decoration:none;}
 .cart-badge{position:absolute;top:-4px;right:-4px;background:#315dff;color:#fff;font-size:9px;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-weight:bold;}
 
-.auth-btns{display:flex;gap:8px;}
-.btn-login{color:#d8e2ff;text-decoration:none;font-size:12px;padding:8px 10px;display:grid;place-items:center;}
 .btn-reg{padding:8px 16px;background:linear-gradient(110deg,#9b37ff,#315dff);border-radius:10px;font-weight:bold;color:white;text-decoration:none;font-size:12px;}
+.btn-login{color:#d8e2ff;text-decoration:none;font-size:12px;padding:8px 10px;}
 
-/* شريط التنقل الملون */
-.nav-bar{height:54px;padding:0 3%;display:flex;align-items:center;gap:20px;border-bottom:1px solid #18284a;background:#050d22;font-size:13px;font-weight:700;overflow-x:auto;}
+.nav-bar{height:54px;padding:0 3%;display:flex;align-items:center;gap:15px;border-bottom:1px solid #18284a;background:#050d22;font-size:13px;font-weight:700;overflow-x:auto;}
 .nav-bar::-webkit-scrollbar{display:none;}
 .nav-bar a{text-decoration:none;padding:6px 12px;border-radius:10px;transition:0.2s;white-space:nowrap;}
 .nav-main{color:#38bdf8;background:#38bdf815;border:1px solid #38bdf844;}
@@ -166,21 +169,18 @@ body{margin:0;background:var(--bg);color:#f4f7ff;font-family:'Cairo',sans-serif;
 .nav-spin{color:#facc15;background:#facc1515;border:1px solid #facc1544;}
 .nav-support{color:#a855f7;background:#a855f715;border:1px solid #a855f744;}
 
-/* التخطيط الرئيسي */
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;padding:20px 3%;}
 @media (max-width:1000px){.layout{grid-template-columns:1fr;}.ai-sidebar{display:none;}}
 
-/* البانر الرئيسي */
-.hero{background:radial-gradient(circle at 75% 50%,#351174 0,transparent 50%),linear-gradient(110deg,#06102b,#080c2c 60%,#100a3b);border:1px solid #263f77;border-radius:20px;padding:25px;display:grid;grid-template-columns:1.2fr 1fr;align-items:center;position:relative;overflow:hidden;margin-bottom:20px;}
+.hero{background:radial-gradient(circle at 75% 50%,#351174 0,transparent 50%),linear-gradient(110deg,#06102b,#080c2c 60%,#100a3b);border:1px solid #263f77;border-radius:20px;padding:25px;display:grid;grid-template-columns:1.2fr 1fr;align-items:center;margin-bottom:20px;}
 .hero h1{font-size:clamp(18px,2vw,24px);line-height:1.6;margin:0 0 10px;font-weight:800;}
 .hero p{color:#c4cce2;font-size:11.5px;line-height:1.7;margin:0 0 15px;}
 .hero-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 22px;border-radius:30px;font-size:12px;background:linear-gradient(110deg,#9b37ff,#315dff);color:white;text-decoration:none;font-weight:bold;}
 
-/* كود الخصم البانر السريع */
-.promo-banner{background:linear-gradient(135deg,#1e1b4b,#312e81);border:1px solid #6366f1;border-radius:14px;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
-.promo-code-box{background:#030712;padding:6px 14px;border-radius:8px;border:1px dashed #a855f7;color:#35eaa1;font-weight:bold;font-size:13px;letter-spacing:1px;cursor:pointer;}
+.promo-box-main{background:linear-gradient(135deg,#07132c,#0a1b3d);border:1px solid #315dff;border-radius:14px;padding:15px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:15px;}
+.promo-input{background:#03091b;border:1px solid #263d70;padding:8px 12px;border-radius:8px;color:#fff;font-size:12px;width:200px;}
+.promo-apply-btn{background:linear-gradient(110deg,#10b981,#059669);color:#fff;border:0;padding:8px 16px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:12px;}
 
-/* شبكة التصنيفات */
 .cat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:25px;}
 .cat-card{background:linear-gradient(150deg,#07152e,#050d20);border:1px solid #1a2d54;border-radius:14px;padding:12px 6px;text-align:center;cursor:pointer;transition:0.2s;}
 .cat-card:hover{border-color:#315dff;transform:translateY(-2px);}
@@ -188,7 +188,6 @@ body{margin:0;background:var(--bg);color:#f4f7ff;font-family:'Cairo',sans-serif;
 .cat-card b{font-size:10.5px;color:#fff;display:block;}
 .cat-card p{font-size:8.5px;color:#8fa1c4;margin:2px 0 0;}
 
-/* المنتجات */
 .sec-title{display:flex;align-items:center;justify-content:space-between;margin:20px 0 12px;}
 .sec-title h2{font-size:17px;margin:0;display:flex;align-items:center;gap:8px;}
 .product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px;}
@@ -202,7 +201,6 @@ body{margin:0;background:var(--bg);color:#f4f7ff;font-family:'Cairo',sans-serif;
 .price{font-size:12.5px;font-weight:800;color:#35eaa1;}
 .add-btn{padding:6px 10px;background:linear-gradient(100deg,#933aff,#315dff);border:0;border-radius:8px;font-size:10px;font-weight:700;color:white;cursor:pointer;}
 
-/* مساعد الذكاء الاصطناعي الجانبي */
 .ai-sidebar{background:#07132c;border:1px solid #1b3159;border-radius:18px;padding:16px;height:fit-content;position:sticky;top:90px;}
 .ai-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;border-bottom:1px solid #18284a;padding-bottom:10px;}
 .ai-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#38bdf8,#315dff);display:grid;place-items:center;font-size:20px;border:2px solid #35eaa1;}
@@ -212,7 +210,6 @@ body{margin:0;background:var(--bg);color:#f4f7ff;font-family:'Cairo',sans-serif;
 .ai-input-box input{flex:1;background:transparent;border:0;outline:0;color:#fff;font-size:11px;font-family:'Cairo';}
 .ai-send-btn{width:30px;height:30px;background:linear-gradient(110deg,#9b37ff,#315dff);border:0;border-radius:50%;color:white;display:grid;place-items:center;cursor:pointer;}
 
-/* التذييل Footer مع الأزرار الملونة المطلوبة تماماً */
 footer{border-top:1px solid #192b4e;padding:35px 3%;background:#030714;display:grid;grid-template-columns:1.5fr 1fr 1.2fr;gap:25px;color:#aab9d8;font-size:11px;margin-top:40px;}
 @media (max-width:850px){footer{grid-template-columns:1fr;}}
 .footer-btn-group{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
@@ -225,7 +222,6 @@ footer{border-top:1px solid #192b4e;padding:35px 3%;background:#030714;display:g
 </head>
 <body>
 
-<!-- الهيدر العلوي -->
 <header class="topbar">
   <a class="brand" href="/">
     <div class="brand-mark">N</div>
@@ -238,7 +234,6 @@ footer{border-top:1px solid #192b4e;padding:35px 3%;background:#030714;display:g
   </div>
 
   <div class="top-actions">
-    <div class="lang-btn"><span>🌐 AR</span></div>
     <a href="/cart" class="cart-btn">
       <span>🛒</span>
       <span class="cart-badge" id="cartCount">0</span>
@@ -247,9 +242,12 @@ footer{border-top:1px solid #192b4e;padding:35px 3%;background:#030714;display:g
       <a href="/admin" class="btn-reg" style="background:#7f1d1d;border:1px solid #ef4444;">⚙️ لوحة المطور</a>
     {% endif %}
     {% if user %}
-      <a href="/account" class="btn-reg" style="background:#0b1734;border:1px solid #315dff;">{{ user["name"] }}</a>
+      <a href="/account" class="btn-reg" style="background:#0b1734;border:1px solid #315dff;display:flex;align-items:center;gap:6px;">
+        <span>{{ user["avatar"] }}</span>
+        <span>{{ user["name"] }}</span>
+      </a>
     {% else %}
-      <div class="auth-btns">
+      <div style="display:flex;gap:6px;">
         <a href="/login" class="btn-login">تسجيل الدخول</a>
         <a href="/register" class="btn-reg">إنشاء حساب</a>
       </div>
@@ -257,23 +255,21 @@ footer{border-top:1px solid #192b4e;padding:35px 3%;background:#030714;display:g
   </div>
 </header>
 
-<!-- شريط التنقل الملون -->
 <nav class="nav-bar">
   <a href="/" class="nav-main">🏠 الرئيسية</a>
   <a href="/game" class="nav-games">🎮 الألعاب الترفيهية</a>
   <a href="/spin" class="nav-spin">🎡 عجلة الحظ السحرية</a>
-  <a href="#products" onclick="filterCat('فودافون كاش')">📱 فودافون كاش</a>
+  <a href="#products" onclick="filterCat('فودافون كاش')">📱 فودافون كاش ({{ vodafone_num }})</a>
   <a href="#products" onclick="filterCat('بطاقات الائتمان')">💳 بطاقات الائتمان</a>
   <a href="https://t.me/{{ admin_telegram }}" target="_blank" class="nav-support">🎧 الدعم والمطور</a>
 </nav>
 
 <div class="layout">
-  <!-- المحتوى الرئيسي -->
   <main>
     <div class="hero">
       <div>
-        <h1>كل ما تحتاجه من بطاقات الدفع وأكواد الألعاب في مكان واحد!</h1>
-        <p>بطاقات رقمية آمنة وسريعة. شحن فودافون كاش، بطاقات الائتمان، وأكواد المتاجر العالمية.</p>
+        <h1>كل ما تحتاجه من بطاقات الدفع وشحن فودافون كاش والألعاب!</h1>
+        <p>حول الآن على محفظتنا: <b>{{ vodafone_num }}</b> أو استخدم بطاقة الائتمان الخاصة بك لتصل المحفظة فوراً.</p>
         <a class="hero-btn" href="#products">تسوق الآن ←</a>
       </div>
       <div style="display:grid;place-items:center;font-size:55px;">
@@ -281,26 +277,27 @@ footer{border-top:1px solid #192b4e;padding:35px 3%;background:#030714;display:g
       </div>
     </div>
 
-    <!-- بنر كود الخصم السريع -->
-    <div class="promo-banner">
+    <div class="promo-box-main">
       <div>
-        <b style="font-size:13px;color:#fff;display:block;">🎁 خصم حصري لفترة محدودة!</b>
-        <span style="font-size:10px;color:#c7d2fe;">استخدم الكود عند الشراء لتوفير 10% من قيمة طلبك</span>
+        <b style="font-size:13px;color:#fff;display:block;">🎟️ هل تمتلك كود خصم؟</b>
+        <span style="font-size:10px;color:#94a3b8;">أدخل الكود أدناه لتطبيق الخصم فوراً على سلة طلباتك</span>
       </div>
-      <div class="promo-code-box" id="promoCodeText" onclick="copyPromo()" title="انقر للنسخ">MIDO2026</div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="userPromoInput" class="promo-input" placeholder="أدخل الكود (مثال: MIDO2026)">
+        <button class="promo-apply-btn" onclick="applyPromoCode()">تفعيل الكود ⚡</button>
+      </div>
     </div>
 
-    <!-- شبكة التصنيفات -->
     <div class="cat-grid">
       <div class="cat-card" onclick="filterCat('فودافون كاش')">
         <span style="color:#ef4444;">📱</span>
         <b>فودافون كاش</b>
-        <p>شحن فوري وسريع</p>
+        <p>{{ vodafone_num }}</p>
       </div>
       <div class="cat-card" onclick="filterCat('بطاقات الائتمان')">
         <span style="color:#38bdf8;">💳</span>
         <b>بطاقات الائتمان</b>
-        <p>Visa & Master</p>
+        <p>تحويل آمن للمحفظة</p>
       </div>
       <div class="cat-card" onclick="filterCat('Google Play')">
         <span style="color:#35eaa1;">▶</span>
@@ -312,16 +309,6 @@ footer{border-top:1px solid #192b4e;padding:35px 3%;background:#030714;display:g
         <b>PlayStation</b>
         <p>بطاقات وإشتراكات</p>
       </div>
-      <div class="cat-card" onclick="filterCat('Xbox')">
-        <span style="color:#5dff9c;">ⓧ</span>
-        <b>Xbox</b>
-        <p>بطاقات وإشتراكات</p>
-      </div>
-      <div class="cat-card" onclick="filterCat('Steam')">
-        <span style="color:#9bb8ff;">◉</span>
-        <b>Steam</b>
-        <p>أكواد ومحافظ ستيم</p>
-      </div>
       <div class="cat-card" onclick="filterCat('الكل')">
         <span style="color:#bc5bff;">✨</span>
         <b>جميع المنتجات</b>
@@ -330,12 +317,11 @@ footer{border-top:1px solid #192b4e;padding:35px 3%;background:#030714;display:g
     </div>
 
     <div class="sec-title" id="products">
-      <h2><span>🔥</span> أحدث المنتجات</h2>
+      <h2><span>🔥</span> أحدث المنتجات وطرق الدفع</h2>
     </div>
 
     <div class="product-grid" id="productGrid"></div>
 
-    <!-- تقييمات العملاء -->
     <div style="margin-top:35px;">
       <div class="sec-title">
         <h2><span>⭐️</span> آراء وتقييمات العملاء</h2>
@@ -354,7 +340,6 @@ footer{border-top:1px solid #192b4e;padding:35px 3%;background:#030714;display:g
     </div>
   </main>
 
-  <!-- مساعد الذكاء الاصطناعي الجانبي -->
   <aside class="ai-sidebar">
     <div class="ai-header">
       <div class="ai-avatar">🤖</div>
@@ -365,12 +350,11 @@ footer{border-top:1px solid #192b4e;padding:35px 3%;background:#030714;display:g
     </div>
 
     <div class="ai-msg-box">
-      مرحباً بك! أنا مساعد NOVA AI 🤖 جاهز لمساعدتك في اختيار بطاقة الدفع المناسبة أو شحن فودافون كاش فوراً.
+      مرحباً بك! للتحويل عبر فودافون كاش حول على الرقم: <b>{{ vodafone_num }}</b> وأرسل إيصال التحويل للمطور فوراً.
     </div>
 
-    <button class="ai-action-btn" onclick="aiQuery('كيف أشحن فودافون كاش؟')">📱 كيف أشحن فودافون كاش؟</button>
-    <button class="ai-action-btn" onclick="aiQuery('شراء بطاقة ائتمان')">💳 شراء بطاقة ائتمان</button>
-    <button class="ai-action-btn" onclick="aiQuery('أكواد الألعاب المتاحة')">🎮 أكواد الألعاب المتاحة</button>
+    <button class="ai-action-btn" onclick="aiQuery('رقم فودافون كاش للتحويل')">📱 رقم فودافون كاش</button>
+    <button class="ai-action-btn" onclick="aiQuery('طريقة الدفع بالبطاقة')">💳 الدفع بالبطاقة الائتمانية</button>
 
     <div class="ai-input-box">
       <input type="text" id="aiInput" placeholder="اكتب سؤالك هنا...">
@@ -379,13 +363,11 @@ footer{border-top:1px solid #192b4e;padding:35px 3%;background:#030714;display:g
   </aside>
 </div>
 
-<!-- تذييل الصفحة Footer مع الأزرار الملونة المطلوبة -->
 <footer>
   <div>
     <a class="brand" href="/" style="margin-bottom:10px;"><span class="brand-mark" style="width:26px;height:26px;font-size:18px;">N</span><span>NOVA <b>STORE</b></span></a>
-    <p style="line-height:1.7;margin:0 0 12px;">المتجر الرقمي الأول لأكواد بطاقات الدفع وشحن فودافون كاش والألعاب.</p>
+    <p style="line-height:1.7;margin:0 0 12px;">فودافون كاش التحويل المباشر: <b>{{ vodafone_num }}</b></p>
     
-    <!-- الأزرار الملونة المطلوبة بدقة في التذييل -->
     <div class="footer-btn-group">
       <a href="{{ primary_channel }}" target="_blank" class="footer-btn btn-primary-channel">📢 القناة الأساسية (Midomsn)</a>
       <a href="{{ world_channel }}" target="_blank" class="footer-btn btn-world-channel">🌐 قناة MidoWorld</a>
@@ -401,10 +383,9 @@ footer{border-top:1px solid #192b4e;padding:35px 3%;background:#030714;display:g
     <a href="/cart">🛒 سلة الطلبات</a>
   </div>
   <div>
-    <h4>وسائل الدفع المتاحة</h4>
-    <a href="#">فودافون كاش (Vodafone Cash)</a>
-    <a href="#">بطاقات الائتمان (Visa / MC)</a>
-    <a href="#">فوري (Fawry) & PayPal</a>
+    <h4>طرق الدفع والتحويل</h4>
+    <a href="#">فودافون كاش: {{ vodafone_num }}</a>
+    <a href="#">بطاقات الائتمان (تحويل للمحفظة)</a>
     <p style="margin-top:15px;font-size:9.5px;color:#64748b;">© 2026 NOVA STORE محفوظة.</p>
   </div>
 </footer>
@@ -433,7 +414,7 @@ function renderProducts(items) {
       <p>${p.description}</p>
       <div class="price-row">
         <span class="price">${p.price}</span>
-        <button class="add-btn" onclick="addToCart('${p.name}', '${p.price}')">إضافة للسلة 🛒</button>
+        <button class="add-btn" onclick="addToCart('${p.name}', '${p.price}')">طلب وشحن 🛒</button>
       </div>`;
     grid.appendChild(card);
   });
@@ -453,12 +434,26 @@ function addToCart(name, price) {
   cart.push({name, price});
   localStorage.setItem('nova_cart', JSON.stringify(cart));
   updateCartBadge();
-  alert('تمت إضافة ' + name + ' إلى سلة التسوق بنجاح! 🛒');
+  alert('تمت إضافة ' + name + ' إلى سلة الطلبات! يجدر التحويل على رقم فودافون كاش: {{ vodafone_num }} وإرسال الإيصال للتأكيد.');
 }
 
-function copyPromo() {
-  navigator.clipboard.writeText('MIDO2026');
-  alert('✨ تم نسخ كود الخصم (MIDO2026) بنجاح!');
+function applyPromoCode() {
+  const code = document.getElementById('userPromoInput').value.trim();
+  if(!code) { alert('الرجاء إدخال كود الخصم أولاً'); return; }
+  
+  fetch('/api/apply_promo', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({code: code})
+  })
+  .then(res => res.json())
+  .then(data => {
+    if(data.success) {
+      alert('🎉 تم تطبيق كود الخصم بنجاح! نسبة الخصم: ' + data.discount + '%');
+    } else {
+      alert('❌ الكود غير صحيح أو منتهي الصلاحية.');
+    }
+  });
 }
 
 function aiQuery(text) {
@@ -468,7 +463,7 @@ function aiQuery(text) {
 function sendAiMsg() {
   const input = document.getElementById('aiInput');
   if(!input.value.trim()) return;
-  alert('مساعد NOVA AI: شكراً لتواصلك! سيتم الرد على استفسارك ("' + input.value + '") فوراً عبر الدعم الفني.');
+  alert('مساعد NOVA AI: للتحويل الفوري يرجى الإرسال على رقم فودافون كاش: {{ vodafone_num }} والتواصل مع المطور عبر التليجرام.');
   input.value = '';
 }
 
@@ -480,7 +475,85 @@ renderProducts(PRODUCTS);
 """
 
 
-# ==================== عجلة الحظ السينمائية التفاعلية ====================
+# ==================== صفحة البروفايل الشيك والمجهزة للجيمنج ====================
+@app.route('/account')
+def account():
+    email = session.get("user_email")
+    if not email:
+        return redirect(url_for("login"))
+    with get_db() as db:
+        user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+    
+    return render_template_string("""
+    <!doctype html>
+    <html lang="ar" dir="rtl">
+    <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>البروفايل الشخصي | NOVA STORE</title>
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+    body{background:#020617;color:#fff;font-family:'Cairo',sans-serif;margin:0;padding:20px;min-height:100vh;display:grid;place-items:center;}
+    .profile-card{background:linear-gradient(145deg,#07132c,#0a1d42);border:2px solid #315dff;border-radius:24px;max-width:500px;width:100%;padding:30px;box-shadow:0 0 50px rgba(49,93,255,0.25);position:relative;overflow:hidden;}
+    .profile-banner{height:90px;background:linear-gradient(110deg,#9b37ff,#315dff);border-radius:16px;margin:-30px -30px 20px -30px;position:relative;}
+    .profile-avatar{width:80px;height:80px;border-radius:50%;background:#03091b;border:4px solid #35eaa1;display:grid;place-items:center;font-size:40px;position:absolute;bottom:-40px;right:30px;box-shadow:0 0 20px rgba(53,234,161,0.4);}
+    .user-info{margin-top:25px;}
+    .user-name{font-size:22px;font-weight:900;margin:0;color:#fff;display:flex;align-items:center;gap:8px;}
+    .user-rank{background:#315dff22;border:1px solid #315dff;color:#38bdf8;padding:2px 10px;border-radius:12px;font-size:10px;font-weight:bold;}
+    .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:20px 0;}
+    .stat-box{background:#03091b;border:1px solid #1b3159;padding:12px;border-radius:14px;text-align:center;}
+    .stat-val{font-size:16px;font-weight:bold;color:#35eaa1;display:block;}
+    .stat-lbl{font-size:9.5px;color:#94a3b8;margin-top:2px;display:block;}
+    .btn-action{display:block;width:100%;padding:10px;text-align:center;border-radius:12px;font-weight:bold;text-decoration:none;font-size:12px;margin-top:10px;}
+    .btn-logout{background:#7f1d1d;color:#fca5a5;border:1px solid #ef4444;}
+    .btn-home{background:#1e293b;color:#38bdf8;border:1px solid #38bdf8;}
+    </style>
+    </head>
+    <body>
+
+    <div class="profile-card">
+      <div class="profile-banner">
+        <div class="profile-avatar">{{ user['avatar'] }}</div>
+      </div>
+
+      <div class="user-info">
+        <div class="user-name">
+          {{ user['name'] }}
+          <span class="user-rank">{{ user['rank'] }}</span>
+        </div>
+        <span style="font-size:11px;color:#94a3b8;">{{ user['email'] }}</span>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-box">
+          <span class="stat-val">{{ user['balance'] }} جـ</span>
+          <span class="stat-lbl">رصيد المحفظة</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-val">{{ user['points'] }} 🌟</span>
+          <span class="stat-lbl">نقاط الجيمنج</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-val">نشط ✅</span>
+          <span class="stat-lbl">حالة الحساب</span>
+        </div>
+      </div>
+
+      <div style="background:#03091b;border:1px solid #1b3159;padding:12px;border-radius:14px;margin-bottom:15px;font-size:11px;line-height:1.6;">
+        <b style="color:#38bdf8;display:block;margin-bottom:4px;">📱 بيانات التحويل الفوري:</b>
+        محفظة فودافون كاش المعتمدة: <b style="color:#35eaa1;">01011541698</b>
+      </div>
+
+      <a href="/" class="btn-action btn-home">🏠 العودة للمتجر الرئيسي</a>
+      <a href="/logout" class="btn-action btn-logout">تسجيل الخروج 🚪</a>
+    </div>
+
+    </body>
+    </html>
+    """, user=user)
+
+
+# ==================== عجلة الحظ السينمائية ====================
 @app.route('/spin')
 def spin_page():
     return """
@@ -489,47 +562,48 @@ def spin_page():
     <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>عجلة الحظ السحرية السينمائية | NOVA STORE</title>
+    <title>عجلة الحظ الواقعية | NOVA STORE</title>
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
     body{background:#020617;color:#fff;font-family:'Cairo',sans-serif;text-align:center;padding:20px;margin:0;min-height:100vh;display:grid;place-items:center;}
-    .spin-container{background:linear-gradient(145deg,#07132c,#0a1b3d);border:2px solid #facc15;border-radius:24px;padding:30px;max-width:500px;width:100%;box-shadow:0 0 40px rgba(250,204,21,0.2);position:relative;}
-    .wheel{width:260px;height:260px;border-radius:50%;border:8px solid #facc15;margin:20px auto;position:relative;transition:transform 4s cubic-bezier(0.15, 0.95, 0.12, 1);background:conic-gradient(#315dff 0deg 60deg, #933aff 60deg 120deg, #10b981 120deg 180deg, #ef4444 180deg 240deg, #f59e0b 240deg 300deg, #38bdf8 300deg 360deg);box-shadow:0 0 30px rgba(0,0,0,0.8);}
-    .pointer{width:0;height:0;border-left:15px solid transparent;border-right:15px solid transparent;border-bottom:30px solid #facc15;position:absolute;top:-12px;left:50%;transform:translateX(-50%);z-index:10;}
-    .robot-guide{font-size:45px;animation:bounce 1.5s infinite;}
-    @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-    .btn-spin{padding:12px 30px;background:linear-gradient(110deg,#facc15,#f59e0b);color:#000;border:0;border-radius:30px;font-weight:900;font-size:16px;cursor:pointer;box-shadow:0 0 20px rgba(250,204,21,0.4);margin-top:15px;}
+    .spin-container{background:linear-gradient(145deg,#07132c,#0a1b3d);border:2px solid #facc15;border-radius:24px;padding:30px;max-width:480px;width:100%;box-shadow:0 0 45px rgba(250,204,21,0.25);position:relative;}
+    .wheel-wrapper{position:relative;width:260px;height:260px;margin:20px auto;}
+    .wheel{width:100%;height:100%;border-radius:50%;border:8px solid #facc15;transition:transform 4s cubic-bezier(0.15, 0.95, 0.12, 1);background:conic-gradient(#315dff 0deg 60deg, #933aff 60deg 120deg, #10b981 120deg 180deg, #ef4444 180deg 240deg, #f59e0b 240deg 300deg, #38bdf8 300deg 360deg);box-shadow:0 0 30px rgba(0,0,0,0.8);}
+    .pointer{width:0;height:0;border-left:14px solid transparent;border-right:14px solid transparent;border-bottom:28px solid #facc15;position:absolute;top:-14px;left:50%;transform:translateX(-50%);z-index:20;}
+    .robot-avatar{font-size:50px;animation:pulse 2s infinite;}
+    @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+    .btn-spin{padding:12px 32px;background:linear-gradient(110deg,#facc15,#f59e0b);color:#000;border:0;border-radius:30px;font-weight:900;font-size:16px;cursor:pointer;box-shadow:0 0 20px rgba(250,204,21,0.4);margin-top:15px;}
     </style>
     </head>
     <body>
     <div class="spin-container">
-      <div class="robot-guide">🤖✨</div>
-      <h2 style="color:#facc15;margin:10px 0 5px;">عجلة الحظ السحرية السينمائية</h2>
-      <p style="font-size:12px;color:#cbd5e1;">أنا مساعدك الآلي! انقر لتتدور العجلة وتربح جوائز فورية.</p>
+      <div class="robot-avatar">🤖⚡</div>
+      <h2 style="color:#facc15;margin:10px 0 5px;">عجلة الحظ السحرية الواقعية</h2>
+      <p style="font-size:12px;color:#cbd5e1;">أنا مساعدك الآلي! قم بتدوير العجلة الآن واحصل على هدايا وأكواد فورية.</p>
 
-      <div style="position:relative;">
+      <div class="wheel-wrapper">
         <div class="pointer"></div>
         <div class="wheel" id="wheel"></div>
       </div>
 
-      <button class="btn-spin" onclick="startSpin()">تدوير العجلة الآن 🎰</button>
-      <div id="resultMsg" style="margin-top:15px;font-weight:bold;font-size:14px;color:#35eaa1;"></div>
+      <button class="btn-spin" onclick="startRealisticSpin()">تدوير العجلة الآن 🎰</button>
+      <div id="spinResult" style="margin-top:15px;font-weight:bold;font-size:14px;color:#35eaa1;"></div>
       
       <br><a href="/" style="color:#38bdf8;font-size:12px;text-decoration:none;">← العودة للمتجر الرئيسي</a>
     </div>
 
     <script>
-    function startSpin() {
+    function startRealisticSpin() {
       const wheel = document.getElementById('wheel');
-      const msg = document.getElementById('resultMsg');
-      msg.textContent = '🎲 جاري تدوير العجلة سينمائياً... حظاً سعيداً!';
+      const resultDiv = document.getElementById('spinResult');
+      resultDiv.textContent = '🎲 جاري تدوير العجلة بواقعية... ترقب الجائزة!';
       
-      const randomDegree = 1800 + Math.floor(Math.random() * 360);
-      wheel.style.transform = `rotate(${randomDegree}deg)`;
+      const randomDeg = 2160 + Math.floor(Math.random() * 360);
+      wheel.style.transform = `rotate(${randomDeg}deg)`;
 
       setTimeout(() => {
-        msg.textContent = '🎉 مبروك! لقد ربحت كخصم 20% على طلبك القادم!';
-      }, 4000);
+        resultDiv.textContent = '🎉 مبروك! ربحت كود خصم خاص 20% (استخدمه في المتجر)';
+      }, 4200);
     }
     </script>
     </body>
@@ -542,50 +616,73 @@ def spin_page():
 def game_page():
     return """
     <!doctype html>
-    <html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>الألعاب الترفيهية | NOVA STORE</title>
-    <style>body{background:#03091b;color:#fff;font-family:Cairo,sans-serif;text-align:center;padding:50px;}</style></head>
+    <html lang="ar" dir="rtl">
+    <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>منطقة الألعاب الترفيهية | NOVA STORE</title>
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+    body{background:#020617;color:#fff;font-family:'Cairo',sans-serif;text-align:center;padding:30px;margin:0;min-height:100vh;display:grid;place-items:center;}
+    .game-card{background:linear-gradient(145deg,#07132c,#0a1b3d);border:2px solid #35eaa1;border-radius:24px;padding:30px;max-width:480px;width:100%;box-shadow:0 0 40px rgba(53,234,161,0.2);}
+    .btn-action{padding:10px 24px;background:linear-gradient(110deg,#35eaa1,#10b981);color:#000;border:0;border-radius:20px;font-weight:bold;cursor:pointer;margin-top:15px;font-size:13px;}
+    </style>
+    </head>
     <body>
-    <h2>🎮 منطقة الألعاب الترفيهية</h2>
-    <p>استمتع بالألعاب والمسابقات داخل متجر NOVA STORE!</p>
-    <a href="/" style="color:#38bdf8;font-size:14px;">← العودة للمتجر الرئيسي</a>
-    </body></html>
+    <div class="game-card">
+      <div style="font-size:50px;">🎮✨</div>
+      <h2 style="color:#35eaa1;margin:10px 0;">تحدي الذاكرة والأكواد السريعة</h2>
+      <p style="font-size:12px;color:#cbd5e1;">اختبر سرعة بديهتك واجمع نقاطاً يمكنك استبدالها برصيد فودافون كاش أو بطاقات!</p>
+      
+      <div id="gameArea" style="margin:20px 0;font-size:14px;background:#03091b;padding:15px;border-radius:12px;border:1px solid #1b3159;">
+        اضغط على الزر أدناه لبدء التحدي وسحب الكود السريع!
+      </div>
+
+      <button class="btn-action" onclick="playGame()">بدء التحدي الآن 🚀</button>
+      <br><br><a href="/" style="color:#38bdf8;font-size:12px;text-decoration:none;">← العودة للمتجر الرئيسي</a>
+    </div>
+
+    <script>
+    function playGame() {
+      const codes = ['NOVA-WIN-77', 'MIDO-GIFT-99', 'FODAFONE-CASH-50', 'VIP-CODE-2026'];
+      const won = codes[Math.floor(Math.random() * codes.length)];
+      document.getElementById('gameArea').innerHTML = `🎉 <b>تهانينا! لقد ربحت كود سري:</b><br><span style="color:#facc15;font-size:16px;font-weight:bold;display:block;margin-top:8px;">${won}</span>`;
+    }
+    </script>
+    </body>
+    </html>
     """
+
+
+# ==================== API تفعيل كود الخصم ====================
+@app.route('/api/apply_promo', methods=['POST'])
+def apply_promo():
+    data = request.json or {}
+    code = data.get("code", "").strip()
+    with get_db() as db:
+        res = db.execute("SELECT discount FROM promo_codes WHERE code = ?", (code,)).fetchone()
+        if res:
+            return jsonify({"success": True, "discount": res["discount"]})
+    return jsonify({"success": False})
 
 
 # ==================== سلة الطلبات ====================
 @app.route('/cart')
 def cart_page():
-    return """
-    <html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>سلة الطلبات | NOVA STORE</title>
-    <style>body{background:#03091b;color:#fff;font-family:Cairo,sans-serif;padding:30px;text-align:center;}</style></head>
-    <body>
-    <h2>🛒 سلة الطلبات والأدوات</h2>
-    <p>لتأكيد الشراء وشحن الحسابات أو فودافون كاش فوراً، تواصل مع الدعم الفني والقناة الرسمية:</p>
-    <a href="https://t.me/Midomsn" target="_blank" style="padding:12px 24px;background:#229ED9;color:#fff;border-radius:10px;text-decoration:none;font-weight:bold;display:inline-block;margin:10px;">📢 اذهب إلى القناة الأساسية</a>
-    <br><a href="/" style="color:#38bdf8;font-size:13px;display:inline-block;margin-top:20px;">← العودة للمتجر الرئيسي</a>
-    </body></html>
-    """
-
-
-# ==================== حساب المستخدم ====================
-@app.route('/account')
-def account():
-    email = session.get("user_email")
-    if not email:
-        return redirect(url_for("login"))
-    with get_db() as db:
-        user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
     return f"""
-    <html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>حسابي</title>
-    <style>body{{background:#03091b;color:#fff;font-family:Cairo,sans-serif;padding:40px;text-align:center;}}
-    .box{{background:#07132c;padding:30px;border:1px solid #315dff;border-radius:18px;max-width:400px;margin:auto;}}</style></head>
-    <body><div class="box">
-    <h2>👤 مرحباً، {user['name']}</h2>
-    <p>البريد الإلكتروني: {user['email']}</p>
-    <p>رصيد المحفظة: {user['balance']} جـ</p>
-    <a href="/logout" style="color:#ef4444;display:block;margin-top:15px;text-decoration:none;">تسجيل الخروج</a>
-    <br><a href="/" style="color:#38bdf8;">← العودة للمتجر الرئيسي</a>
-    </div></body></html>
+    <html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>سلة الطلبات | NOVA STORE</title>
+    <style>body{{background:#03091b;color:#fff;font-family:Cairo,sans-serif;padding:30px;text-align:center;}}
+    .box{{background:#07132c;padding:30px;border:1px solid #315dff;border-radius:18px;max-width:450px;margin:auto;}}</style></head>
+    <body>
+    <div class="box">
+      <h2>🛒 سلة الطلبات والأدوات</h2>
+      <p style="font-size:13px;color:#cbd5e1;">لإتمام الشراء وشحن الحسابات، يجدر التحويل على رقم فودافون كاش:</p>
+      <div style="background:#03091b;color:#35eaa1;font-size:18px;font-weight:bold;padding:12px;border-radius:10px;border:1px solid #35eaa1;margin:15px 0;">{VODAFONE_CASH_NUMBER}</div>
+      <p style="font-size:11px;color:#94a3b8;">أو استخدم بطاقتك الائتمانية لتصل إلى المحفظة مباشرة.</p>
+      <a href="https://t.me/{ADMIN_TELEGRAM_USERNAME}" target="_blank" style="padding:12px 24px;background:#229ED9;color:#fff;border-radius:10px;text-decoration:none;font-weight:bold;display:inline-block;margin-top:10px;">💬 تواصل مع المطور لتأكيد الإيصال</a>
+      <br><br><a href="/" style="color:#38bdf8;font-size:13px;text-decoration:none;">← العودة للمتجر الرئيسي</a>
+    </div>
+    </body></html>
     """
 
 
@@ -624,24 +721,27 @@ def admin_panel():
                     VALUES (?, ?, ?, ?, ?, '📦', ?, ?, ?, ?)
                 """, (name, desc, price_val, price, code, image_url, category, color, badge))
                 db.commit()
-                msg = "✅ تم إضافة المنتج ورفع الصورة بنجاح!"
+                msg = "✅ تم إنشاء المنتج/الكود ورفع الصورة من الهاتف بنجاح!"
+
+            elif action == "add_promo":
+                p_code = request.form.get("p_code")
+                p_disc = float(request.form.get("p_disc", 10))
+                db.execute("INSERT OR REPLACE INTO promo_codes (code, discount) VALUES (?, ?)", (p_code, p_disc))
+                db.commit()
+                msg = f"🎟️ تم إنشاء كود الخصم ({p_code}) بنسبة {p_disc}% بنجاح!"
 
             elif action == "broadcast":
                 title = request.form.get("b_title")
                 b_msg = request.form.get("b_msg")
-                
-                # إرسال رسالة إلى القناة بدون عرض بيانات المستخدم
                 try:
+                    import requests
                     requests.post(f"https://api.telegram.org/botYOUR_BOT_TOKEN/sendMessage", json={
                         "chat_id": "@MidoWorld",
-                        "text": f"🚨 **{title}**\n\n{b_msg}\n\n🔗 متجر NOVA STORE الرسمي"
+                        "text": f"🚨 **{title}**\n\n{b_msg}\n\n📱 فودافون كاش: {VODAFONE_CASH_NUMBER}\n🔗 متجر NOVA STORE"
                     }, timeout=3)
                 except Exception:
                     pass
-
-                msg = "🚀 تم إرسال الإعلان إلى القناة بنجاح وبسرية تامة!"
-
-        products = db.execute("SELECT * FROM products ORDER BY id DESC").fetchall()
+                msg = "🚀 تم إرسال البث إلى قناة التليجرام بنجاح وبسرية تامة!"
 
     return f"""
     <html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>لوحة التحكم الشاملة</title>
@@ -653,41 +753,48 @@ def admin_panel():
     </style></head>
     <body>
     <h1>⚙️ لوحة تحكم المطور الشاملة</h1>
-    <p style="color:#35eaa1;">{msg}</p>
+    <p style="color:#35eaa1;font-weight:bold;">{msg}</p>
     <a href="/" style="color:#38bdf8;display:block;margin-bottom:20px;">← العودة للمتجر الرئيسي</a>
 
     <div class="box">
-      <h3>📦 إضافة منتج جديد (مع رفع الصور من الهاتف)</h3>
+      <h3>📦 إضافة منتج / كود جديد (مع رفع الصور من الهاتف)</h3>
       <form method="post" enctype="multipart/form-data">
         <input type="hidden" name="action" value="add_product">
-        <input name="name" placeholder="اسم المنتج (مثال: كود فري فاير)" required>
-        <input name="desc" placeholder="وصف المنتج المختصر" required>
+        <input name="name" placeholder="اسم المنتج أو الكود (مثال: كود فري فاير)" required>
+        <input name="desc" placeholder="وصف المنتج أو تعليمات الشحن" required>
         <input type="number" step="0.01" name="price_val" placeholder="القيمة الرقمية (مثال: 100)" required>
-        <input name="price" placeholder="السعر المعروض (مثال: 100 جـ أو $10)" required>
-        <input name="code" placeholder="كود المنتج الفريد" required>
+        <input name="price" placeholder="السعر المعروض (مثال: 100 جـ)" required>
+        <input name="code" placeholder="الكود الفريد للمنتج" required>
         <select name="category">
           <option value="فودافون كاش">فودافون كاش</option>
           <option value="بطاقات الائتمان">بطاقات الائتمان</option>
           <option value="Google Play">Google Play</option>
           <option value="PlayStation">PlayStation</option>
-          <option value="Xbox">Xbox</option>
-          <option value="Steam">Steam</option>
-          <option value="بطاقات الهدايا">بطاقات الهدايا</option>
         </select>
-        <input name="badge" placeholder="الشارة (مثال: الأكثر مبيعا أو مميز)">
-        <label style="font-size:11px;color:#cbd5e1;display:block;margin-top:5px;">ارفع صورة المنتج من جهازك:</label>
+        <input name="badge" placeholder="الشارة (مثال: الأكثر مبيعا)">
+        <label style="font-size:11px;color:#cbd5e1;display:block;margin-top:5px;">ارفع صورة المنتج من الهاتف:</label>
         <input type="file" name="image_file" accept="image/*">
-        <button type="submit" style="margin-top:10px;">إضافة المنتج للمتجر</button>
+        <button type="submit" style="margin-top:10px;">إضافة المنتج ورفع الصورة</button>
       </form>
     </div>
 
     <div class="box">
-      <h3>📢 إذاعة رسالة / عرض في القناة (بدون بيانات المستخدم)</h3>
+      <h3>🎟️ إنشاء كود خصم جديد للمتجر</h3>
+      <form method="post">
+        <input type="hidden" name="action" value="add_promo">
+        <input name="p_code" placeholder="كود الخصم (مثال: SAVE20)" required>
+        <input type="number" step="0.5" name="p_disc" placeholder="نسبة الخصم مئوية (مثال: 15)" required>
+        <button type="submit" style="background:#10b981;margin-top:10px;">إنشاء الكود وتفعيله</button>
+      </form>
+    </div>
+
+    <div class="box">
+      <h3>📢 إذاعة رسالة / بث في قناة التليجرام (بدون بيانات مستخدم)</h3>
       <form method="post">
         <input type="hidden" name="action" value="broadcast">
-        <input name="b_title" placeholder="عنوان الإعلان (مثال: عروض فودافون كاش)" required>
-        <textarea name="b_msg" placeholder="نص الإعلان أو الكود..." rows="4" required></textarea>
-        <button type="submit" style="background:#229ED9;">إرسال فوري إلى القناة 🚀</button>
+        <input name="b_title" placeholder="عنوان البث (مثال: عروض فودافون كاش)" required>
+        <textarea name="b_msg" placeholder="نص الرسالة أو العرض..." rows="4" required></textarea>
+        <button type="submit" style="background:#229ED9;margin-top:10px;">إرسال البث الفوري إلى القناة 🚀</button>
       </form>
     </div>
 
@@ -695,7 +802,7 @@ def admin_panel():
     """
 
 
-# ==================== إنشاء الحساب وتسجيل الدخول ====================
+# ==================== التسجيل والدخول ====================
 @app.route('/register', methods=["GET", "POST"])
 def register():
     error = ""
@@ -818,7 +925,8 @@ def home():
         admin_telegram=ADMIN_TELEGRAM_USERNAME,
         primary_channel=TELEGRAM_PRIMARY_CHANNEL,
         world_channel=TELEGRAM_WORLD_CHANNEL,
-        bot_url=TELEGRAM_BOT_URL
+        bot_url=TELEGRAM_BOT_URL,
+        vodafone_num=VODAFONE_CASH_NUMBER
     )
 
 
