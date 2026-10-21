@@ -17,9 +17,10 @@ from flask import (
     Response,
 )
 
-# استدعاء الملفات المنفصلة والدوال الخاصة بها
+# استدعاء الملفات المنفصلة والدوال الخاصة بها بكل احترافية
 from leagues_and_clubs import get_all_leagues, get_club_logo
-from classic_players import get_classic_players  # استدعاء ملف الكروت القديمة والأساطير
+from classic_players import get_classic_players
+from player_stats import PLAYER_STATS_TEMPLATE
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_ehub_master_key_2026")
@@ -373,7 +374,7 @@ footer { text-align: center; padding: 15px; color: #64748b; font-size: 11px; }
 
   <div class="card-grid" id="playersGrid">
     {% for p in players %}
-    <a href="/player/{{ p['id'] }}" class="player-card" data-upcoming="{{ p['is_upcoming'] }}">
+    <a href="/player-stats/{{ p['id'] }}" class="player-card" data-upcoming="{{ p['is_upcoming'] }}">
       <div class="card-header"><span class="overall">{{ p['overall_max'] }}</span><span class="position">{{ p['position'] }}</span></div>
       <img class="player-img" src="{{ p['image_url'] }}" alt="{{ p['name'] }}" onerror="this.src='https://via.placeholder.com/150/121826/ccff00?text=eFootball'">
       <div class="player-name">{{ p['name'] }}</div>
@@ -1235,13 +1236,28 @@ def manager_detail(manager_id):
     return render_template_string(MANAGER_DETAIL_TEMPLATE, manager=manager)
 
 
+@app.route('/player-stats/<int:player_id>')
+def player_stats_page(player_id):
+    with get_db() as db:
+        player = db.execute("SELECT * FROM players WHERE id = ?", (player_id,)).fetchone()
+    
+    if not player:
+        classic_players = get_classic_players()
+        for cp in classic_players:
+            if cp["id"] == player_id:
+                player = cp
+                break
+                
+    if not player: return "اللاعب غير موجود", 404
+    return render_template_string(PLAYER_STATS_TEMPLATE, player=player)
+
+
 @app.route('/player/<int:player_id>')
 def player_detail(player_id):
     with get_db() as db:
         player = db.execute("SELECT * FROM players WHERE id = ?", (player_id,)).fetchone()
     
     if not player:
-        # البحث في الكروت القديمة والأسطورية
         classic_players = get_classic_players()
         for cp in classic_players:
             if cp["id"] == player_id:
@@ -1604,7 +1620,6 @@ def home():
         custom_banner = banner_res["value"] if banner_res else ""
         managers_card_img = m_card_res["value"] if m_card_res else ""
 
-    # دمج لاعبي قاعدة البيانات مع الكروت القديمة والأساطير من الملف المنفصل
     classic_players = get_classic_players()
     all_players_combined = db_players + classic_players
 
