@@ -85,6 +85,8 @@ def init_db():
             CREATE TABLE IF NOT EXISTS managers (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
+                age INTEGER DEFAULT 50,
+                team TEXT DEFAULT 'Unattached',
                 playstyle TEXT NOT NULL,
                 affinity INTEGER NOT NULL DEFAULT 85,
                 image_url TEXT NOT NULL
@@ -118,12 +120,12 @@ def init_db():
 
         cursor_m = db.execute("SELECT COUNT(*) as count FROM managers")
         if cursor_m.fetchone()["count"] == 0:
-            db.execute("INSERT INTO managers (name, playstyle, affinity, image_url) VALUES (?, ?, ?, ?)",
-                       ("Jürgen Klopp", "Quick Counter", 88, "https://via.placeholder.com/150/121826/ccff00?text=Klopp"))
-            db.execute("INSERT INTO managers (name, playstyle, affinity, image_url) VALUES (?, ?, ?, ?)",
-                       ("Cristian Chivu", "Possession Game", 85, "https://via.placeholder.com/150/121826/ccff00?text=Chivu"))
-            db.execute("INSERT INTO managers (name, playstyle, affinity, image_url) VALUES (?, ?, ?, ?)",
-                       ("R. Rodriguez", "Out Wide", 83, "https://via.placeholder.com/150/121826/ccff00?text=Rodriguez"))
+            db.execute("INSERT INTO managers (name, age, team, playstyle, affinity, image_url) VALUES (?, ?, ?, ?, ?, ?)",
+                       ("Jürgen Klopp", 56, "Germany / Liverpool", "Quick Counter", 88, "https://via.placeholder.com/150/121826/ccff00?text=Klopp"))
+            db.execute("INSERT INTO managers (name, age, team, playstyle, affinity, image_url) VALUES (?, ?, ?, ?, ?, ?)",
+                       ("Cristian Chivu", 43, "Romania / Inter Milan", "Possession Game", 85, "https://via.placeholder.com/150/121826/ccff00?text=Chivu"))
+            db.execute("INSERT INTO managers (name, age, team, playstyle, affinity, image_url) VALUES (?, ?, ?, ?, ?, ?)",
+                       ("R. Rodriguez", 48, "Spain / Free Agent", "Out Wide", 83, "https://via.placeholder.com/150/121826/ccff00?text=Rodriguez"))
 
         cursor_p = db.execute("SELECT COUNT(*) as count FROM players")
         if cursor_p.fetchone()["count"] == 0:
@@ -254,7 +256,8 @@ body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans
 .managers-main-card:hover { transform: scale(1.05); border-color: var(--neon-green); }
 .managers-card-img { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid var(--neon-green); margin-bottom: 6px; }
 
-.manager-card { min-width: 120px; background: #0e121d; border: 1px solid var(--border-color); border-radius: 14px; padding: 10px; text-align: center; }
+.manager-card { min-width: 120px; background: #0e121d; border: 1px solid var(--border-color); border-radius: 14px; padding: 10px; text-align: center; text-decoration: none; color: inherit; display: block; cursor: pointer; transition: 0.2s; }
+.manager-card:hover { border-color: var(--neon-green); transform: translateY(-2px); }
 .manager-img { width: 60px; height: 60px; border-radius: 50%; border: 1px solid var(--border-color); object-fit: cover; margin: 0 auto 6px; display: block; }
 .manager-name { font-size: 11px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .manager-style { font-size: 9px; color: var(--neon-green); background: #141a29; border-radius: 6px; padding: 2px 5px; margin-top: 4px; display: inline-block; }
@@ -332,11 +335,11 @@ footer { text-align: center; padding: 15px; color: #64748b; font-size: 11px; }
       </a>
 
       {% for m in managers[:3] %}
-      <div class="manager-card">
+      <a href="/manager/{{ m['id'] }}" class="manager-card">
         <img class="manager-img" src="{{ m['image_url'] }}" onerror="this.src='https://via.placeholder.com/60/121826/ccff00?text=Coach'">
         <div class="manager-name">{{ m['name'] }}</div>
         <div class="manager-style">{{ m['playstyle'] }}</div>
-      </div>
+      </a>
       {% endfor %}
     </div>
   </div>
@@ -395,7 +398,49 @@ function filterCards() { let query = document.getElementById('searchInput').valu
 """
 
 
-# صفحة باني الفرقة المحدثة مع تحريك الكروت وتغيير رسومات الملعب تلقائياً حسب التكتيك!
+# صفحة تفاصيل المدرب الشاملة (السن، الفريق، أسلوب اللعب، الطاقات، والتوافقية)
+MANAGER_DETAIL_TEMPLATE = r"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ manager['name'] }} | Manager Profile</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
+:root { --bg-dark: #07090e; --panel-bg: #0e121d; --neon-green: #ccff00; --neon-blue: #00d2ff; --border-color: #1e2638; }
+body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans-serif; padding: 20px; display: grid; place-items: center; min-height: 100vh; margin: 0; }
+.manager-box { background: linear-gradient(145deg, #0e121d, #07090e); border: 2px solid var(--neon-green); border-radius: 20px; padding: 30px; width: 100%; max-width: 480px; text-align: center; box-shadow: 0 0 25px rgba(204,255,0,0.15); }
+.manager-img-large { width: 110px; height: 110px; border-radius: 50%; object-fit: cover; border: 3px solid var(--neon-green); margin-bottom: 12px; }
+.manager-title { font-size: 24px; font-weight: 900; color: #fff; margin-bottom: 4px; }
+.manager-sub { font-size: 12px; color: #94a3b8; margin-bottom: 18px; }
+.stats-list { background: #0e1320; border: 1px solid var(--border-color); border-radius: 14px; padding: 15px; text-align: right; margin-bottom: 20px; }
+.stat-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #1e2638; font-size: 13px; }
+.stat-item:last-child { border: 0; }
+.back-btn { display: block; width: 100%; padding: 12px; background: var(--neon-green); color: #000; border-radius: 12px; font-weight: 900; text-decoration: none; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="manager-box">
+  <img class="manager-img-large" src="{{ manager['image_url'] }}" onerror="this.src='https://via.placeholder.com/110/121826/ccff00?text=Coach'">
+  <div class="manager-title">{{ manager['name'] }}</div>
+  <div class="manager-sub">👔 بطاقة المدير الفني الرسمي</div>
+
+  <div class="stats-list">
+    <div class="stat-item"><span style="color:#94a3b8;">السن / العمر:</span> <b>{{ manager['age'] }} سنة</b></div>
+    <div class="stat-item"><span style="color:#94a3b8;">الفريق / الجنسية:</span> <b style="color:var(--neon-blue);">{{ manager['team'] }}</b></div>
+    <div class="stat-item"><span style="color:#94a3b8;">أسلوب اللعب المفضل:</span> <b style="color:var(--neon-green);">{{ manager['playstyle'] }}</b></div>
+    <div class="stat-item"><span style="color:#94a3b8;">تطوير اللاعبين (Coaching Affinity):</span> <b>{{ manager['affinity'] }}</b></div>
+    <div class="stat-item"><span style="color:#94a3b8;">طاقة المهارة التكتيكية:</span> <b style="color:var(--neon-green);">88/100</b></div>
+  </div>
+
+  <a href="/" class="back-btn">← العودة للصفحة الرئيسية</a>
+</div>
+</body>
+</html>
+"""
+
+
 SQUAD_BUILDER_TEMPLATE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -421,16 +466,13 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
 .line-center { top: 50%; left: 0; right: 0; }
 .line-circle { top: 50%; left: 50%; width: 100px; height: 100px; border-radius: 50%; transform: translate(-50%, -50%); }
 
-/* طبقة الرسومات التكتيكية التفاعلية فوق الملعب المطابقة للصورة بالضبط */
 .tactical-overlay { position: absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:5; }
 
-/* الكروت القابلة للتحريك والسحب بمرونة داخل الملعب */
 .pos-slot { width: 68px; height: 88px; background: rgba(14, 18, 29, 0.92); border: 1px dashed var(--neon-green); border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: var(--neon-green); cursor: move; position: absolute; z-index: 10; transition: border-color 0.2s, box-shadow 0.2s; text-align: center; user-select: none; touch-action: none; }
 .pos-slot:active { z-index: 20; border-style: solid; box-shadow: 0 0 15px rgba(204,255,0,0.5); }
 .pos-slot img { width: 42px; height: 42px; object-fit: contain; border-radius: 6px; pointer-events: none; }
 .delete-btn { position: absolute; top: -5px; right: -5px; background: #ef4444; color: #fff; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 
-/* سبورة التكتيك والنصائح */
 .tactics-board { max-width: 500px; margin: 20px auto 10px; background: #fdfdfd; color: #000; border-radius: 16px; border: 4px solid #cbd5e1; padding: 18px; box-shadow: 0 0 20px rgba(255,255,255,0.1); font-family: 'Cairo', sans-serif; }
 .board-header { font-size: 16px; font-weight: 900; border-bottom: 3px solid #ef4444; padding-bottom: 6px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; color: #0f172a; }
 .board-tip-item { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; background: #f1f5f9; padding: 8px 12px; border-radius: 10px; border-right: 4px solid #10b981; }
@@ -448,7 +490,6 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
 <h2 style="text-align:center; color:var(--neon-green); margin-bottom:10px;">⚽ تكتيك الملعب وباني الفرقة</h2>
 
 <div class="squad-controls">
-  <!-- اختيار المدرب -->
   <div class="control-row">
     <div style="display:flex; flex-direction:column; gap:4px; flex-grow:1;">
       <label style="font-size:12px; font-weight:bold;">👔 اختر المدرب:</label>
@@ -468,7 +509,6 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
     </div>
   </div>
 
-  <!-- اختيار الدوري والنادي -->
   <div class="control-row">
     <div style="display:flex; flex-direction:column; gap:4px; flex-grow:1;">
       <label style="font-size:12px; font-weight:bold;">🏆 الفريق والدوري المفضل:</label>
@@ -488,7 +528,6 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
     </div>
   </div>
 
-  <!-- اختيار التكتيك لتغيير الرسومات والنصائح تلقائياً -->
   <div class="control-row">
     <label style="font-size:12px; font-weight:bold;">❌⭕ التكتيك المفضل:</label>
     <select id="tacticSelect" onchange="updateTacticalOverlayAndBoard()">
@@ -504,12 +543,10 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
   <div class="pitch-line line-center"></div>
   <div class="pitch-line line-circle"></div>
 
-  <!-- رسم خطوط زوايا التمرير والمساحات التفاعلية بالكامل مع التكتيك المختار -->
   <svg class="tactical-overlay" id="tacticalSvg" viewBox="0 0 100 100" preserveAspectRatio="none">
     <g id="overlayContent"></g>
   </svg>
 
-  <!-- مراكز اللاعبين القابلة للتحريك والتنقل بمرونة ✋ -->
   <div class="pos-slot" style="top:5%; left:15%;" id="slot_LWF"><span>LWF</span><br>+</div>
   <div class="pos-slot" style="top:5%; left:43%;" id="slot_CF"><span>CF</span><br>+</div>
   <div class="pos-slot" style="top:5%; left:71%;" id="slot_RWF"><span>RWF</span><br>+</div>
@@ -526,7 +563,6 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
   <div class="pos-slot" style="top:80%; left:43%;" id="slot_GK"><span>GK</span><br>+</div>
 </div>
 
-<!-- سبورة نصائح تحركات اللاعبين والتكتيك -->
 <div class="tactics-board">
   <div class="board-header">
     <span>📋 نصائح وتعليمات التكتيك (Tactical Tips)</span>
@@ -552,7 +588,6 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
 let allPlayers = {{ players | tojson }};
 let currentSlot = '';
 
-// جعل كافة الكروت قابلة للتحريك باللمس والماوس داخل الملعب
 document.querySelectorAll('.pos-slot').forEach(slot => {
   let isDragging = false;
   let startX, startY, origLeft, origTop;
@@ -572,7 +607,6 @@ document.querySelectorAll('.pos-slot').forEach(slot => {
     origLeft = rect.left - pitchRect.left;
     origTop = rect.top - pitchRect.top;
     
-    // عند النقر البسيط دون سحب، تفتح نافذة البحث
     slot.dataset.hasMoved = 'false';
   };
 
@@ -592,7 +626,6 @@ document.querySelectorAll('.pos-slot').forEach(slot => {
     let newLeft = origLeft + deltaX;
     let newTop = origTop + deltaY;
     
-    // الحفاظ على تحريك اللاعب داخل حدود الملعب فقط
     newLeft = Math.max(0, Math.min(newLeft, pitch.clientWidth - slot.clientWidth));
     newTop = Math.max(0, Math.min(newTop, pitch.clientHeight - slot.clientHeight));
     
@@ -617,7 +650,6 @@ document.querySelectorAll('.pos-slot').forEach(slot => {
   document.addEventListener('touchend', stopDrag);
 });
 
-// قاعدة بيانات النصائح التكتيكية والرسومات المباشرة على الملعب
 const TACTICAL_CONFIG = {
   "Possession": {
     tips: [
@@ -627,7 +659,6 @@ const TACTICAL_CONFIG = {
       { title: "✅ Drop Deep to Collect (النزول للاستلام)", desc: "نزول لاعب الوسط لعمق الدفاع لبناء اللعب وتدوير الكرة من الخلف." }
     ],
     svg: `
-      <!-- زوايا التمرير والمثلث الاستحواذي المطابق للصورة تماماً -->
       <polygon points="50,22 25,38 75,38" fill="rgba(204,255,0,0.15)" stroke="#ccff00" stroke-width="1.5" stroke-dasharray="3,3"/>
       <path d="M 25 38 Q 50 15 75 38" fill="none" stroke="#00d2ff" stroke-width="2" stroke-dasharray="4,4"/>
       <line x1="50" y1="22" x2="50" y2="10" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="2,2"/>
@@ -636,11 +667,10 @@ const TACTICAL_CONFIG = {
   "Quick Counter": {
     tips: [
       { title: "⚡ Make Forward Runs (الانطلاق للأمام)", desc: "الركض السريع المباشر وتجاوز خط وسط الخصم فور استعادة الكرة للتسجيل." },
-      { title: "⚡ Chase Down Loose Balls (الضغط العالي السريع)", desc: "الضغط على مدافعي الخصم فوراً لاستعادة الكرة في مناطق متقدمة." },
+      { title: "⚡ Chase Down Loose Balls (الضغط العالي السريع)", desc: "الضغط على مدافعي الخصم فوراً لاستعادة الكرة في مناطق متتقدمة." },
       { title: "⚡ Fast Transitions (التحول السريع)", desc: "نقل الكرة بحد أقصى لمستين للربط السريع مع أجنحة ومهاجم الفريق." }
     ],
     svg: `
-      <!-- أسهم التحول المرتد السريع -->
       <line x1="20" y1="60" x2="20" y2="12" stroke="#00d2ff" stroke-width="2" stroke-dasharray="3,3"/>
       <line x1="80" y1="60" x2="80" y2="12" stroke="#00d2ff" stroke-width="2" stroke-dasharray="3,3"/>
       <line x1="50" y1="40" x2="50" y2="10" stroke="#ccff00" stroke-width="2.5"/>
@@ -652,7 +682,6 @@ const TACTICAL_CONFIG = {
       { title: "📐 Overlapping Runs (صعود الأظهيرة)", desc: "تقدم الأظهيرة LB/RB خلف الأجنحة لإرسال عرضيات متقنة للـ CF." }
     ],
     svg: `
-      <!-- فتح الأطراف وصعود الأظهيرة -->
       <path d="M 15 65 Q 5 35 20 10" fill="none" stroke="#ccff00" stroke-width="2" stroke-dasharray="3,3"/>
       <path d="M 85 65 Q 95 35 80 10" fill="none" stroke="#ccff00" stroke-width="2" stroke-dasharray="3,3"/>
     `
@@ -663,7 +692,6 @@ const TACTICAL_CONFIG = {
       { title: "🚀 Direct Target Play (المهاجم المحطة)", desc: "إرسال الكرات الطويلة المباشرة للمهاجم CF لتفريغ المساحات للقادمين." }
     ],
     svg: `
-      <!-- تمرير طويل مباشر نحو المهاجم -->
       <path d="M 50 85 Q 20 45 50 10" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-dasharray="4,4"/>
     `
   }
@@ -675,10 +703,8 @@ function updateTacticalOverlayAndBoard() {
   
   let config = TACTICAL_CONFIG[tactic] || TACTICAL_CONFIG["Possession"];
   
-  // تحديث الرسم داخل الملعب
   document.getElementById('overlayContent').innerHTML = config.svg;
   
-  // تحديث النصائح والتعليمات
   let html = '';
   config.tips.forEach(item => {
     html += `
@@ -693,7 +719,6 @@ function updateTacticalOverlayAndBoard() {
   document.getElementById('boardTipsList').innerHTML = html;
 }
 
-// تشغيل التأثيرات والنصائح فور فتح الصفحة
 updateTacticalOverlayAndBoard();
 
 function updateManagerPreview() {
@@ -838,7 +863,7 @@ MANAGERS_LIST_TEMPLATE = r"""
 :root { --bg-dark: #07090e; --panel-bg: #0e121d; --neon-green: #ccff00; --border-color: #1e2638; }
 body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans-serif; padding: 25px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-top: 20px; }
-.card { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 15px; text-align: center; }
+.card { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 15px; text-align: center; text-decoration: none; color: inherit; display: block; }
 .card img { width: 90px; height: 90px; border-radius: 50%; object-fit: cover; border: 2px solid var(--neon-green); margin-bottom: 10px; }
 .back-btn { display: inline-block; margin-bottom: 20px; padding: 8px 18px; background: #141a29; border: 1px solid var(--border-color); color: #fff; border-radius: 8px; text-decoration: none; font-weight: bold; }
 </style>
@@ -848,12 +873,12 @@ body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans
 <h2 style="color:var(--neon-green);">👔 جميع المدربين المتاحين في التطبيق</h2>
 <div class="grid">
   {% for m in managers %}
-  <div class="card">
+  <a href="/manager/{{ m['id'] }}" class="card">
     <img src="{{ m['image_url'] }}" onerror="this.src='https://via.placeholder.com/90/121826/ccff00?text=Coach'">
     <h3 style="font-size:15px; color:#fff; margin-bottom:4px;">{{ m['name'] }}</h3>
     <p style="font-size:11px; color:#00d2ff;">أسلوب اللعب: {{ m['playstyle'] }}</p>
     <p style="font-size:11px; color:#ccff00; margin-top:4px;">Affinity: {{ m['affinity'] }}</p>
-  </div>
+  </a>
   {% endfor %}
 </div>
 </body>
@@ -984,6 +1009,14 @@ def managers_page():
     with get_db() as db:
         managers = db.execute("SELECT * FROM managers ORDER BY id DESC").fetchall()
     return render_template_string(MANAGERS_LIST_TEMPLATE, managers=managers)
+
+
+@app.route('/manager/<int:manager_id>')
+def manager_detail(manager_id):
+    with get_db() as db:
+        manager = db.execute("SELECT * FROM managers WHERE id = ?", (manager_id,)).fetchone()
+    if not manager: return "المدرب غير موجود", 404
+    return render_template_string(MANAGER_DETAIL_TEMPLATE, manager=manager)
 
 
 @app.route('/player/<int:player_id>')
@@ -1133,7 +1166,7 @@ def admin_panel():
                     img_url = url_for('static', filename=f'uploads/{filename}')
                     db.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('managers_card_img', ?)", (img_url,))
                     db.commit()
-                    msg = "✅ تم تحديث الصورة المصغرة لقائمة المدربين!"
+                    msg = "✅ تم تحديث لوجو كارت قائمة المدربين بنجاح!"
 
             elif action == "add_skill":
                 name = request.form.get("name")
@@ -1151,7 +1184,10 @@ def admin_panel():
 
             elif action == "add_manager":
                 name = request.form.get("name")
+                age = int(request.form.get("age", 50))
+                team = request.form.get("team", "Free Agent")
                 style = request.form.get("playstyle")
+                affinity = int(request.form.get("affinity", 85))
                 file = request.files.get("image_file")
                 img_url = "https://via.placeholder.com/90/121826/ccff00?text=Coach"
                 if file and file.filename != "":
@@ -1159,9 +1195,10 @@ def admin_panel():
                     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                     file.save(filepath)
                     img_url = url_for('static', filename=f'uploads/{filename}')
-                db.execute("INSERT INTO managers (name, playstyle, image_url) VALUES (?, ?, ?)", (name, style, img_url))
+                db.execute("INSERT INTO managers (name, age, team, playstyle, affinity, image_url) VALUES (?, ?, ?, ?, ?, ?)", 
+                           (name, age, team, style, affinity, img_url))
                 db.commit()
-                msg = "✅ تم إضافة المدرب بنجاح!"
+                msg = "✅ تم إضافة المدرب بتفاصيله الكاملة!"
 
             elif action == "delete_manager":
                 m_id = request.form.get("manager_id")
@@ -1234,34 +1271,25 @@ def admin_panel():
     </div>
 
     <div class="box">
-      <h3>⚡ إضافة مهارة جديدة مع الاسم، الوصف والصورة</h3>
+      <h3>🖼️ رفع وتحديث لوجو كارت "قائمة المدربين"</h3>
       <form method="post" enctype="multipart/form-data">
-        <input type="hidden" name="action" value="add_skill">
-        <input name="name" placeholder="اسم المهارة (مثال: Double Touch)" required>
-        <textarea name="desc" placeholder="وصف المهارة وكيفية تنفيذها..." rows="2" required></textarea>
-        <label style="font-size:11px;">صورة المهارة:</label>
-        <input type="file" name="skill_file" accept="image/*">
-        <button type="submit" style="margin-top:10px;">حفظ وإضافة المهارة 🚀</button>
+        <input type="hidden" name="action" value="upload_managers_card">
+        <input type="file" name="card_file" accept="image/*" required>
+        <button type="submit" style="margin-top:10px;">حفظ وتحديث الصورة 🚀</button>
       </form>
     </div>
 
     <div class="box">
-      <h3>🖼️ رفع البانر الرئيسي للموقع من الهاتف</h3>
-      <form method="post" enctype="multipart/form-data">
-        <input type="hidden" name="action" value="upload_banner">
-        <input type="file" name="banner_file" accept="image/*" required>
-        <button type="submit" style="margin-top:10px;">رفع وعرض البانر الرئيسي 🚀</button>
-      </form>
-    </div>
-
-    <div class="box">
-      <h3>👔 إضافة مدرب جديد مع الصورة</h3>
+      <h3>👔 إضافة مدرب جديد بكامل تفاصيله</h3>
       <form method="post" enctype="multipart/form-data">
         <input type="hidden" name="action" value="add_manager">
         <input name="name" placeholder="اسم المدرب" required>
+        <input type="number" name="age" placeholder="السن / العمر" value="50" required>
+        <input name="team" placeholder="الفريق / الجنسية (مثال: Germany / Liverpool)" required>
         <input name="playstyle" placeholder="أسلوب اللعب (مثال: Quick Counter)" required>
+        <input type="number" name="affinity" placeholder="قوة التوافقية (Affinity)" value="85" required>
         <input type="file" name="image_file" accept="image/*">
-        <button type="submit" style="margin-top:10px;">إضافة المدرب</button>
+        <button type="submit" style="margin-top:10px;">حفظ وإضافة المدرب 🚀</button>
       </form>
     </div>
 
@@ -1274,6 +1302,17 @@ def admin_panel():
           {managers_options}
         </select>
         <button type="submit" style="background:#ef4444;color:#fff;margin-top:10px;">حذف المدرب ❌</button>
+      </form>
+    </div>
+
+    <div class="box">
+      <h3>⚡ إضافة مهارة جديدة مع الاسم، الوصف والصورة</h3>
+      <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="action" value="add_skill">
+        <input name="name" placeholder="اسم المهارة (مثال: Double Touch)" required>
+        <textarea name="desc" placeholder="وصف المهارة وكيفية تنفيذها..." rows="2" required></textarea>
+        <input type="file" name="skill_file" accept="image/*">
+        <button type="submit" style="margin-top:10px;">حفظ وإضافة المهارة 🚀</button>
       </form>
     </div>
 
