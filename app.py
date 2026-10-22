@@ -17,7 +17,6 @@ from flask import (
     Response,
 )
 
-# استدعاء الملفات المنفصلة والدوال الخاصة بها بكل احترافية
 from leagues_and_clubs import get_all_leagues, get_club_logo
 from classic_players import get_classic_players
 from player_stats import PLAYER_STATS_TEMPLATE
@@ -95,6 +94,15 @@ def init_db():
             )
         """)
 
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS saved_squads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_email TEXT,
+                squad_json TEXT NOT NULL,
+                updated_at INTEGER NOT NULL
+            )
+        """)
+
         try:
             db.execute("ALTER TABLE managers ADD COLUMN age INTEGER DEFAULT 50")
         except Exception:
@@ -116,6 +124,10 @@ def init_db():
                 card_type TEXT NOT NULL,
                 is_upcoming INTEGER DEFAULT 0,
                 image_url TEXT NOT NULL,
+                height INTEGER DEFAULT 180,
+                weight INTEGER DEFAULT 75,
+                age INTEGER DEFAULT 25,
+                stamina INTEGER DEFAULT 80,
                 stats_json TEXT NOT NULL,
                 skills_json TEXT NOT NULL
             )
@@ -123,6 +135,7 @@ def init_db():
 
         db.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('custom_banner', '')")
         db.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('managers_card_img', '')")
+        db.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('total_downloads_count', '1420')")
 
         cursor_n = db.execute("SELECT COUNT(*) as count FROM news")
         if cursor_n.fetchone()["count"] == 0:
@@ -147,15 +160,15 @@ def init_db():
             neymar_stats = {"attacking": {"وعي هجومي": 90, "المراوغة": 98, "إنهاء الهجمة": 89}, "physical": {"السرعة": 94, "التسارع": 96}, "defending": {"وعي دفاعي": 38}}
 
             default_players = [
-                ("Raphael Varane", 88, 103, "CB", "Manchester United", "Showtime", 0, "https://via.placeholder.com/150/121826/ccff00?text=Varane", json.dumps(varane_stats), json.dumps(["مهارة الرأس", "حصن"])),
-                ("Seedorf", 94, 106, "CMF", "AC Milan", "Epic / Big Time", 0, "https://via.placeholder.com/150/121826/ccff00?text=Seedorf", json.dumps(seedorf_stats), json.dumps(["التمرير الموزون"])),
-                ("Lionel Messi", 96, 108, "RWF", "Inter Miami", "Epic / Big Time", 0, "https://via.placeholder.com/150/121826/ccff00?text=Messi", json.dumps(messi_stats), json.dumps(["المراوغة السريعة"])),
-                ("Cristiano Ronaldo", 95, 107, "ST", "Al Nassr", "Epic / Big Time", 0, "https://via.placeholder.com/150/121826/ccff00?text=Ronaldo", json.dumps(ronaldo_stats), json.dumps(["رأسيات قوية"])),
-                ("Neymar Jr", 94, 105, "LWF", "Al Hilal", "Showtime", 1, "https://via.placeholder.com/150/121826/ccff00?text=Neymar", json.dumps(neymar_stats), json.dumps(["المراوغة المزدوجة"]))
+                ("Raphael Varane", 88, 103, "CB", "Manchester United", "Showtime", 0, "https://via.placeholder.com/150/121826/ccff00?text=Varane", 191, 81, 30, 85, json.dumps(varane_stats), json.dumps(["مهارة الرأس", "حصن"])),
+                ("Seedorf", 94, 106, "CMF", "AC Milan", "Epic / Big Time", 0, "https://via.placeholder.com/150/121826/ccff00?text=Seedorf", 176, 78, 27, 90, json.dumps(seedorf_stats), json.dumps(["التمرير الموزون"])),
+                ("Lionel Messi", 96, 108, "RWF", "Inter Miami", "Epic / Big Time", 0, "https://via.placeholder.com/150/121826/ccff00?text=Messi", 170, 72, 35, 88, json.dumps(messi_stats), json.dumps(["المراوغة السريعة"])),
+                ("Cristiano Ronaldo", 95, 107, "ST", "Al Nassr", "Epic / Big Time", 0, "https://via.placeholder.com/150/121826/ccff00?text=Ronaldo", 187, 83, 36, 92, json.dumps(ronaldo_stats), json.dumps(["رأسيات قوية"])),
+                ("Neymar Jr", 94, 105, "LWF", "Al Hilal", "Showtime", 1, "https://via.placeholder.com/150/121826/ccff00?text=Neymar", 175, 68, 31, 84, json.dumps(neymar_stats), json.dumps(["المراوغة المزدوجة"]))
             ]
             db.executemany("""
-                INSERT INTO players (name, overall_base, overall_max, position, team, card_type, is_upcoming, image_url, stats_json, skills_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO players (name, overall_base, overall_max, position, team, card_type, is_upcoming, image_url, height, weight, age, stamina, stats_json, skills_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, default_players)
             db.commit()
 
@@ -511,7 +524,7 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
   <div class="control-row">
     <div style="display:flex; flex-direction:column; gap:4px; flex-grow:1;">
       <label style="font-size:12px; font-weight:bold;">👔 اختر المدرب:</label>
-      <select id="managerSelect" onchange="updateManagerPreview()">
+      <select id="managerSelect" onchange="updateManagerPreview(); autoSave();">
         <option value="">-- اختر المدرب --</option>
         {% for m in managers %}
         <option value="{{ m['name'] }}" data-img="{{ m['image_url'] }}" data-style="{{ m['playstyle'] }}">{{ m['name'] }} ({{ m['playstyle'] }})</option>
@@ -530,7 +543,7 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
   <div class="control-row">
     <div style="display:flex; flex-direction:column; gap:4px; flex-grow:1;">
       <label style="font-size:12px; font-weight:bold;">📋 اختر خطة اللعب (Formation):</label>
-      <select id="formationSelect" onchange="changeFormation()">
+      <select id="formationSelect" onchange="changeFormation(); autoSave();">
         <option value="4-2-3-1">4-2-3-1 (المتوازنة)</option>
         <option value="3-4-3">3-4-3 (الهجومية الضغط العالي)</option>
         <option value="4-5-1">4-5-1 (التحكم والوسط)</option>
@@ -547,7 +560,7 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
   <div class="control-row">
     <div style="display:flex; flex-direction:column; gap:4px; flex-grow:1;">
       <label style="font-size:12px; font-weight:bold;">🏆 الفريق والدوري المفضل:</label>
-      <select id="clubSelect" onchange="updateClubPreview()">
+      <select id="clubSelect" onchange="updateClubPreview(); autoSave();">
         <option value="">-- اختر الفريق --</option>
         {% for league in leagues %}
           <optgroup label="{{ league['name'] }}">
@@ -565,7 +578,7 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
 
   <div class="control-row">
     <label style="font-size:12px; font-weight:bold;">❌⭕ التكتيك المفضل:</label>
-    <select id="tacticSelect" onchange="updateTacticalOverlayAndBoard()">
+    <select id="tacticSelect" onchange="updateTacticalOverlayAndBoard(); autoSave();">
       <option value="Possession">الاستحواذ (Possession Game)</option>
       <option value="Quick Counter">المرتدة السريعة (Quick Counter)</option>
       <option value="Out Wide">العرضيات (Out Wide)</option>
@@ -585,10 +598,9 @@ select, input { background: #07090e; border: 1px solid var(--border-color); colo
   <div id="slotsContainer"></div>
 </div>
 
-<!-- الأزرار الجديدة: حفظ، تنزيل، ومشاركة -->
 <div class="action-buttons-bar">
-  <button class="action-btn btn-save" onclick="saveSquad()">💾 حفظ التشكيلة</button>
-  <button class="action-btn btn-load" onclick="loadSquad()">📥 تنزيل التشكيلة</button>
+  <button class="action-btn btn-save" onclick="saveSquad(true)">💾 حفظ التشكيلة</button>
+  <button class="action-btn btn-load" onclick="loadSquad(true)">📥 تنزيل التشكيلة</button>
   <button class="action-btn btn-share" onclick="shareSquad()">🔗 مشاركة التشكيلة</button>
 </div>
 
@@ -842,6 +854,8 @@ function initDraggableSlots() {
       isDragging = false;
       if (slot.dataset.hasMoved === 'false') {
         openSearch(slot.id.replace('slot_', ''));
+      } else {
+        autoSave();
       }
     };
 
@@ -924,7 +938,6 @@ function updateTacticalOverlayAndBoard() {
 }
 
 updateTacticalOverlayAndBoard();
-changeFormation();
 
 function updateManagerPreview() {
   let select = document.getElementById('managerSelect');
@@ -985,6 +998,7 @@ function changePosition(newPos) {
     if(squadPlayersData[activePosSlot]) {
       squadPlayersData[activePosSlot].pos = newPos;
     }
+    autoSave();
   }
   closePosModal();
 }
@@ -1025,16 +1039,17 @@ function selectPlayer(name, img, overall, defaultPos) {
     <span style="font-size:9px; color:var(--neon-green);">${overall}</span>
   `;
   closeSearch();
+  autoSave();
 }
 
 function removePlayer(slotId) {
   delete squadPlayersData[slotId];
   let slot = document.getElementById('slot_' + slotId);
   slot.innerHTML = `<span id="pos_${slotId}">${slotId.replace(/[0-9]/g, '')}</span><br>+`;
+  autoSave();
 }
 
-// الدوال الجديدة المضافة: حفظ، تنزيل ومشاركة
-function saveSquad() {
+function autoSave() {
   let squadData = {
     manager: document.getElementById('managerSelect').value,
     formation: document.getElementById('formationSelect').value,
@@ -1042,29 +1057,60 @@ function saveSquad() {
     tactic: document.getElementById('tacticSelect').value,
     players: squadPlayersData
   };
-  localStorage.setItem('nova_saved_squad', JSON.stringify(squadData));
-  alert('✅ تم حفظ التشكيلة بنجاح على جهازك!');
+  let jsonStr = JSON.stringify(squadData);
+  localStorage.setItem('nova_saved_squad', jsonStr);
+
+  fetch('/api/save-squad', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: jsonStr
+  }).catch(() => {});
 }
 
-function loadSquad() {
-  let saved = localStorage.getItem('nova_saved_squad');
-  if(!saved) {
-    alert('⚠️ لا توجد تشكيلة محفوظة مسبقاً!');
-    return;
-  }
-  let squadData = JSON.parse(saved);
-  if(squadData.manager) document.getElementById('managerSelect').value = squadData.manager;
-  if(squadData.formation) document.getElementById('formationSelect').value = squadData.formation;
-  if(squadData.club) document.getElementById('clubSelect').value = squadData.club;
-  if(squadData.tactic) document.getElementById('tacticSelect').value = squadData.tactic;
-  
-  updateManagerPreview();
-  updateClubPreview();
-  updateTacticalOverlayAndBoard();
-  
-  squadPlayersData = squadData.players || {};
-  changeFormation();
-  alert('📥 تم تنزيل واستعادة التشكيلة بنجاح!');
+function saveSquad(showAlert = false) {
+  autoSave();
+  if(showAlert) alert('💾 تم حفظ التشكيلة بدقة وفي قاعدة البيانات للرجوع إليها دائماً!');
+}
+
+function loadSquad(showAlert = false) {
+  fetch('/api/get-squad')
+    .then(r => r.json())
+    .then(data => {
+      let squadData = data;
+      if(!squadData || !squadData.formation) {
+        let saved = localStorage.getItem('nova_saved_squad');
+        if(saved) squadData = JSON.parse(saved);
+      }
+      if(squadData && squadData.formation) {
+        if(squadData.manager) document.getElementById('managerSelect').value = squadData.manager;
+        if(squadData.formation) document.getElementById('formationSelect').value = squadData.formation;
+        if(squadData.club) document.getElementById('clubSelect').value = squadData.club;
+        if(squadData.tactic) document.getElementById('tacticSelect').value = squadData.tactic;
+
+        updateManagerPreview();
+        updateClubPreview();
+        updateTacticalOverlayAndBoard();
+
+        squadPlayersData = squadData.players || {};
+        changeFormation();
+        if(showAlert) alert('📥 تم تحميل التشكيلة المحفوظة بنجاح!');
+      } else if(showAlert) {
+        alert('⚠️ لا توجد تشكيلة محفوظة مسبقاً!');
+      }
+    }).catch(() => {
+      let saved = localStorage.getItem('nova_saved_squad');
+      if(saved) {
+        let squadData = JSON.parse(saved);
+        if(squadData.manager) document.getElementById('managerSelect').value = squadData.manager;
+        if(squadData.formation) document.getElementById('formationSelect').value = squadData.formation;
+        if(squadData.club) document.getElementById('clubSelect').value = squadData.club;
+        if(squadData.tactic) document.getElementById('tacticSelect').value = squadData.tactic;
+        updateManagerPreview(); updateClubPreview(); updateTacticalOverlayAndBoard();
+        squadPlayersData = squadData.players || {};
+        changeFormation();
+        if(showAlert) alert('📥 تم تحميل التشكيلة المحفوظة بنجاح!');
+      }
+    });
 }
 
 function shareSquad() {
@@ -1080,9 +1126,8 @@ function shareSquad() {
       url: window.location.href
     }).catch(() => {});
   } else {
-    // فتح نافذة مشاركة مباشرة عبر واتساب وتيليجرام
     let encoded = encodeURIComponent(text);
-    let choice = confirm('مشاركة عبر واتساب؟ (اضغط إ cancelar لتيليجرام)');
+    let choice = confirm('مشاركة عبر واتساب؟ (اضغط Cancel لتيليجرام)');
     if(choice) {
       window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank');
     } else {
@@ -1090,6 +1135,10 @@ function shareSquad() {
     }
   }
 }
+
+window.addEventListener('DOMContentLoaded', () => {
+  loadSquad(false);
+});
 </script>
 </body>
 </html>
@@ -1279,6 +1328,28 @@ body { background-color: var(--bg-dark); color: #fff; font-family: 'Cairo', sans
 </body>
 </html>
 """
+
+
+@app.route('/api/save-squad', methods=['POST'])
+def api_save_squad():
+    email = session.get('user_email', 'guest')
+    data = request.get_json(silent=True) or {}
+    squad_json = json.dumps(data)
+    with get_db() as db:
+        db.execute("INSERT INTO saved_squads (user_email, squad_json, updated_at) VALUES (?, ?, ?)",
+                   (email, squad_json, int(time.time())))
+        db.commit()
+    return jsonify({"status": "success"})
+
+
+@app.route('/api/get-squad')
+def api_get_squad():
+    email = session.get('user_email', 'guest')
+    with get_db() as db:
+        res = db.execute("SELECT squad_json FROM saved_squads WHERE user_email = ? ORDER BY id DESC LIMIT 1", (email,)).fetchone()
+        if res:
+            return Response(res['squad_json'], mimetype='application/json')
+    return jsonify({})
 
 
 @app.route('/squad-builder')
@@ -1528,6 +1599,11 @@ def admin_panel():
                 card_type = request.form.get("card_type")
                 is_upcoming = 1 if request.form.get("is_upcoming") else 0
 
+                height = int(request.form.get("height", 180))
+                weight = int(request.form.get("weight", 75))
+                age = int(request.form.get("age", 25))
+                stamina = int(request.form.get("stamina", 80))
+
                 image_url = ""
                 file = request.files.get("image_file")
                 if file and file.filename != "":
@@ -1539,13 +1615,13 @@ def admin_panel():
 
                 full_stats = {
                     "attacking": {"وعي هجومي": int(request.form.get("att_awareness", 80)), "المراوغة": int(request.form.get("dribbling", 80)), "إنهاء الهجمة": int(request.form.get("finishing", 80))},
-                    "physical": {"السرعة": int(request.form.get("speed", 85)), "قوة التحمل": int(request.form.get("stamina", 80))},
+                    "physical": {"السرعة": int(request.form.get("speed", 85)), "قوة التحمل": stamina},
                     "defending": {"وعي دفاعي": int(request.form.get("def_awareness", 85)), "قطع الكرة": int(request.form.get("tackling", 85))}
                 }
                 db.execute("""
-                    INSERT INTO players (name, overall_base, overall_max, position, team, card_type, is_upcoming, image_url, stats_json, skills_json)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (name, overall_base, overall_max, position, team, card_type, is_upcoming, image_url, json.dumps(full_stats), json.dumps([])))
+                    INSERT INTO players (name, overall_base, overall_max, position, team, card_type, is_upcoming, image_url, height, weight, age, stamina, stats_json, skills_json)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (name, overall_base, overall_max, position, team, card_type, is_upcoming, image_url, height, weight, age, stamina, json.dumps(full_stats), json.dumps([])))
                 db.commit()
                 msg = "✅ تم إضافة اللاعب بنجاح!"
 
@@ -1555,7 +1631,20 @@ def admin_panel():
                 db.commit()
                 msg = "🗑️ تم حذف اللاعب بنجاح!"
 
+            elif action == "update_downloads":
+                new_val = request.form.get("downloads_val")
+                db.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('total_downloads_count', ?)", (new_val,))
+                db.commit()
+                msg = "📊 تم تحديث عدد تنزيلات وتحميلات التطبيق بنجاح!"
+
     with get_db() as db:
+        users_cnt = db.execute("SELECT COUNT(*) as c FROM users").fetchone()['c']
+        players_cnt = db.execute("SELECT COUNT(*) as c FROM players").fetchone()['c']
+        managers_cnt = db.execute("SELECT COUNT(*) as c FROM managers").fetchone()['c']
+        squads_cnt = db.execute("SELECT COUNT(*) as c FROM saved_squads").fetchone()['c']
+        downloads_res = db.execute("SELECT value FROM settings WHERE key = 'total_downloads_count'").fetchone()
+        downloads_val = downloads_res['value'] if downloads_res else "1420"
+
         all_players = db.execute("SELECT id, name, position, card_type FROM players ORDER BY id DESC").fetchall()
         all_managers = db.execute("SELECT id, name, playstyle FROM managers ORDER BY id DESC").fetchall()
 
@@ -1566,12 +1655,31 @@ def admin_panel():
     <html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>لوحة المطور</title>
     <style>body{{background:#07090e;color:#fff;font-family:Cairo,sans-serif;padding:30px;}}
     .box{{background:#0e121d;padding:20px;border:1px solid #ccff00;border-radius:14px;max-width:550px;margin:0 auto 20px;}}
+    .stats-grid-admin{{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px;}}
+    .stat-card-admin{{background:#141a29;border:1px solid #00d2ff;border-radius:10px;padding:12px;text-align:center;}}
     input, textarea, select{{width:100%;padding:10px;margin:6px 0;background:#07090e;border:1px solid #1e2638;border-radius:8px;color:#fff;box-sizing:border-box;font-family:Cairo;}}
     button{{padding:10px 20px;background:#ccff00;color:#000;border:0;border-radius:8px;font-weight:bold;cursor:pointer;}}
     </style></head>
     <body><div style="max-width:550px;margin:auto;">
     <h2 style="color:#ccff00;">⚙️ لوحة تحكم المطور الحصرية</h2>
     <p style="color:#35eaa1;font-weight:bold;">{msg}</p>
+
+    <!-- زر وقسم إحصائيات التطبيق والتحميلات -->
+    <div class="box" style="border-color:#00d2ff;">
+      <h3 style="color:#00d2ff;margin-bottom:12px;">📊 إحصائيات التطبيق والتحميلات الحقيقية</h3>
+      <div class="stats-grid-admin">
+        <div class="stat-card-admin"><div style="font-size:11px;color:#8fa0c0;">إجمالي المستخدمين</div><div style="font-size:20px;font-weight:bold;color:#ccff00;">{users_cnt}</div></div>
+        <div class="stat-card-admin"><div style="font-size:11px;color:#8fa0c0;">إجمالي اللاعبين</div><div style="font-size:20px;font-weight:bold;color:#00d2ff;">{players_cnt}</div></div>
+        <div class="stat-card-admin"><div style="font-size:11px;color:#8fa0c0;">إجمالي المدربين</div><div style="font-size:20px;font-weight:bold;color:#ccff00;">{managers_cnt}</div></div>
+        <div class="stat-card-admin"><div style="font-size:11px;color:#8fa0c0;">التشكيلات المحفوظة</div><div style="font-size:20px;font-weight:bold;color:#00d2ff;">{squads_cnt}</div></div>
+      </div>
+      <form method="post" style="margin-top:10px;">
+        <input type="hidden" name="action" value="update_downloads">
+        <label style="font-size:12px;">📲 عدد التنزيلات/التحميلات الظاهر:</label>
+        <input name="downloads_val" value="{downloads_val}" placeholder="عدد التحميلات" required>
+        <button type="submit" style="margin-top:6px;width:100%;background:#00d2ff;color:#000;">تحديث عداد التحميلات 🚀</button>
+      </form>
+    </div>
 
     <div class="box">
       <h3>📢 إرسال رسالة أو إشعار لجميع المستخدمين</h3>
@@ -1639,7 +1747,7 @@ def admin_panel():
     </div>
 
     <div class="box">
-      <h3>⚽ إضافة لاعب جديد بالكامل</h3>
+      <h3>⚽ إضافة لاعب جديد مع خصائصه الفيزيائية</h3>
       <form method="post" enctype="multipart/form-data">
         <input type="hidden" name="action" value="add_player">
         <input name="name" placeholder="اسم اللاعب" required>
@@ -1647,6 +1755,12 @@ def admin_panel():
         <input type="number" name="overall_max" placeholder="الطاقة القصوى" required>
         <input name="position" placeholder="المركز (مثال: CB)" required>
         <input name="team" placeholder="النادي / الفريق" required>
+        <div style="display:flex;gap:6px;">
+          <input type="number" name="height" placeholder="الطول (سم)" value="180">
+          <input type="number" name="weight" placeholder="الوزن (كجم)" value="75">
+          <input type="number" name="age" placeholder="العمر" value="25">
+        </div>
+        <input type="number" name="stamina" placeholder="مستوى اللياقة (%)" value="80">
         <select name="card_type">
           <option value="Epic / Big Time">Epic / Big Time</option>
           <option value="Showtime">Showtime</option>
