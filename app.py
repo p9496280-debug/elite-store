@@ -17,9 +17,11 @@ from flask import (
     Response,
 )
 
+# استدعاء الملفات المنفصلة والدوال الخاصة بها بكل احترافية
 from leagues_and_clubs import get_all_leagues, get_club_logo
 from classic_players import get_classic_players
 from player_stats import PLAYER_STATS_TEMPLATE
+from player_images import get_player_image, get_all_player_images
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "nova_ehub_master_key_2026")
@@ -145,11 +147,11 @@ def init_db():
         cursor_m = db.execute("SELECT COUNT(*) as count FROM managers")
         if cursor_m.fetchone()["count"] == 0:
             db.execute("INSERT INTO managers (name, age, team, playstyle, affinity, image_url) VALUES (?, ?, ?, ?, ?, ?)",
-                       ("Jürgen Klopp", 56, "Germany / Liverpool", "Quick Counter", 88, "https://via.placeholder.com/150/121826/ccff00?text=Klopp"))
+                       ("Jürgen Klopp", 56, "Germany / Liverpool", "Quick Counter", 88, get_player_image("Klopp")))
             db.execute("INSERT INTO managers (name, age, team, playstyle, affinity, image_url) VALUES (?, ?, ?, ?, ?, ?)",
-                       ("Cristian Chivu", 43, "Romania / Inter Milan", "Possession Game", 85, "https://via.placeholder.com/150/121826/ccff00?text=Chivu"))
+                       ("Cristian Chivu", 43, "Romania / Inter Milan", "Possession Game", 85, get_player_image("Chivu")))
             db.execute("INSERT INTO managers (name, age, team, playstyle, affinity, image_url) VALUES (?, ?, ?, ?, ?, ?)",
-                       ("R. Rodriguez", 48, "Spain / Free Agent", "Out Wide", 83, "https://via.placeholder.com/150/121826/ccff00?text=Rodriguez"))
+                       ("R. Rodriguez", 48, "Spain / Free Agent", "Out Wide", 83, get_player_image("Rodriguez")))
 
         cursor_p = db.execute("SELECT COUNT(*) as count FROM players")
         if cursor_p.fetchone()["count"] == 0:
@@ -160,11 +162,11 @@ def init_db():
             neymar_stats = {"attacking": {"وعي هجومي": 90, "المراوغة": 98, "إنهاء الهجمة": 89}, "physical": {"السرعة": 94, "التسارع": 96}, "defending": {"وعي دفاعي": 38}}
 
             default_players = [
-                ("Raphael Varane", 88, 103, "CB", "Manchester United", "Showtime", 0, "https://via.placeholder.com/150/121826/ccff00?text=Varane", 191, 81, 30, 85, json.dumps(varane_stats), json.dumps(["مهارة الرأس", "حصن"])),
-                ("Seedorf", 94, 106, "CMF", "AC Milan", "Epic / Big Time", 0, "https://via.placeholder.com/150/121826/ccff00?text=Seedorf", 176, 78, 27, 90, json.dumps(seedorf_stats), json.dumps(["التمرير الموزون"])),
-                ("Lionel Messi", 96, 108, "RWF", "Inter Miami", "Epic / Big Time", 0, "https://via.placeholder.com/150/121826/ccff00?text=Messi", 170, 72, 35, 88, json.dumps(messi_stats), json.dumps(["المراوغة السريعة"])),
-                ("Cristiano Ronaldo", 95, 107, "ST", "Al Nassr", "Epic / Big Time", 0, "https://via.placeholder.com/150/121826/ccff00?text=Ronaldo", 187, 83, 36, 92, json.dumps(ronaldo_stats), json.dumps(["رأسيات قوية"])),
-                ("Neymar Jr", 94, 105, "LWF", "Al Hilal", "Showtime", 1, "https://via.placeholder.com/150/121826/ccff00?text=Neymar", 175, 68, 31, 84, json.dumps(neymar_stats), json.dumps(["المراوغة المزدوجة"]))
+                ("Raphael Varane", 88, 103, "CB", "Manchester United", "Showtime", 0, get_player_image("Raphael Varane"), 191, 81, 30, 85, json.dumps(varane_stats), json.dumps(["مهارة الرأس", "حصن"])),
+                ("Seedorf", 94, 106, "CMF", "AC Milan", "Epic / Big Time", 0, get_player_image("Seedorf"), 176, 78, 27, 90, json.dumps(seedorf_stats), json.dumps(["التمرير الموزون"])),
+                ("Lionel Messi", 96, 108, "RWF", "Inter Miami", "Epic / Big Time", 0, get_player_image("Lionel Messi"), 170, 72, 35, 88, json.dumps(messi_stats), json.dumps(["المراوغة السريعة"])),
+                ("Cristiano Ronaldo", 95, 107, "ST", "Al Nassr", "Epic / Big Time", 0, get_player_image("Cristiano Ronaldo"), 187, 83, 36, 92, json.dumps(ronaldo_stats), json.dumps(["رأسيات قوية"])),
+                ("Neymar Jr", 94, 105, "LWF", "Al Hilal", "Showtime", 1, get_player_image("Neymar Jr"), 175, 68, 31, 84, json.dumps(neymar_stats), json.dumps(["المراوغة المزدوجة"]))
             ]
             db.executemany("""
                 INSERT INTO players (name, overall_base, overall_max, position, team, card_type, is_upcoming, image_url, height, weight, age, stamina, stats_json, skills_json)
@@ -1573,7 +1575,7 @@ def admin_panel():
                 style = request.form.get("playstyle")
                 affinity = int(request.form.get("affinity", 85))
                 file = request.files.get("image_file")
-                img_url = "https://via.placeholder.com/90/121826/ccff00?text=Coach"
+                img_url = get_player_image(name)
                 if file and file.filename != "":
                     filename = secure_filename(file.filename)
                     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
@@ -1604,14 +1606,13 @@ def admin_panel():
                 age = int(request.form.get("age", 25))
                 stamina = int(request.form.get("stamina", 80))
 
-                image_url = ""
+                image_url = get_player_image(name)
                 file = request.files.get("image_file")
                 if file and file.filename != "":
                     filename = secure_filename(file.filename)
                     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                     file.save(filepath)
                     image_url = url_for('static', filename=f'uploads/{filename}')
-                else: image_url = "https://via.placeholder.com/150/121826/ccff00?text=eFootball"
 
                 full_stats = {
                     "attacking": {"وعي هجومي": int(request.form.get("att_awareness", 80)), "المراوغة": int(request.form.get("dribbling", 80)), "إنهاء الهجمة": int(request.form.get("finishing", 80))},
