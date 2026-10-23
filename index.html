@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NovaLab 3D — Interactive Science Lab</title>
+    <!-- Three.js & OrbitControls for 3D Interactions -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: #0b0f19;
+            color: #f1f5f9;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Top Header Navigation */
+        header {
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(12px);
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+            z-index: 10;
+        }
+
+        .logo {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #38bdf8;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .badge {
+            background: linear-gradient(135deg, #0284c7, #2563eb);
+            color: #fff;
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        /* Main Workspace Container */
+        .workspace {
+            display: flex;
+            flex: 1;
+            height: calc(100vh - 60px);
+            position: relative;
+        }
+
+        /* Sidebar Control Panel */
+        sidebar {
+            width: 280px;
+            background: #0f172a;
+            padding: 20px 16px;
+            border-left: 1px solid #1e293b;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 5;
+        }
+
+        sidebar h3 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        .exp-btn {
+            background: #1e293b;
+            color: #cbd5e1;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 14px 16px;
+            text-align: right;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.25s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .exp-btn:hover {
+            background: #334155;
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        .exp-btn.active {
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            color: #ffffff;
+            border-color: #38bdf8;
+            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);
+        }
+
+        /* 3D Viewport Area */
+        main {
+            flex: 1;
+            position: relative;
+            background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
+        }
+
+        #viewport {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Information Overlay Box */
+        .info-card {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 18px 22px;
+            border-radius: 14px;
+            max-width: 340px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+        }
+
+        .info-card h2 {
+            font-size: 1.15rem;
+            color: #38bdf8;
+            margin-bottom: 6px;
+        }
+
+        .info-card p {
+            font-size: 0.88rem;
+            line-height: 1.5;
+            color: #94a3b8;
+        }
+
+        /* Responsive Layout for Mobile Devices */
+        @media (max-width: 768px) {
+            .workspace { flex-direction: column-reverse; }
+            sidebar { width: 100%; height: 180px; overflow-y: auto; }
+            .info-card { top: 10px; right: 10px; left: 10px; max-width: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            <span>🔬 NovaLab 3D</span>
+        </div>
+        <div class="badge">Amazon Developer Edition v1.0</div>
+    </header>
+
+    <div class="workspace">
+        <!-- القائمة الجانبية باختبارات الكيمياء والفيزياء -->
+        <sidebar>
+            <h3>المختبر التفاعلي</h3>
+            <button class="exp-btn active" onclick="switchExperiment('water', this)">
+                🧪 جزيء الماء H₂O (كيمياء)
+            </button>
+            <button class="exp-btn" onclick="switchExperiment('methane', this)">
+                🔥 جزيء الميثان CH₄ (كيمياء)
+            </button>
+            <button class="exp-btn" onclick="switchExperiment('atom', this)">
+                ⚡ نموذج الذرة (فيزياء)
+            </button>
+            <button class="exp-btn" onclick="switchExperiment('solar', this)">
+                🪐 الجاذبية والمدارات (فلك)
+            </button>
+        </sidebar>
+
+        <!-- مسرح العرض ثلاثي الأبعاد -->
+        <main>
+            <div id="viewport"></div>
+            
+            <div class="info-card">
+                <h2 id="title">جزيء الماء (H₂O)</h2>
+                <p id="description">نموذج ثلاثي الأبعاد تفاعلي يوضح الرابطة التساهمية بين ذرة الأكسجين (باللون الأحمر) وذرتين من الهيدروجين (باللون الأبيض).</p>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let scene, camera, renderer, controls, activeGroup;
+
+        function init() {
+            const container = document.getElementById('viewport');
+
+            // 1. إنشاء المشهد والكاميرا
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(0, 0, 8);
+
+            // 2. إعداد المصرّر (Renderer)
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            // 3. إضافة التحكم باللمس والماوس (OrbitControls)
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            // 4. الإضاءة
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            scene.add(ambientLight);
+
+            const dirLight1 = new THREE.DirectionalLight(0x38bdf8, 1);
+            dirLight1.position.set(5, 10, 7);
+            scene.add(dirLight1);
+
+            const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.5);
+            dirLight2.position.set(-5, -5, -5);
+            scene.add(dirLight2);
+
+            // مجموعة العنصر النشط
+            activeGroup = new THREE.Group();
+            scene.add(activeGroup);
+
+            // استجابة الحجم
+            window.addEventListener('resize', onResize);
+
+            // تحميل التجربة الأولى
+            buildWaterMolecule();
+            animate();
+        }
+
+        function clearScene() {
+            while (activeGroup.children.length > 0) {
+                const obj = activeGroup.children[0];
+                if (obj.geometry) obj.geometry.dispose();
+                activeGroup.remove(obj);
+            }
+        }
+
+        function switchExperiment(type, element) {
+            document.querySelectorAll('.exp-btn').forEach(btn => btn.classList.remove('active'));
+            if (element) element.classList.add('active');
+
+            clearScene();
+
+            if (type === 'water') {
+                document.getElementById('title').innerText = "جزيء الماء (H₂O)";
+                document.getElementById('description').innerText = "نموذج ثلاثي الأبعاد تفاعلي يوضح الرابطة التساهمية بين ذرة الأكسجين (باللون الأحمر) وذرتين من الهيدروجين (باللون الأبيض).";
+                buildWaterMolecule();
+            } else if (type === 'methane') {
+                document.getElementById('title').innerText = "جزيء الميثان (CH₄)";
+                document.getElementById('description').innerText = "تمثيل جزيئي ثلاثي الأبعاد لمركب الميثان العضوي: ذرة كربون مركزية مرتبطة بأربع ذرات هيدروجين.";
+                buildMethaneMolecule();
+            } else if (type === 'atom') {
+                document.getElementById('title').innerText = "نموذج الذرة والتأين";
+                document.getElementById('description').innerText = "محاكاة ثلاثية الأبعاد لنواة الذرة ومدارات الإلكترونات السريعة التي تدور حولها في مجالات الطاقة.";
+                buildAtomModel();
+            } else if (type === 'solar') {
+                document.getElementById('title').innerText = "الجاذبية وحركة الأجرام";
+                document.getElementById('description').innerText = "نموذج فيزيائي يوضح مدار الجاذبية الدائرية للكواكب حول مركز الكتلة في الفضاء.";
+                buildSolarSystem();
+            }
+        }
+
+        // --- بناء تجربة 1: جزيء الماء ---
+        function buildWaterMolecule() {
+            const oxy = new THREE.Mesh(
+                new THREE.SphereGeometry(1, 32, 32),
+                new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.3, metalness: 0.2 })
+            );
+            activeGroup.add(oxy);
+
+            const hMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3 });
+            const h1 = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 32), hMat);
+            h1.position.set(-1.3, -0.7, 0);
+
+            const h2 = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 32), hMat);
+            h2.position.set(1.3, -0.7, 0);
+
+            activeGroup.add(h1);
+            activeGroup.add(h2);
+        }
+
+        // --- بناء تجربة 2: جزيء الميثان ---
+        function buildMethaneMolecule() {
+            const carbon = new THREE.Mesh(
+                new THREE.SphereGeometry(0.9, 32, 32),
+                new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.3 })
+            );
+            activeGroup.add(carbon);
+
+            const positions = [
+                [1.1, 1.1, 1.1],
+                [-1.1, -1.1, 1.1],
+                [-1.1, 1.1, -1.1],
+                [1.1, -1.1, -1.1]
+            ];
+
+            positions.forEach(pos => {
+                const h = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.45, 32, 32),
+                    new THREE.MeshStandardMaterial({ color: 0xf8fafc })
+                );
+                h.position.set(...pos);
+                activeGroup.add(h);
+            });
+        }
+
+        // --- بناء تجربة 3: نموذج الذرة ---
+        function buildAtomModel() {
+            const nucleus = new THREE.Mesh(
+                new THREE.SphereGeometry(0.7, 32, 32),
+                new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xd97706, emissiveIntensity: 0.5 })
+            );
+            activeGroup.add(nucleus);
+
+            for (let i = 0; i < 3; i++) {
+                const ring = new THREE.Mesh(
+                    new THREE.TorusGeometry(1.8 + (i * 0.4), 0.02, 16, 100),
+                    new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true })
+                );
+                ring.rotation.x = Math.PI / (i + 1);
+                ring.rotation.y = Math.PI / (i + 2);
+                activeGroup.add(ring);
+            }
+        }
+
+        // --- بناء تجربة 4: المدارات الفلكية ---
+        function buildSolarSystem() {
+            const center = new THREE.Mesh(
+                new THREE.SphereGeometry(1.1, 32, 32),
+                new THREE.MeshBasicMaterial({ color: 0xf97316 })
+            );
+            activeGroup.add(center);
+
+            const orbiter = new THREE.Mesh(
+                new THREE.SphereGeometry(0.4, 32, 32),
+                new THREE.MeshStandardMaterial({ color: 0x06b6d4 })
+            );
+            orbiter.position.x = 2.8;
+            activeGroup.add(orbiter);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (activeGroup) {
+                activeGroup.rotation.y += 0.008;
+            }
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function onResize() {
+            const container = document.getElementById('viewport');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
