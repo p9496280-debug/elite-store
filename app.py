@@ -34,9 +34,8 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 # Private API endpoint for the separate Telegram verification bot service.
 BOT_BRIDGE_URL = os.environ.get("BOT_BRIDGE_URL", "").rstrip("/")
 BRIDGE_API_SECRET = os.environ.get("BRIDGE_API_SECRET", "")
-VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "01012345678")
+VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "ضع رقم فودافون كاش هنا")
 
-LOGO_URL = "https://i.ibb.co/68v893J5/1791.jpg"
 
 CATEGORIES = [
     ("all", "كل المنتجات", "✦"),
@@ -54,7 +53,7 @@ SEED_PRODUCTS = [
     ("PlayStation Store $20", "games", "بطاقة ألعاب", 999, "△", "", "بطاقات متجر PlayStation حسب المنطقة والتوفر."),
     ("Xbox Gift Card $25", "games", "بطاقة ألعاب", 1249, "✕", "", "بطاقات Xbox الرقمية حسب المنطقة والتوفر."),
     ("اشتراك أدوات رقمية", "digital", "خدمة رقمية", 299, "✧", "جديد", "خدمات رقمية يتم توضيح تفاصيلها قبل الشراء."),
-    ("سماعة لاسلكية برو", "products", "منتج فعلي", 1499, "♫", "", "منتج تجريبي للعرض — حدّث التفاصيل والمخزون قبل البيع."),
+    ("سماعة لاسلكية", "products", "منتج فعلي", 1499, "♫", "", "منتج تجريبي للعرض — حدّث التفاصيل والمخزون قبل البيع."),
     ("لوحة مفاتيح Gaming", "products", "منتج فعلي", 2199, "⌨", "", "منتج تجريبي للعرض — حدّث التفاصيل والمخزون قبل البيع."),
 ]
 
@@ -91,6 +90,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL, code_hash TEXT NOT NULL,
             purpose TEXT NOT NULL, payload TEXT DEFAULT '', expires_at TEXT NOT NULL,
             used INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        # Additive migrations for databases created by an earlier version.
         for column, definition in [
             ("payment_method", "TEXT DEFAULT 'غير محدد'"),
             ("payment_reference", "TEXT DEFAULT ''"),
@@ -105,10 +105,11 @@ def init_db():
         if count == 0:
             con.executemany("""INSERT INTO products(name,category,kind,price,icon,badge,description)
                 VALUES(?,?,?,?,?,?,?)""", SEED_PRODUCTS)
+        # Admin account is created from environment settings; change defaults in production.
         admin = con.execute("SELECT id FROM users WHERE email=?", (ADMIN_EMAIL,)).fetchone()
         if not admin:
             con.execute("INSERT INTO users(name,email,password_hash) VALUES(?,?,?)",
-                        ("MIDO ADMIN", ADMIN_EMAIL, generate_password_hash(ADMIN_PASSWORD)))
+                        ("Mido ADMIN", ADMIN_EMAIL, generate_password_hash(ADMIN_PASSWORD)))
 
 init_db()
 
@@ -129,6 +130,7 @@ def admin_required(fn):
     return wrapper
 
 def send_otp_email(to_email, code, purpose="تأكيد الحساب"):
+    """Send OTP through Resend HTTP API (avoids outbound SMTP restrictions on hosting)."""
     if not RESEND_API_KEY:
         raise RuntimeError("إعداد RESEND_API_KEY غير موجود في Environment على Render.")
 
@@ -139,7 +141,8 @@ def send_otp_email(to_email, code, purpose="تأكيد الحساب"):
         "text": (
             f"مرحبًا بك في MIDO NOVA\n\n"
             f"رمز التحقق الخاص بك هو: {code}\n\n"
-            "ينتهي الرمز خلال 10 دقائق. لا تشاركه مع أي شخص."
+            "ينتهي الرمز خلال 10 دقائق. لا تشاركه مع أي شخص.\n"
+            "إذا لم تطلب هذا الرمز، يمكنك تجاهل الرسالة."
         ),
     }
     request = urllib.request.Request(
@@ -159,12 +162,14 @@ def send_otp_email(to_email, code, purpose="تأكيد الحساب"):
     except urllib.error.HTTPError as exc:
         details = exc.read().decode("utf-8", errors="replace")[:500]
         app.logger.error("Resend email API rejected request: HTTP %s: %s", exc.code, details)
-        raise RuntimeError(f"Resend رفض إرسال البريد (HTTP {exc.code}).") from exc
+        raise RuntimeError(f"Resend رفض إرسال البريد (HTTP {exc.code}). راجع إعدادات المرسل والدومين.") from exc
     except urllib.error.URLError as exc:
         app.logger.error("Cannot reach Resend email API: %s", exc.reason)
         raise RuntimeError("تعذر الاتصال بخدمة Resend API من الاستضافة.") from exc
 
+
 def telegram_bridge_request(path, payload):
+    """Call the private Telegram verification bridge; never expose its secret to browsers."""
     if not BOT_BRIDGE_URL or not BRIDGE_API_SECRET:
         raise RuntimeError("إعداد BOT_BRIDGE_URL وBRIDGE_API_SECRET غير موجود في Render.")
     req = urllib.request.Request(
@@ -179,9 +184,14 @@ def telegram_bridge_request(path, payload):
             if not result.get("ok"):
                 raise RuntimeError(result.get("error", "فشل طلب التحقق عبر تيليجرام."))
             return result
-    except Exception as exc:
-        app.logger.error("Telegram bridge error: %s", exc)
-        raise RuntimeError("تعذر الاتصال بخدمة التحقق عبر تيليجرام.") from exc
+    except urllib.error.HTTPError as exc:
+        details = exc.read().decode("utf-8", errors="replace")[:300]
+        app.logger.error("Telegram bridge HTTP %s: %s", exc.code, details)
+        raise RuntimeError("بوت التحقق رفض الطلب. راجع إعدادات الربط وسجل البوت.") from exc
+    except urllib.error.URLError as exc:
+        app.logger.error("Cannot reach Telegram bridge: %s", exc.reason)
+        raise RuntimeError("الموقع غير قادر على الاتصال بخدمة بوت التحقق.") from exc
+
 
 def request_telegram_otp(name, email):
     request_id = secrets.token_urlsafe(24)
@@ -191,6 +201,7 @@ def request_telegram_otp(name, email):
         "email": email,
     })
     return request_id, int(result.get("expires_in", 300))
+
 
 def notify_telegram(message):
     if not (TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID):
@@ -211,82 +222,31 @@ BASE = r"""
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#030712">
+<meta name="theme-color" content="#07110f">
 <title>{{ title }} | MIDO NOVA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#030712;--panel:#0f172a;--panel2:#1e293b;--line:#334155;--mint:#38bdf8;--mint2:#0284c7;--text:#f9fafb;--muted:#94a3b8;--gold:#f59e0b;--danger:#ef4444}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% -10%,#1e3a8a33,transparent 45%),radial-gradient(circle at 10% 40%,#0f172a,transparent 40%),var(--bg);color:var(--text);font-family:'Cairo',sans-serif;min-height:100vh}
+:root{--bg:#07100f;--panel:#0d1917;--panel2:#10211e;--line:#1d3933;--mint:#39edbd;--mint2:#12b98b;--text:#f1fbf7;--muted:#91aaa1;--gold:#d9ff72;--danger:#ff7373}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 85% -10%,#124b3b66,transparent 42%),radial-gradient(ellipse at 0% 40%,#0d2825,transparent 34%),var(--bg);color:var(--text);font-family:'Cairo',sans-serif;min-height:100vh}
 a{color:inherit;text-decoration:none}button,input,select{font:inherit}.wrap{max-width:1190px;margin:auto;padding:0 20px}
-.topbar{position:sticky;top:0;z-index:20;background:rgba(15,23,42,0.95);border-bottom:1px solid rgba(56,189,248,0.2);backdrop-filter:blur(16px)}
-.nav{height:78px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{display:flex;align-items:center;gap:12px;font-weight:900;font-size:22px;letter-spacing:-.5px}
-.mark-img{width:42px;height:42px;border-radius:12px;object-fit:cover;border:1px solid rgba(56,189,248,0.4);box-shadow:0 0 15px rgba(56,189,248,0.3)}
-.brand span{color:var(--mint)}.navlinks{display:flex;gap:22px;color:var(--muted);font-size:13px}.navlinks a:hover{color:var(--mint)}.navactions{display:flex;align-items:center;gap:9px}
-.btn{border:1px solid var(--line);background:#1e293b;color:var(--text);border-radius:14px;padding:10px 16px;cursor:pointer;display:inline-flex;justify-content:center;align-items:center;gap:7px;font-weight:700;transition:.2s}
-.btn:hover{transform:translateY(-2px);border-color:var(--mint)}.btn.primary{background:linear-gradient(135deg,#0284c7,#38bdf8);color:#fff;border:0;box-shadow:0 8px 25px rgba(2,132,199,0.3)}
-.btn.small{font-size:12px;padding:8px 12px}
-.hero{padding:50px 0 28px;display:grid;grid-template-columns:1.15fr .85fr;gap:28px;align-items:center}
-.eyebrow{display:inline-flex;gap:8px;align-items:center;color:var(--mint);border:1px solid rgba(56,189,248,0.3);background:rgba(15,23,42,0.8);border-radius:99px;padding:6px 14px;font-size:12px;font-weight:800}
-.dot{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 12px var(--mint)}
-h1{font-size:clamp(34px,5vw,56px);line-height:1.25;margin:16px 0 12px;font-weight:900;letter-spacing:-1.5px}
-.gradient{background:linear-gradient(90deg,#fff,#38bdf8 75%);background-clip:text;color:transparent}
-.hero p{color:var(--muted);line-height:2;font-size:15px;max-width:590px}
-.hero-ctas{display:flex;gap:10px;flex-wrap:wrap;margin:24px 0}
-.trust{display:flex;gap:18px;flex-wrap:wrap;color:var(--muted);font-size:12px}.trust b{color:#fff}
-.showcase{position:relative;min-height:315px;border:1px solid rgba(56,189,248,0.3);border-radius:28px;padding:22px;background:linear-gradient(140deg,#1e293b,#0f172a 68%);overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,0.6);display:flex;flex-direction:column;justify-content:space-between}
-.showtop{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12px}
-.biglogo{width:110px;height:110px;border-radius:28px;object-fit:cover;border:2px solid rgba(56,189,248,0.5);box-shadow:0 0 40px rgba(56,189,248,0.4);margin:15px auto}
-.showfoot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,0.08);padding-top:16px}
-.showfoot strong{font-size:18px;color:#fff}
-.pill{background:rgba(56,189,248,0.15);color:var(--mint);border:1px solid rgba(56,189,248,0.3);border-radius:50px;padding:5px 12px;font-size:11px;font-weight:700}
-.section{padding:28px 0}.section-head{display:flex;justify-content:space-between;align-items:end;gap:15px;margin-bottom:18px}.section-head h2{margin:0;font-size:24px;font-weight:800}.section-head p{color:var(--muted);margin:3px 0 0;font-size:12px}
-.categories{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
-.cat{padding:18px 12px;background:var(--panel);border:1px solid var(--line);border-radius:18px;text-align:center;transition:.2s}
-.cat:hover{border-color:var(--mint);transform:translateY(-3px)}
-.cat-icon{margin:0 auto 9px;width:46px;height:46px;display:grid;place-items:center;border-radius:14px;background:var(--panel2);color:var(--mint);font-size:22px}
-.cat strong{display:block;font-size:13px;color:#fff}.cat small{color:var(--muted);font-size:10px}
-.toolbar{display:flex;gap:10px;margin:18px 0;flex-wrap:wrap}
-.search{flex:1;min-width:190px;background:var(--panel);border:1px solid var(--line);color:white;padding:12px 16px;border-radius:14px;outline:none}
-.search:focus{border-color:var(--mint)}
-.filter{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:14px;padding:10px 14px;outline:none}
-.products{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}
-.product{border:1px solid var(--line);background:var(--panel);border-radius:20px;padding:16px;transition:.2s;position:relative;overflow:hidden}
-.product:hover{transform:translateY(-4px);border-color:var(--mint);box-shadow:0 15px 35px rgba(0,0,0,0.5)}
-.prodvisual{height:120px;border-radius:14px;background:linear-gradient(135deg,#1e293b,#0f172a);display:grid;place-items:center;font-size:48px;color:var(--mint);position:relative}
-.badge{position:absolute;top:10px;right:10px;border-radius:30px;padding:4px 10px;background:var(--gold);color:#030712;font-size:10px;font-weight:900}
-.prodtype{font-size:10px;color:var(--muted);margin:12px 0 2px;font-weight:600}
-.product h3{font-size:15px;margin:0 0 6px;color:#fff}
-.product p{font-size:11px;color:var(--muted);min-height:38px;line-height:1.7;margin:0 0 14px}
-.prodfoot{display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px solid var(--line);padding-top:12px}
-.price{font-size:18px;font-weight:900;color:#fff}.price small{font-size:11px;color:var(--muted);font-weight:600}
-.empty{grid-column:1/-1;padding:40px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:18px;background:var(--panel)}
-.benefits{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-.benefit{border:1px solid var(--line);background:var(--panel);border-radius:18px;padding:20px;display:flex;gap:14px}
-.benefit i{font-style:normal;font-size:24px;color:var(--mint)}
-.benefit b{font-size:14px;color:#fff}.benefit p{font-size:11px;color:var(--muted);margin:4px 0 0;line-height:1.8}
-.footer{margin-top:50px;border-top:1px solid var(--line);padding:28px 0;color:var(--muted);font-size:12px}
-.footerinner{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:center}
-.flash{margin:15px auto;padding:12px 18px;border:1px solid rgba(56,189,248,0.4);background:rgba(56,189,248,0.1);border-radius:14px;color:var(--mint);font-size:13px;font-weight:600}
-.notice{font-size:11px;line-height:1.9;color:var(--muted);border:1px solid var(--line);background:var(--panel);border-radius:16px;padding:16px;margin-top:20px}
-.formcard{max-width:510px;margin:48px auto;background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:28px;box-shadow:0 20px 40px rgba(0,0,0,0.6)}
-.formcard h1{font-size:28px;margin:0 0 8px;color:#fff}.formcard p{color:var(--muted);font-size:13px}
-.field{display:block;margin:14px 0;color:var(--muted);font-size:12px;font-weight:600}
-.field input,.field select{display:block;width:100%;margin-top:6px;border:1px solid var(--line);background:var(--bg);color:#fff;padding:12px 14px;border-radius:12px;outline:none}
-.field input:focus{border-color:var(--mint)}
-.formcard .btn{width:100%;margin-top:12px}
-.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:16px;background:var(--panel)}
-table{width:100%;border-collapse:collapse;min-width:650px}
-th,td{text-align:right;padding:14px;border-bottom:1px solid var(--line);font-size:12px}
-th{color:var(--mint);background:var(--panel2);font-weight:700}
-td{color:var(--text)}.status{color:#10b981;font-weight:700}
+.topbar{position:sticky;top:0;z-index:20;background:#07100feF;border-bottom:1px solid #1b302b;backdrop-filter:blur(18px)}
+.nav{height:78px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{display:flex;align-items:center;gap:11px;font-weight:900;font-size:23px;letter-spacing:-.5px}.mark{width:43px;height:43px;border:1px solid #46f5c5;border-radius:15px;display:grid;place-items:center;color:var(--mint);font-size:24px;font-weight:900;background:linear-gradient(145deg,#1b5545,#0a1513);box-shadow:0 0 24px #2be5b21c}.brand span{color:var(--mint)}.navlinks{display:flex;gap:22px;color:#b8cbc4;font-size:13px}.navlinks a:hover{color:var(--mint)}.navactions{display:flex;align-items:center;gap:9px}.btn{border:1px solid var(--line);background:#11221e;color:var(--text);border-radius:13px;padding:10px 15px;cursor:pointer;display:inline-flex;justify-content:center;align-items:center;gap:7px;font-weight:700;transition:.2s}.btn:hover{transform:translateY(-2px);border-color:#3ce3b3}.btn.primary{background:linear-gradient(120deg,#46f3c0,#12b78a);color:#042219;border:0;box-shadow:0 8px 25px #20c79522}.btn.small{font-size:12px;padding:8px 12px}.menu-toggle{display:none}
+.hero{padding:53px 0 28px;display:grid;grid-template-columns:1.15fr .85fr;gap:28px;align-items:center}.eyebrow{display:inline-flex;gap:8px;align-items:center;color:var(--mint);border:1px solid #245748;background:#0b211b;border-radius:99px;padding:6px 13px;font-size:12px;font-weight:800}.dot{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 12px var(--mint)}h1{font-size:clamp(35px,5vw,58px);line-height:1.25;margin:17px 0 12px;font-weight:900;letter-spacing:-1.5px}.gradient{background:linear-gradient(90deg,#f5fff9,#4af2c0 75%);background-clip:text;color:transparent}.hero p{color:#9bb5ab;line-height:2;font-size:15px;max-width:590px}.hero-ctas{display:flex;gap:10px;flex-wrap:wrap;margin:24px 0}.trust{display:flex;gap:18px;flex-wrap:wrap;color:#8fa69d;font-size:12px}.trust b{color:#e5fff5}.showcase{position:relative;min-height:315px;border:1px solid #255347;border-radius:28px;padding:22px;background:linear-gradient(140deg,#102b24,#0b1514 68%);overflow:hidden;box-shadow:inset 0 1px #ffffff08,0 20px 70px #0005}.showcase:before{content:"";position:absolute;width:270px;height:270px;background:#20e2a422;filter:blur(70px);border-radius:50%;top:0;left:10%}.showtop{display:flex;justify-content:space-between;align-items:center;color:#92b8aa;font-size:12px;position:relative}.bigcoin{position:relative;margin:24px auto 20px;width:142px;height:142px;border-radius:42px;display:grid;place-items:center;font-size:74px;color:#caffee;border:1px solid #4af4c2;background:linear-gradient(145deg,#174c3e,#091512);box-shadow:0 0 65px #23dba52b;transform:rotate(-7deg)}.showfoot{position:relative;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #24443a;padding-top:16px}.showfoot strong{font-size:20px}.pill{background:#133a2e;color:#6df6c9;border:1px solid #24624d;border-radius:50px;padding:5px 10px;font-size:11px}
+.section{padding:28px 0}.section-head{display:flex;justify-content:space-between;align-items:end;gap:15px;margin-bottom:18px}.section-head h2{margin:0;font-size:25px}.section-head p{color:var(--muted);margin:3px 0 0;font-size:12px}.categories{display:grid;grid-template-columns:repeat(6,1fr);gap:11px}.cat{padding:17px 12px;background:linear-gradient(145deg,#10211d,#0a1513);border:1px solid var(--line);border-radius:18px;text-align:center;transition:.2s}.cat:hover{border-color:#3bdcae;transform:translateY(-3px)}.cat-icon{margin:0 auto 9px;width:47px;height:47px;display:grid;place-items:center;border-radius:15px;background:#17372d;color:var(--mint);font-size:24px}.cat strong{display:block;font-size:13px}.cat small{color:#7e9b90;font-size:10px}
+.toolbar{display:flex;gap:10px;margin:18px 0;flex-wrap:wrap}.search{flex:1;min-width:190px;background:#0d1b18;border:1px solid #234039;color:white;padding:12px 15px;border-radius:14px;outline:none}.search:focus{border-color:var(--mint)}.filter{background:#0d1b18;color:#bcd0c7;border:1px solid #234039;border-radius:13px;padding:10px 13px}
+.products{display:grid;grid-template-columns:repeat(4,1fr);gap:13px}.product{border:1px solid #1d3831;background:linear-gradient(145deg,#10201c,#0b1513);border-radius:19px;padding:14px;transition:.2s;position:relative;overflow:hidden}.product:hover{transform:translateY(-4px);border-color:#337b61;box-shadow:0 15px 30px #0002}.prodvisual{height:123px;border-radius:14px;background:radial-gradient(circle at 50% 20%,#24654c,#102a22 55%,#0b1714);display:grid;place-items:center;font-size:53px;color:#7cfbd0;position:relative}.badge{position:absolute;top:10px;right:10px;border-radius:30px;padding:3px 8px;background:#caff72;color:#152513;font-size:10px;font-weight:900}.prodtype{font-size:10px;color:#79b6a0;margin:13px 0 2px}.product h3{font-size:15px;margin:0 0 5px}.product p{font-size:11px;color:#89a59a;min-height:40px;line-height:1.8;margin:0 0 13px}.prodfoot{display:flex;justify-content:space-between;align-items:center;gap:6px;border-top:1px solid #203830;padding-top:12px}.price{font-size:17px;font-weight:900;color:#e8fff5}.price small{font-size:10px;color:#91a99f;font-weight:500}.empty{grid-column:1/-1;padding:35px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:18px}
+.benefits{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.benefit{border:1px solid var(--line);background:#0c1916;border-radius:17px;padding:19px;display:flex;gap:13px}.benefit i{font-style:normal;font-size:23px;color:var(--mint)}.benefit b{font-size:13px}.benefit p{font-size:11px;color:var(--muted);margin:4px 0 0;line-height:1.8}
+.footer{margin-top:45px;border-top:1px solid #1b302b;padding:26px 0;color:#779188;font-size:11px}.footerinner{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}.flash{margin:12px auto;padding:12px 15px;border:1px solid #286b51;background:#10271f;border-radius:12px;color:#9effd5;font-size:13px}.notice{font-size:11px;line-height:1.9;color:#7e9a90;border:1px solid #1b3930;background:#0b1714;border-radius:14px;padding:13px;margin-top:18px}
+.formcard{max-width:510px;margin:48px auto;background:#0d1a17;border:1px solid var(--line);border-radius:22px;padding:25px}.formcard h1{font-size:27px;margin:0 0 8px}.formcard p{color:var(--muted);font-size:13px}.field{display:block;margin:14px 0;color:#a9c0b7;font-size:12px}.field input,.field select{display:block;width:100%;margin-top:7px;border:1px solid #29463d;background:#08120f;color:#fff;padding:12px;border-radius:12px;outline:none}.field input:focus{border-color:var(--mint)}.formcard .btn{width:100%;margin-top:10px}
+.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:15px}table{width:100%;border-collapse:collapse;min-width:650px}th,td{text-align:right;padding:13px;border-bottom:1px solid #1b322b;font-size:12px}th{color:var(--mint);background:#10211c}td{color:#d9e9e2}.status{color:#baffdf}
 @media(max-width:900px){.hero{grid-template-columns:1fr}.showcase{min-height:270px}.categories{grid-template-columns:repeat(3,1fr)}.products{grid-template-columns:repeat(2,1fr)}.navlinks{display:none}.benefits{grid-template-columns:1fr}}
-@media(max-width:520px){.wrap{padding:0 14px}.nav{height:70px}.brand{font-size:18px}.navactions .btn{padding:8px 10px;font-size:11px}.hero{padding-top:30px}h1{font-size:36px}.categories{grid-template-columns:repeat(3,1fr);gap:8px}.cat{padding:12px 6px}.cat strong{font-size:11px}.products{grid-template-columns:1fr;gap:12px}.prodvisual{height:110px}section-head h2{font-size:21px}}
+@media(max-width:520px){.wrap{padding:0 13px}.nav{height:67px}.brand{font-size:19px}.mark{width:38px;height:38px}.navactions .btn{padding:8px 10px;font-size:11px}.hero{padding-top:32px}h1{font-size:37px}.showcase{min-height:255px}.categories{gap:8px}.cat{padding:13px 5px}.cat strong{font-size:11px}.products{gap:9px}.product{padding:9px}.prodvisual{height:95px;font-size:43px}.product h3{font-size:13px}.product p{font-size:10px}.prodfoot{align-items:flex-start;flex-direction:column}.prodfoot .btn{width:100%}.section-head h2{font-size:21px}}
 </style>
 </head>
 <body>
 <header class="topbar"><div class="wrap nav">
-<a class="brand" href="{{ url_for('home') }}"><img src="https://i.ibb.co/68v893J5/1791.jpg" alt="MIDO NOVA" class="mark-img"><div>MIDO <span>NOVA</span></div></a>
+<a class="brand" href="{{ url_for('home') }}"><div class="mark">M</div><div>MIDO <span>NOVA</span></div></a>
 <nav class="navlinks"><a href="{{ url_for('home') }}">الرئيسية</a><a href="{{ url_for('home') }}#categories">الأقسام</a><a href="{{ url_for('home') }}#products">المتجر</a><a href="{{ url_for('my_orders') }}">طلباتي</a></nav>
 <div class="navactions">
 {% if user %}<a class="btn small" href="{{ url_for('my_orders') }}">طلباتي</a><a class="btn primary small" href="{{ url_for('logout') }}">خروج</a>
@@ -297,44 +257,40 @@ td{color:var(--text)}.status{color:#10b981;font-weight:700}
 {% for msg in get_flashed_messages() %}<div class="flash">{{ msg }}</div>{% endfor %}
 {{ body|safe }}
 </main>
-<footer class="footer"><div class="wrap footerinner"><div>© {{ year }} MIDO NOVA — كل احتياجاتك الرقمية في مكان واحد.</div><div style="display:flex;gap:16px;flex-wrap:wrap"><a href="https://t.me/Mido_M9do" target="_blank" rel="noopener">✦ المطور</a><a href="https://t.me/Midomsn" target="_blank" rel="noopener">◉ القناة الرسمية</a><a href="https://t.me/midoassistantAIbot" target="_blank" rel="noopener">✧ البوت</a></div></div></footer>
+<footer class="footer"><div class="wrap footerinner"><div>© {{ year }} MIDO NOVA — كل احتياجاتك الرقمية في مكان واحد.</div><div style="display:flex;gap:14px;flex-wrap:wrap"><a href="https://t.me/Mido_M9do" target="_blank" rel="noopener">✦ المطور</a><a href="https://t.me/Midomsn" target="_blank" rel="noopener">◉ القناة الرسمية</a><a href="https://t.me/midoassistantAIbot" target="_blank" rel="noopener">✧ البوت</a></div></div></footer>
 </body></html>
 """
 
 HOME = r"""
 <section class="hero">
 <div>
-<div class="eyebrow"><span class="dot"></span> وجهتك الرقمية الأولى</div>
-<h1>كل ما تحتاجه<br><span class="gradient">في مكان واحد.</span></h1>
-<p>اكتشف البطاقات الرقمية، شحن الألعاب، الخدمات الرقمية، والمنتجات الحصرية — بتجربة سريعة وآمنة من MIDO NOVA.</p>
+<div class="eyebrow"><span class="dot"></span> وجهتك الرقمية الجديدة</div>
+<h1>كل اللي تحتاجه<br><span class="gradient">في مكان واحد.</span></h1>
+<p>اكتشف البطاقات الرقمية، وشحن الألعاب، والخدمات، والمنتجات — بتجربة شراء مرتبة وسهلة من MIDO NOVA.</p>
 <div class="hero-ctas"><a class="btn primary" href="#products">اكتشف المتجر <span>←</span></a><a class="btn" href="#categories">تصفح الأقسام ◈</a></div>
-<div class="trust"><span>✦ <b>واجهة عصرية فخمة</b></span><span>◉ <b>دعم فوري</b></span><span>⌁ <b>متابعة دقيقة للطلبات</b></span></div>
+<div class="trust"><span>✦ <b>واجهة سهلة</b></span><span>◉ <b>تفاصيل واضحة</b></span><span>⌁ <b>متابعة الطلبات</b></span></div>
 </div>
-<div class="showcase">
-<div class="showtop"><span>✦ MIDO NOVA</span><span class="pill">Everything in One Place</span></div>
-<img src="https://i.ibb.co/68v893J5/1791.jpg" alt="MIDO NOVA" class="biglogo">
-<div class="showfoot"><div><small style="color:var(--muted)">إصدار المحترفين</small><br><strong>ابدأ التسوق الآن</strong></div><span class="pill">آمن • سريع • معتمد</span></div>
-</div>
+<div class="showcase"><div class="showtop"><span>✦ MIDO NOVA</span><span class="pill">متجرك الرقمي</span></div><div class="bigcoin">M</div><div class="showfoot"><div><small style="color:#8aa99b">EVERYTHING IN ONE PLACE</small><br><strong>ابدأ اكتشافك</strong></div><span class="pill">آمن • بسيط • أنيق</span></div></div>
 </section>
-<section class="section" id="categories"><div class="section-head"><div><h2>تصفح الأقسام</h2><p>اختر القسم المناسب لاحتياجاتك الرقمية</p></div></div>
-<div class="categories">{% for key,name,icon in categories %}{% if key != 'all' %}<a class="cat" href="#products" onclick="pickCategory('{{key}}')"><div class="cat-icon">{{icon}}</div><strong>{{name}}</strong><small>تصفح القسم ←</small></a>{% endif %}{% endfor %}</div></section>
-{% if posts %}<section class="section" id="news"><div class="section-head"><div><h2>الأخبار والتحديثات <span style="color:var(--mint)">✦</span></h2><p>تابع آخر عروض وأخبار MIDO NOVA</p></div></div><div class="products">{% for post in posts %}<article class="product">{% if post.image %}<img src="{{post.image}}" alt="" style="width:100%;height:120px;object-fit:cover;border-radius:12px">{% else %}<div class="prodvisual">✧</div>{% endif %}<div class="prodtype">{{post.kind}}</div><h3>{{post.title}}</h3><p style="white-space:pre-line">{{post.body}}</p></article>{% endfor %}</div></section>{% endif %}
-<section class="section" id="products"><div class="section-head"><div><h2>أبرز المنتجات والعروض <span style="color:var(--mint)">✦</span></h2><p>تشكيلة واسعة من البطاقات والخدمات الرقمية</p></div><span class="pill">{{ products|length }} منتج متوفر</span></div>
-<div class="toolbar"><input class="search" id="searchBox" placeholder="ابحث عن منتج، بطاقة أو خدمة..." oninput="filterProducts()"><select class="filter" id="categoryFilter" onchange="filterProducts()">{% for key,name,icon in categories %}<option value="{{key}}">{{name}}</option>{% endfor %}</select></div>
+<section class="section" id="categories"><div class="section-head"><div><h2>تصفح الأقسام</h2><p>اختار القسم اللي يناسبك</p></div></div>
+<div class="categories">{% for key,name,icon in categories %}{% if key != 'all' %}<a class="cat" href="#products" onclick="pickCategory('{{key}}')"><div class="cat-icon">{{icon}}</div><strong>{{name}}</strong><small>اكتشف المزيد ←</small></a>{% endif %}{% endfor %}</div></section>
+{% if posts %}<section class="section" id="news"><div class="section-head"><div><h2>الأخبار والتحديثات <span style="color:var(--mint)">✦</span></h2><p>آخر أخبار MIDO NOVA</p></div></div><div class="products">{% for post in posts %}<article class="product">{% if post.image %}<img src="{{post.image}}" alt="" style="width:100%;height:120px;object-fit:cover;border-radius:12px">{% else %}<div class="prodvisual">✧</div>{% endif %}<div class="prodtype">{{post.kind}}</div><h3>{{post.title}}</h3><p style="white-space:pre-line">{{post.body}}</p></article>{% endfor %}</div></section>{% endif %}
+<section class="section" id="products"><div class="section-head"><div><h2>اختيارات مميزة <span style="color:var(--mint)">✦</span></h2><p>منتجات وخدمات متنوعة في انتظارك</p></div><span class="pill">{{ products|length }} منتج</span></div>
+<div class="toolbar"><input class="search" id="searchBox" placeholder="ابحث عن منتج أو خدمة..." oninput="filterProducts()"><select class="filter" id="categoryFilter" onchange="filterProducts()">{% for key,name,icon in categories %}<option value="{{key}}">{{name}}</option>{% endfor %}</select></div>
 <div class="products" id="productGrid">
 {% for p in products %}<article class="product" data-name="{{p.name|lower}}" data-category="{{p.category}}">
-<div class="prodvisual">{% if p.badge %}<span class="badge">{{p.badge}}</span>{% endif %}{{p.icon}}</div><div class="prodtype">{{p.kind}}</div><h3>{{p.name}}</h3><p>{{p.description}}</p><div class="prodfoot"><div class="price">{{ '{:,.0f}'.format(p.price/100) }} <small>ج.م</small></div><form method="post" action="{{url_for('order_product', product_id=p.id)}}" style="display:grid;gap:6px"><input name="discount_code" placeholder="كود الخصم (اختياري)" style="width:100%;background:var(--bg);color:white;border:1px solid var(--line);border-radius:9px;padding:7px;font-size:10px"><input name="payment_reference" placeholder="رقم مرجع التحويل" style="width:100%;background:var(--bg);color:white;border:1px solid var(--line);border-radius:9px;padding:7px;font-size:10px"><button class="btn primary small" type="submit">طلب عبر فودافون كاش +</button></form></div>
-</article>{% else %}<div class="empty">لا توجد منتجات حاليًا في هذا القسم.</div>{% endfor %}
+<div class="prodvisual">{% if p.badge %}<span class="badge">{{p.badge}}</span>{% endif %}{{p.icon}}</div><div class="prodtype">{{p.kind}}</div><h3>{{p.name}}</h3><p>{{p.description}}</p><div class="prodfoot"><div class="price">{{ '{:,.0f}'.format(p.price/100) }} <small>ج.م</small></div><form method="post" action="{{url_for('order_product', product_id=p.id)}}" style="display:grid;gap:5px"><input name="discount_code" placeholder="كود الخصم (اختياري)" style="width:100%;min-width:0;background:#08120f;color:white;border:1px solid #29463d;border-radius:9px;padding:7px;font-size:10px"><input name="payment_reference" placeholder="مرجع التحويل (بعد الدفع)" style="width:100%;min-width:0;background:#08120f;color:white;border:1px solid #29463d;border-radius:9px;padding:7px;font-size:10px"><button class="btn primary small" type="submit">اطلب عبر فودافون كاش +</button></form></div>
+</article>{% else %}<div class="empty">لا توجد منتجات حاليًا.</div>{% endfor %}
 </div>
-<div class="notice">الدفع اليدوي: يتم التحويل عبر فودافون كاش على الرقم <b>{{vodafone_number}}</b>، ثم إدخال رقم مرجع التحويل مع الطلب لمراجعته من قِبل الإدارة وتأليفه فورًا. العملات الرقمية قسم تعريفي فقط. تأكد من تفاصيل الطلب قبل الإرسال.</div>
+<div class="notice">الدفع اليدوي: فودافون كاش على الرقم {{vodafone_number}}. المنتجات المعروضة بيانات تجريبية قابلة للتعديل. لا يتم تنفيذ دفع إلكتروني أو تسليم أكواد تلقائيًا في هذا الإصدار. تأكد من السعر والمنطقة وشروط المنتج قبل إتمام أي عملية. العملات الرقمية هنا قسم تعريفي فقط وليست خدمة تداول.</div>
 </section>
-<section class="section"><div class="section-head"><div><h2>لماذا تختار MIDO NOVA؟</h2><p>تجربة مستخدم راقية تلبي تطلعاتك</p></div></div><div class="benefits">
-<div class="benefit"><i>◈</i><div><b>تنظيم واحترافية</b><p>واجهة مصممة بعناية فائقة لتسهيل الوصول لكل المنتجات.</p></div></div>
-<div class="benefit"><i>↗</i><div><b>متابعة حالة الطلبات</b><p>تتبع طلباتك ومرجعيات الدفع بكل شفافية من حسابك.</p></div></div>
-<div class="benefit"><i>♧</i><div><b>أمان وموثوقية</b><p>حماية عالية لحسابك وتأكيد سلس للعمليات عبر تيليجرام والبريد.</p></div></div>
+<section class="section"><div class="section-head"><div><h2>تجربة معمولة ليك</h2><p>كل حاجة واضحة من أول خطوة</p></div></div><div class="benefits">
+<div class="benefit"><i>◈</i><div><b>تنظيم ذكي</b><p>أقسام واضحة تساعدك توصل للي بتدور عليه بسرعة.</p></div></div>
+<div class="benefit"><i>↗</i><div><b>متابعة طلباتك</b><p>راجع طلباتك وحالتها من حسابك في أي وقت.</p></div></div>
+<div class="benefit"><i>♧</i><div><b>تجربة شفافة</b><p>تفاصيل وأسعار واضحة، مع تطوير بوابات الدفع لاحقًا.</p></div></div>
 </div></section>
 <script>
-function filterProducts(){const q=document.getElementById('searchBox').value.toLowerCase().trim(),c=document.getElementById('categoryFilter').value;let shown=0;document.querySelectorAll('.product').forEach(p=>{const ok=(c==='all'||p.dataset.category===c)&&p.dataset.name.includes(q);p.style.display=ok?'':'none';if(ok)shown++});let e=document.getElementById('noProducts');if(!shown){if(!e){e=document.createElement('div');e.id='noProducts';e.className='empty';e.textContent='لا توجد نتائج مطابقة لبحثك.';document.getElementById('productGrid').appendChild(e)}}else if(e)e.remove()}
+function filterProducts(){const q=document.getElementById('searchBox').value.toLowerCase().trim(),c=document.getElementById('categoryFilter').value;let shown=0;document.querySelectorAll('.product').forEach(p=>{const ok=(c==='all'||p.dataset.category===c)&&p.dataset.name.includes(q);p.style.display=ok?'':'none';if(ok)shown++});let e=document.getElementById('noProducts');if(!shown){if(!e){e=document.createElement('div');e.id='noProducts';e.className='empty';e.textContent='مفيش نتائج مطابقة لبحثك.';document.getElementById('productGrid').appendChild(e)}}else if(e)e.remove()}
 function pickCategory(c){document.getElementById('categoryFilter').value=c;filterProducts()}
 </script>
 """
@@ -369,6 +325,7 @@ def register():
                     cur = con.execute("INSERT INTO users(name,email,password_hash) VALUES(?,?,?)",
                                       (name, email, generate_password_hash(password)))
                     new_uid = cur.lastrowid
+                # The bot generates the OTP and publishes it in the configured Telegram channel.
                 request_id, ttl = request_telegram_otp(name, email)
                 payload = json.dumps({"telegram_request_id": request_id}, ensure_ascii=False)
                 with db() as con:
@@ -379,7 +336,7 @@ def register():
                 session["otp_email"] = email
                 session["pending_auth_uid"] = new_uid
                 session["otp_method"] = "telegram"
-                flash("تم إرسال طلب التحقق عبر بوت تيليجرام. افتح قناة MidoWorld وأدخل الكود هنا.")
+                flash("طلبنا كود التحقق من بوت تيليجرام. افتح قناة MidoWorld واكتب الكود هنا.")
                 return redirect(url_for("verify_otp"))
             except sqlite3.IntegrityError:
                 flash("البريد الإلكتروني مستخدم بالفعل.")
@@ -390,13 +347,13 @@ def register():
                         con.execute("DELETE FROM otp_codes WHERE email=? AND purpose=? AND used=0",
                                     (email, "تأكيد إنشاء الحساب"))
                         con.execute("DELETE FROM users WHERE id=?", (new_uid,))
-                flash(f"تعذر إرسال كود التحقق عبر تيليجرام: {str(exc)[:180]}")
+                flash(f"لم نقدرش نبعت كود التحقق عبر تيليجرام: {str(exc)[:180]}")
     body = r"""
-    <section class="formcard"><h1>انضم إلى <span class="gradient">MIDO NOVA</span></h1><p>أنشئ حسابك واستمتع بأفضل الخدمات الرقمية.</p>
+    <section class="formcard"><h1>انضم إلى <span class="gradient">MIDO NOVA</span></h1><p>أنشئ حسابك وابدأ اكتشاف المتجر.</p>
     <form method="post"><label class="field">الاسم<input name="name" maxlength="70" required autocomplete="name"></label>
     <label class="field">البريد الإلكتروني<input type="email" name="email" required autocomplete="email"></label>
     <label class="field">كلمة المرور<input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
-    <button class="btn primary" type="submit">إنشاء الحساب</button></form><a class="btn" style="width:100%;margin-top:8px" href="{{url_for('google_login')}}">◉ التسجيل باستخدام Google</a><p>كود التسجيل يظهر في قناة <a style="color:var(--mint)" href="https://t.me/MidoWorld" target="_blank" rel="noopener">MidoWorld</a>.</p><p>لديك حساب بالفعل؟ <a style="color:var(--mint)" href="{{url_for('login')}}">سجل دخولك</a></p></section>"""
+    <button class="btn primary" type="submit">إنشاء الحساب</button></form><a class="btn" style="width:100%;margin-top:8px" href="{{url_for('google_login')}}">◉ التسجيل باستخدام Google</a><p>كود التسجيل هيظهر في قناة <a style="color:var(--mint)" href="https://t.me/MidoWorld" target="_blank" rel="noopener">MidoWorld</a>.</p><p>عندك حساب؟ <a style="color:var(--mint)" href="{{url_for('login')}}">سجل دخولك</a></p></section>"""
     return page("حساب جديد", body)
 
 @app.route("/login", methods=["GET", "POST"])
@@ -420,20 +377,20 @@ def login():
                 return redirect(url_for("verify_otp"))
             except Exception:
                 app.logger.exception("Login OTP email failed")
-                flash("تعذر إرسال كود الأمان إلى بريدك. راجع إعدادات RESEND_API_KEY.")
+                flash("تعذر إرسال كود الأمان إلى بريدك. راجع سجل التشغيل وRESEND_API_KEY وبيانات المرسل في Render، ثم حاول مجددًا.")
         else:
             flash("بيانات الدخول غير صحيحة.")
     body = r"""
-    <section class="formcard"><h1>أهلاً بعودتك</h1><p>سجل دخولك إلى حسابك في MIDO NOVA.</p>
+    <section class="formcard"><h1>أهلًا بعودتك</h1><p>سجل دخولك إلى حسابك.</p>
     <form method="post"><label class="field">البريد الإلكتروني<input type="email" name="email" required autocomplete="email"></label>
     <label class="field">كلمة المرور<input type="password" name="password" required autocomplete="current-password"></label>
-    <button class="btn primary" type="submit">دخول</button></form><a class="btn" style="width:100%;margin-top:8px" href="{{url_for('google_login')}}">◉ المتابعة باستخدام Google</a><p>ليس لديك حساب؟ <a style="color:var(--mint)" href="{{url_for('register')}}">انشئ حساباً جديداً</a></p></section>"""
+    <button class="btn primary" type="submit">دخول</button></form><a class="btn" style="width:100%;margin-top:8px" href="{{url_for('google_login')}}">◉ المتابعة باستخدام Google</a><p>لسه جديد؟ <a style="color:var(--mint)" href="{{url_for('register')}}">اعمل حساب</a></p></section>"""
     return page("تسجيل الدخول", body)
 
 @app.route("/login/google")
 def google_login():
     if not (GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET):
-        flash("تسجيل Google يحتاج ضبط GOOGLE_CLIENT_ID وGOOGLE_CLIENT_SECRET.")
+        flash("تسجيل Google يحتاج ضبط GOOGLE_CLIENT_ID وGOOGLE_CLIENT_SECRET من إعدادات Google Cloud.")
         return redirect(url_for("login"))
     try:
         from authlib.integrations.flask_client import OAuth
@@ -472,11 +429,11 @@ def google_callback():
                 uid = user["id"]
         session.clear()
         session["user_id"] = uid
-        flash("تم تسجيل الدخول باستخدام Google بنجاح.")
+        flash("تم تسجيل الدخول باستخدام Google.")
         return redirect(url_for("home"))
     except Exception:
         app.logger.exception("Google OAuth failed")
-        flash("تعذر تسجيل الدخول عبر Google.")
+        flash("تعذر تسجيل الدخول عبر Google. راجع إعدادات OAuth.")
         return redirect(url_for("login"))
 
 @app.route("/send-otp", methods=["GET", "POST"])
@@ -500,7 +457,7 @@ def send_otp():
             return redirect(url_for("verify_otp"))
         except Exception as exc:
             app.logger.warning("OTP email unavailable: %s", exc)
-            flash("تعذر إرسال البريد. راجع إعدادات الاستضافة.")
+            flash("تعذر إرسال البريد. راجع RESEND_API_KEY وبيانات المرسل في Render.")
     body = r"""<section class="formcard"><h1>التحقق بالبريد</h1><p>أرسل كود أمان مكونًا من 6 أرقام إلى بريدك.</p><form method="post"><label class="field">البريد الإلكتروني<input name="email" type="email" required></label><label class="field">الغرض<input name="purpose" value="تأكيد الحساب" required></label><button class="btn primary">إرسال كود التحقق</button></form></section>"""
     return page("التحقق بالبريد", body)
 
@@ -542,21 +499,21 @@ def verify_otp():
                     user = current_user()
                     return redirect(url_for("admin") if user and user["email"].lower() == ADMIN_EMAIL else url_for("home"))
                 return redirect(url_for("login"))
-        flash("الكود غير صحيح أو انتهت صلاحيته.")
-    body = r"""<section class="formcard"><h1>اكتب كود التحقق</h1><p>افتح قناة <a href="https://t.me/MidoWorld" target="_blank" rel="noopener">MidoWorld</a> وأدخل كود التحقق.</p><form method="post"><label class="field">كود التحقق<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="one-time-code"></label><button class="btn primary">تحقق</button></form></section>"""
+        flash("الكود غير صحيح أو انتهت صلاحيته، تأكد من إدخاله كما ظهر في القناة.")
+    body = r"""<section class="formcard"><h1>اكتب كود التحقق</h1><p>افتح قناة <a href="https://t.me/MidoWorld" target="_blank" rel="noopener">MidoWorld</a>، وأدخل كود التحقق المكوّن من 6 أرقام.</p><form method="post"><label class="field">كود OTP<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="one-time-code"></label><button class="btn primary">تحقق</button></form></section>"""
     return page("كود التحقق", body)
 
 @app.route("/logout")
 def logout():
     session.clear()
-    flash("تم تسجيل الخروج بنجاح.")
+    flash("تم تسجيل الخروج.")
     return redirect(url_for("home"))
 
 @app.route("/order/<int:product_id>", methods=["POST"])
 def order_product(product_id):
     user = current_user()
     if not user:
-        flash("يجب تسجيل الدخول أولاً لإتمام الطلب.")
+        flash("سجل دخولك الأول عشان تقدر تسجل طلب.")
         return redirect(url_for("login"))
     with db() as con:
         product = con.execute("SELECT * FROM products WHERE id=? AND active=1", (product_id,)).fetchone()
@@ -567,7 +524,7 @@ def order_product(product_id):
         if code:
             coupon = con.execute("SELECT * FROM discount_codes WHERE code=? AND active=1 AND uses_left>0", (code,)).fetchone()
             if not coupon:
-                flash("كود الخصم غير صالح أو انتهت صلاحيته.")
+                flash("كود الخصم غير صالح أو انتهى استخدامه.")
                 return redirect(url_for("home"))
             discount = product["price"] * coupon["percent"] // 100
             con.execute("UPDATE discount_codes SET uses_left=uses_left-1 WHERE id=?", (coupon["id"],))
@@ -577,8 +534,8 @@ def order_product(product_id):
             VALUES(?,?,1,?,'بانتظار مراجعة التحويل','Vodafone Cash',?,?,?)""",
             (user["id"], product_id, total, reference, code, discount))
         order_id = cur.lastrowid
-    notify_telegram(f"🛒 طلب جديد في MIDO NOVA\nرقم الطلب: #{order_id}\nالعميل: {user['name']} ({user['email']})\nالمنتج: {product['name']}\nالإجمالي: {total/100:.2f} ج.م\nمرجع التحويل: {reference or 'لم يرسل'}")
-    flash(f"تم تسجيل طلبك رقم #{order_id} بنجاح. سيتم مراجعة التحويل وتأكيد الطلب قريبًا.")
+    notify_telegram(f"🛒 طلب جديد في MIDO NOVA\\nرقم الطلب: #{order_id}\\nالعميل: {user['name']} ({user['email']})\\nالمنتج: {product['name']}\\nالإجمالي: {total/100:.2f} ج.م\\nطريقة الدفع: Vodafone Cash\\nرقم مرجع التحويل: {reference or 'لم يرسل'}")
+    flash(f"تم تسجيل الطلب #{order_id}. حوّل المبلغ إلى فودافون كاش ثم أرسل رقم مرجع التحويل؛ الطلب ينتظر مراجعة الإدارة.")
     return redirect(url_for("my_orders"))
 
 @app.route("/my-orders")
@@ -592,10 +549,10 @@ def my_orders():
             JOIN products p ON p.id=o.product_id WHERE o.user_id=? ORDER BY o.id DESC""",
             (user["id"],)).fetchall()
     body = r"""
-    <section class="section"><div class="section-head"><div><h2>طلباتي</h2><p>سجل طلباتك وحالتها الحالية</p></div><a class="btn small" href="{{url_for('home')}}">رجوع للمتجر</a></div>
+    <section class="section"><div class="section-head"><div><h2>طلباتي</h2><p>طلباتك المسجلة وحالتها الحالية</p></div><a class="btn small" href="{{url_for('home')}}">رجوع للمتجر</a></div>
     {% if orders %}<div class="tablewrap"><table><thead><tr><th>رقم الطلب</th><th>المنتج</th><th>الإجمالي</th><th>الحالة</th><th>التاريخ</th></tr></thead><tbody>
     {% for o in orders %}<tr><td>#{{o.id}}</td><td>{{o.product_name}}</td><td>{{'{:,.2f}'.format(o.total/100)}} ج.م</td><td class="status">{{o.status}}</td><td>{{o.created_at}}</td></tr>{% endfor %}
-    </tbody></table></div>{% else %}<div class="empty">ليس لديك طلبات سابقة. <a style="color:var(--mint)" href="{{url_for('home')}}">تصفح المنتجات</a></div>{% endif %}
+    </tbody></table></div>{% else %}<div class="empty">لسه معندكش طلبات. <a style="color:var(--mint)" href="{{url_for('home')}}">تصفح المتجر</a></div>{% endif %}
     </section>"""
     return page("طلباتي", body, orders=orders)
 
@@ -610,8 +567,8 @@ def admin():
         posts = con.execute("SELECT * FROM posts ORDER BY id DESC").fetchall()
         coupons = con.execute("SELECT * FROM discount_codes ORDER BY id DESC").fetchall()
     body = r"""
-    <section class="section"><div class="section-head"><div><h2>لوحة الإدارة</h2><p>إدارة المنتجات، الطلبات، والمحتوى</p></div><a class="btn small" href="{{url_for('home')}}">عرض المتجر</a></div>
-    <div class="formcard" style="max-width:none;margin:15px 0"><h2 style="margin-top:0">إضافة منتج جديد</h2>
+    <section class="section"><div class="section-head"><div><h2>لوحة الإدارة</h2><p>إدارة المنتجات ومراجعة الطلبات</p></div><a class="btn small" href="{{url_for('home')}}">عرض المتجر</a></div>
+    <div class="formcard" style="max-width:none;margin:15px 0"><h2 style="margin-top:0">إضافة منتج</h2>
     <form method="post" action="{{url_for('admin_add_product')}}" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
     <label class="field">اسم المنتج<input name="name" required maxlength="100"></label>
     <label class="field">القسم<select name="category">{% for k,n,i in categories if k!='all' and k!='crypto' %}<option value="{{k}}">{{n}}</option>{% endfor %}</select></label>
@@ -624,10 +581,10 @@ def admin():
     <h2>المنتجات</h2><div class="tablewrap"><table><thead><tr><th>#</th><th>المنتج</th><th>القسم</th><th>السعر</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody>
     {% for p in products %}<tr><td>{{p.id}}</td><td>{{p.name}}</td><td>{{p.category}}</td><td>{{'{:,.2f}'.format(p.price/100)}} ج.م</td><td>{{'ظاهر' if p.active else 'مخفي'}}</td><td><form method="post" action="{{url_for('admin_toggle_product',product_id=p.id)}}"><button class="btn small" type="submit">{{'إخفاء' if p.active else 'إظهار'}}</button></form></td></tr>{% endfor %}
     </tbody></table></div>
-    <h2 style="margin-top:30px">الطلبات الواردة</h2><div class="tablewrap"><table><thead><tr><th>رقم</th><th>العميل</th><th>المنتج</th><th>الإجمالي</th><th>الحالة</th><th>تحديث</th></tr></thead><tbody>
+    <h2 style="margin-top:30px">آخر الطلبات</h2><div class="tablewrap"><table><thead><tr><th>رقم</th><th>العميل</th><th>المنتج</th><th>الإجمالي</th><th>الحالة</th><th>تحديث</th></tr></thead><tbody>
     {% for o in orders %}<tr><td>#{{o.id}}</td><td>{{o.user_name}}<br>{{o.email}}</td><td>{{o.product_name}}</td><td>{{'{:,.2f}'.format(o.total/100)}} ج.م</td><td>{{o.status}}</td><td><form method="post" action="{{url_for('admin_order_status',order_id=o.id)}}" style="display:flex;gap:5px"><select name="status"><option>قيد المراجعة</option><option>تم التأكيد</option><option>تم التسليم</option><option>ملغي</option></select><button class="btn small" type="submit">حفظ</button></form></td></tr>{% else %}<tr><td colspan="6">لا توجد طلبات بعد.</td></tr>{% endfor %}
     </tbody></table></div>
-    <h2 style="margin-top:30px">الأخبار والتحديثات</h2>
+    <h2 style="margin-top:30px">المنشورات والأخبار والتحديثات</h2>
     <div class="formcard" style="max-width:none;margin:12px 0"><form method="post" action="{{url_for('admin_add_post')}}" enctype="multipart/form-data" style="display:grid;gap:8px">
     <label class="field">العنوان<input name="title" required maxlength="140"></label>
     <label class="field">النوع<select name="kind"><option>خبر</option><option>تحديث</option><option>إعلان</option><option>منشور</option></select></label>
@@ -642,7 +599,7 @@ def admin():
     <label class="field">عدد الاستخدامات<input name="uses_left" type="number" min="1" max="100000" value="100" required></label>
     <button class="btn primary" type="submit">إنشاء الكود</button></form>
     <div class="tablewrap"><table><thead><tr><th>الكود</th><th>الخصم</th><th>المتبقي</th><th>الحالة</th></tr></thead><tbody>{% for c in coupons %}<tr><td>{{c.code}}</td><td>{{c.percent}}%</td><td>{{c.uses_left}}</td><td>{{'فعال' if c.active else 'موقوف'}}</td></tr>{% endfor %}</tbody></table></div></div>
-    <div class="notice">لوحة التحكم الإدارية مؤمنة خصيصًا لمشرف النظام.</div></section>"""
+    <div class="notice">تنبيه أمني: غيّر كلمة مرور الإدارة الافتراضية وإعداد SECRET_KEY قبل النشر. أضف حماية CSRF وتحديد معدل المحاولات وربط بوابة دفع موثوقة قبل استقبال مدفوعات حقيقية.</div></section>"""
     return page("لوحة الإدارة", body, orders=orders, products=products, posts=posts, coupons=coupons)
 
 @app.route("/admin/product/add", methods=["POST"])
@@ -660,12 +617,12 @@ def admin_add_product():
         price = 0
     allowed = {"google", "games", "digital", "products"}
     if not name or category not in allowed or price <= 0:
-        flash("راجع بيانات المنتج.")
+        flash("راجع اسم المنتج والقسم والسعر.")
     else:
         with db() as con:
             con.execute("""INSERT INTO products(name,category,kind,price,icon,badge,description)
                 VALUES(?,?,?,?,?,?,?)""", (name, category, kind, price, icon, badge, description))
-        flash("تمت إضافة المنتج بنجاح.")
+        flash("تمت إضافة المنتج.")
     return redirect(url_for("admin"))
 
 @app.route("/admin/product/<int:product_id>/toggle", methods=["POST"])
@@ -675,7 +632,7 @@ def admin_toggle_product(product_id):
         p = con.execute("SELECT active FROM products WHERE id=?", (product_id,)).fetchone()
         if p:
             con.execute("UPDATE products SET active=? WHERE id=?", (0 if p["active"] else 1, product_id))
-            flash("تم تحديث حالة المنتج.")
+            flash("تم تحديث ظهور المنتج.")
     return redirect(url_for("admin"))
 
 @app.route("/admin/order/<int:order_id>/status", methods=["POST"])
@@ -703,15 +660,18 @@ def admin_add_post():
             flash("نوع الصورة غير مدعوم.")
             return redirect(url_for("admin"))
         ext = os.path.splitext(secure_filename(image.filename))[1].lower()
+        if ext not in {".png", ".jpg", ".jpeg", ".webp", ".gif"}:
+            flash("امتداد الصورة غير مدعوم.")
+            return redirect(url_for("admin"))
         filename = secrets.token_hex(16) + ext
         image.save(os.path.join(UPLOAD_FOLDER, filename))
         image_path = "/static/uploads/" + filename
     if not title or not body:
-        flash("اكتب العنوان والمحتوى.")
+        flash("اكتب عنوان ومحتوى المنشور.")
     else:
         with db() as con:
             con.execute("INSERT INTO posts(title,body,kind,image) VALUES(?,?,?,?)", (title, body, kind, image_path))
-        flash("تم نشر المحتوى بنجاح.")
+        flash("تم نشر المحتوى.")
     return redirect(url_for("admin"))
 
 @app.route("/admin/post/<int:post_id>/toggle", methods=["POST"])
@@ -721,7 +681,7 @@ def admin_toggle_post(post_id):
         post = con.execute("SELECT active FROM posts WHERE id=?", (post_id,)).fetchone()
         if post:
             con.execute("UPDATE posts SET active=? WHERE id=?", (0 if post["active"] else 1, post_id))
-            flash("تم تحديث حالة المنشور.")
+            flash("تم تحديث المنشور.")
     return redirect(url_for("admin"))
 
 @app.route("/admin/coupon/add", methods=["POST"])
@@ -739,18 +699,18 @@ def admin_add_coupon():
         try:
             with db() as con:
                 con.execute("INSERT INTO discount_codes(code,percent,uses_left) VALUES(?,?,?)", (code, percent, uses))
-            flash("تم إنشاء كود الخصم بنجاح.")
+            flash("تم إنشاء كود الخصم.")
         except sqlite3.IntegrityError:
             flash("الكود موجود بالفعل.")
     return redirect(url_for("admin"))
 
 @app.errorhandler(403)
 def forbidden(_):
-    return page("غير مسموح", '<section class="formcard"><h1>غير مسموح بالدخول</h1><p>هذه الصفحة مخصصة للإدارة فقط.</p><a class="btn primary" href="/">العودة للرئيسية</a></section>'), 403
+    return page("غير مسموح", '<section class="formcard"><h1>مش مسموح بالدخول</h1><p>الصفحة دي للإدارة فقط.</p><a class="btn primary" href="/">العودة للرئيسية</a></section>'), 403
 
 @app.errorhandler(404)
 def not_found(_):
-    return page("الصفحة غير موجودة", '<section class="formcard"><h1>الصفحة غير موجودة</h1><p>الرابط الذي قمت بفتحه غير صحيح.</p><a class="btn primary" href="/">العودة للرئيسية</a></section>'), 404
+    return page("الصفحة غير موجودة", '<section class="formcard"><h1>الصفحة مش موجودة</h1><p>الرابط اللي فتحته غير صحيح.</p><a class="btn primary" href="/">العودة للرئيسية</a></section>'), 404
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
