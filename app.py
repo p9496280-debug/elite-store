@@ -280,12 +280,16 @@ def register():
                     session.clear()
                     session["otp_email"] = email
                     session["pending_auth_uid"] = new_uid
-                    flash("بعتنالك كود تحقق على بريدك. اكتبه لتفعيل تسجيل الدخول.")
+                    flash("بعتنالك كود تحقق على بريدك. اكتبه لتفعيل الحساب.")
                     return redirect(url_for("verify_otp"))
                 except Exception:
                     app.logger.exception("Registration OTP email failed")
-                    flash("الحساب اتسجل لكن تعذر إرسال كود التحقق. راجع إعدادات البريد قبل تسجيل الدخول.")
-                    return redirect(url_for("login"))
+                    # Do not leave an unusable account behind when email delivery fails.
+                    with db() as con:
+                        con.execute("DELETE FROM otp_codes WHERE email=? AND purpose=? AND used=0",
+                                    (email, "تأكيد إنشاء الحساب"))
+                        con.execute("DELETE FROM users WHERE id=?", (new_uid,))
+                    flash("لم نقدرش نبعت كود التحقق، لذلك لم يتم إنشاء الحساب. راجع إعدادات SMTP في الاستضافة، ثم جرّب تاني.")
             except sqlite3.IntegrityError:
                 flash("البريد الإلكتروني مستخدم بالفعل.")
     body = r"""
@@ -317,7 +321,7 @@ def login():
                 return redirect(url_for("verify_otp"))
             except Exception:
                 app.logger.exception("Login OTP email failed")
-                flash("تعذر إرسال كود الأمان. تأكد من إعدادات SMTP ثم حاول مجددًا.")
+                flash("تعذر إرسال كود الأمان إلى بريدك. راجع سجل التشغيل وإعدادات SMTP_HOST وSMTP_PORT وSMTP_USER وSMTP_PASSWORD وSMTP_FROM في الاستضافة، ثم حاول مجددًا.")
         else:
             flash("بيانات الدخول غير صحيحة.")
     body = r"""
