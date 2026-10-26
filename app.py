@@ -21,7 +21,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 # =========================================================
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
-app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # receipt images up to 5 MB
+app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024  # image uploads and receipts up to 8 MB
 DB_PATH = os.environ.get("DATABASE_PATH", "mido_nova.db")
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com").lower()
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
@@ -76,7 +76,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,
             category TEXT NOT NULL, kind TEXT NOT NULL, price INTEGER NOT NULL,
             icon TEXT DEFAULT '✦', badge TEXT DEFAULT '', description TEXT DEFAULT '',
-            active INTEGER DEFAULT 1)""")
+            active INTEGER DEFAULT 1, image_url TEXT DEFAULT '')""")
         con.execute("""CREATE TABLE IF NOT EXISTS orders(
             id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
             product_id INTEGER NOT NULL, quantity INTEGER NOT NULL DEFAULT 1,
@@ -94,6 +94,11 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL, code_hash TEXT NOT NULL,
             purpose TEXT NOT NULL, payload TEXT DEFAULT '', expires_at TEXT NOT NULL,
             used INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        con.execute("""CREATE TABLE IF NOT EXISTS announcements(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT NOT NULL,
+            expires_at TEXT NOT NULL, active INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        con.execute("""CREATE TABLE IF NOT EXISTS site_settings(
+            key TEXT PRIMARY KEY, value TEXT DEFAULT '')""")
         con.execute("""CREATE TABLE IF NOT EXISTS wallet_topups(
             id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
             amount INTEGER NOT NULL, method TEXT NOT NULL, reference TEXT DEFAULT '',
@@ -109,6 +114,10 @@ def init_db():
         except sqlite3.OperationalError:
             pass
         # Additive migrations for databases created by an earlier version.
+        try:
+            con.execute("ALTER TABLE products ADD COLUMN image_url TEXT DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass
         for column, definition in [
             ("payment_method", "TEXT DEFAULT 'غير محدد'"),
             ("payment_reference", "TEXT DEFAULT ''"),
@@ -270,13 +279,20 @@ a{color:inherit;text-decoration:none}button,input,select{font:inherit}.wrap{max-
 </div></header>
 <main class="wrap">
 {% for msg in get_flashed_messages() %}<div class="flash">{{ msg }}</div>{% endfor %}
+{% for announcement in announcements %}<a href="{{url_for('home')}}#news" style="display:block;text-decoration:none;margin:12px 0;padding:13px 16px;border:1px solid #caff72;border-radius:15px;background:linear-gradient(100deg,#18372b,#14251e);color:#f5fff9"><b>📣 {{announcement.title}}</b> — {{announcement.body}} <small style="display:block;color:#caff72;margin-top:4px">ينتهي: {{announcement.expires_at}}</small></a>{% endfor %}
 {{ body|safe }}
 </main>
+<button id="novaAiToggle" aria-label="افتح مساعد نوفا" style="position:fixed;bottom:20px;right:18px;z-index:9999;border:1px solid #caff72;border-radius:30px;padding:13px 18px;background:linear-gradient(135deg,#caff72,#49e5b4);color:#102018;font-weight:900;box-shadow:0 8px 28px #0008;cursor:pointer">✦ مساعد NOVA AI</button>
+<div id="novaAiPanel" style="display:none;position:fixed;bottom:78px;right:18px;width:min(340px,calc(100vw - 36px));z-index:9999;background:#0d1915;border:1px solid #356b55;border-radius:18px;padding:15px;box-shadow:0 15px 50px #000b;color:#effff6"><b>✦ مساعد NOVA AI</b><button id="novaAiClose" style="float:left;background:none;color:white;border:0;font-size:20px">×</button><p style="color:#a6c5b7;font-size:12px">اسألني عن المنتجات أو الطلبات أو طرق الدفع.</p><div id="novaAiReply" style="font-size:13px;line-height:1.8;margin:10px 0">أهلًا بيك! اكتب سؤالك وهساعدك بالمعلومات المتاحة في المتجر.</div><form id="novaAiForm" style="display:flex;gap:6px"><input id="novaAiQuestion" required placeholder="اكتب سؤالك..." style="min-width:0;flex:1;background:#07100d;color:white;border:1px solid #315243;border-radius:10px;padding:10px"><button class="btn primary small">إرسال</button></form></div>
+<script>
+(()=>{const b=document.getElementById('novaAiToggle'),p=document.getElementById('novaAiPanel');b.onclick=()=>p.style.display=p.style.display==='block'?'none':'block';document.getElementById('novaAiClose').onclick=()=>p.style.display='none';document.getElementById('novaAiForm').onsubmit=e=>{e.preventDefault();const q=document.getElementById('novaAiQuestion').value.toLowerCase();let a='تقدر تتصفح المنتجات من قسم المتجر، وتراجع طلباتك من زر طلباتي بعد تسجيل الدخول.';if(q.includes('دفع')||q.includes('فودافون')||q.includes('paypal')||q.includes('فيزا'))a='طرق الدفع المعروضة: فودافون كاش وPayPal والبطاقات. بعض الطرق تسجل كطلب فقط ولا تعتبر تأكيد دفع تلقائي؛ اتبع تعليمات المتجر.';else if(q.includes('طلب')||q.includes('اوردر'))a='سجّل الدخول ثم افتح «طلباتي» لمتابعة حالة طلبك.';else if(q.includes('سعر')||q.includes('منتج'))a='شوف الأسعار والصور والتفاصيل في قسم المنتجات، واستخدم البحث للوصول بسرعة.';else if(q.includes('خصم')||q.includes('كود'))a='لو معاك كود خصم، اكتبه في خانة كود الخصم الموجودة داخل نموذج الطلب.';document.getElementById('novaAiReply').textContent=a;};})();
+</script>
 <footer class="footer"><div class="wrap footerinner"><div>© {{ year }} MIDO NOVA — كل احتياجاتك الرقمية في مكان واحد.</div><div style="display:flex;gap:10px;flex-wrap:wrap"><a class="social-btn social-bot" href="https://t.me/midoassistantAIbot" target="_blank" rel="noopener">🤖 بوت التحقق</a><a class="social-btn social-dev" href="https://t.me/Mido_M9do" target="_blank" rel="noopener">👑 المطور</a><a class="social-btn social-channel" href="https://t.me/Midomsn" target="_blank" rel="noopener">📢 القناة الرسمية</a></div></div></footer>
 </body></html>
 """
 
 HOME = r"""
+{% if banner %}<div style="margin-top:18px;border-radius:20px;overflow:hidden;border:1px solid #2e5b49"><img src="{{banner}}" alt="بانر المتجر" style="display:block;width:100%;max-height:300px;object-fit:cover"></div>{% endif %}
 <section class="hero">
 <div>
 <div class="eyebrow"><span class="dot"></span> وجهتك الرقمية الجديدة</div>
@@ -294,7 +310,7 @@ HOME = r"""
 <div class="toolbar"><input class="search" id="searchBox" placeholder="ابحث عن منتج أو خدمة..." oninput="filterProducts()"><select class="filter" id="categoryFilter" onchange="filterProducts()">{% for key,name,icon in categories %}<option value="{{key}}">{{name}}</option>{% endfor %}</select></div>
 <div class="products" id="productGrid">
 {% for p in products %}<article class="product" data-name="{{p.name|lower}}" data-category="{{p.category}}">
-<div class="prodvisual">{% if p.badge %}<span class="badge">{{p.badge}}</span>{% endif %}{{p.icon}}</div><div class="prodtype">{{p.kind}}</div><h3>{{p.name}}</h3><p>{{p.description}}</p><div class="prodfoot"><div class="price">{{ '{:,.0f}'.format(p.price/100) }} <small>ج.م</small></div><form method="post" action="{{url_for('order_product', product_id=p.id)}}" style="display:grid;gap:5px"><input name="discount_code" placeholder="كود الخصم (اختياري)" style="width:100%;min-width:0;background:#08120f;color:white;border:1px solid #29463d;border-radius:9px;padding:7px;font-size:10px"><div class="pay-options"><label><input type="radio" name="payment_method" value="Vodafone Cash" checked> 🔴 فودافون كاش</label><label><input type="radio" name="payment_method" value="PayPal"> 🔵 PayPal</label><label><input type="radio" name="payment_method" value="Visa/Mastercard"> 💳 Visa / Mastercard</label></div><input name="payment_reference" placeholder="مرجع التحويل (إن وجد)" style="width:100%;min-width:0;background:#08120f;color:white;border:1px solid #29463d;border-radius:9px;padding:7px;font-size:10px"><button class="btn primary small" type="submit">متابعة الطلب +</button></form></div>
+{% if p.image_url %}<div style="height:145px;position:relative;margin-bottom:10px"><img src="{{p.image_url}}" alt="{{p.name}}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">{% if p.badge %}<span class="badge">{{p.badge}}</span>{% endif %}</div>{% else %}<div class="prodvisual">{% if p.badge %}<span class="badge">{{p.badge}}</span>{% endif %}{{p.icon}}</div>{% endif %}<div class="prodtype">{{p.kind}}</div><h3>{{p.name}}</h3><p>{{p.description}}</p><div class="prodfoot"><div class="price">{{ '{:,.0f}'.format(p.price/100) }} <small>ج.م</small></div><form method="post" action="{{url_for('order_product', product_id=p.id)}}" style="display:grid;gap:5px"><input name="discount_code" placeholder="كود الخصم (اختياري)" style="width:100%;min-width:0;background:#08120f;color:white;border:1px solid #29463d;border-radius:9px;padding:7px;font-size:10px"><div class="pay-options"><label><input type="radio" name="payment_method" value="Vodafone Cash" checked> 🔴 فودافون كاش</label><label><input type="radio" name="payment_method" value="PayPal"> 🔵 PayPal</label><label><input type="radio" name="payment_method" value="Visa/Mastercard"> 💳 Visa / Mastercard</label></div><input name="payment_reference" placeholder="مرجع التحويل (إن وجد)" style="width:100%;min-width:0;background:#08120f;color:white;border:1px solid #29463d;border-radius:9px;padding:7px;font-size:10px"><button class="btn primary small" type="submit">متابعة الطلب +</button></form></div>
 </article>{% else %}<div class="empty">لا توجد منتجات حاليًا.</div>{% endfor %}
 </div>
 <div class="notice">طرق الدفع المتاحة: فودافون كاش على الرقم {{vodafone_number}}، وPayPal، وفيزا/ماستركارد. اختيار PayPal أو البطاقة هنا يسجل طريقة الدفع فقط؛ تفعيل الدفع الإلكتروني الحقيقي يحتاج ربط بوابة دفع وحساب تاجر معتمد. لا تدخل بيانات بطاقتك داخل المتجر. تأكد من السعر والمنطقة وشروط المنتج قبل إتمام أي عملية. العملات الرقمية هنا قسم تعريفي فقط وليست خدمة تداول.</div>
@@ -312,8 +328,10 @@ function pickCategory(c){document.getElementById('categoryFilter').value=c;filte
 
 def page(title, body, **kwargs):
     user = current_user()
+    with db() as con:
+        announcements = con.execute("SELECT * FROM announcements WHERE active=1 AND expires_at>? ORDER BY id DESC", (datetime.now().strftime("%Y-%m-%dT%H:%M"),)).fetchall()
     rendered_body = render_template_string(body, user=user, categories=CATEGORIES, vodafone_number=VODAFONE_CASH_NUMBER, **kwargs)
-    return render_template_string(BASE, title=title, body=rendered_body, user=user,
+    return render_template_string(BASE, title=title, body=rendered_body, user=user, announcements=announcements,
                                  year=__import__("datetime").datetime.now().year,
                                  vodafone_number=VODAFONE_CASH_NUMBER)
 
@@ -323,7 +341,9 @@ def home():
     with db() as con:
         products = con.execute("SELECT * FROM products WHERE active=1 ORDER BY id DESC").fetchall()
         posts = con.execute("SELECT * FROM posts WHERE active=1 ORDER BY id DESC LIMIT 6").fetchall()
-    return page("الرئيسية", HOME, products=products, posts=posts)
+        setting = con.execute("SELECT value FROM site_settings WHERE key='banner'").fetchone()
+    banner = setting["value"] if setting else ""
+    return page("الرئيسية", HOME, products=products, posts=posts, banner=banner)
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -743,10 +763,13 @@ def admin():
         products = con.execute("SELECT * FROM products ORDER BY id DESC").fetchall()
         posts = con.execute("SELECT * FROM posts ORDER BY id DESC").fetchall()
         coupons = con.execute("SELECT * FROM discount_codes ORDER BY id DESC").fetchall()
+        announcements = con.execute("SELECT * FROM announcements ORDER BY id DESC").fetchall()
+        setting = con.execute("SELECT value FROM site_settings WHERE key='banner'").fetchone()
+    banner = setting["value"] if setting else ""
     body = r"""
     <section class="section"><div class="section-head"><div><h2>لوحة الإدارة</h2><p>إدارة المنتجات ومراجعة الطلبات</p></div><a class="btn small" href="{{url_for('home')}}">عرض المتجر</a></div>
     <div class="formcard" style="max-width:none;margin:15px 0"><h2 style="margin-top:0">إضافة منتج</h2>
-    <form method="post" action="{{url_for('admin_add_product')}}" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+    <form method="post" action="{{url_for('admin_add_product')}}" enctype="multipart/form-data" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
     <label class="field">اسم المنتج<input name="name" required maxlength="100"></label>
     <label class="field">القسم<select name="category">{% for k,n,i in categories if k!='all' and k!='crypto' %}<option value="{{k}}">{{n}}</option>{% endfor %}</select></label>
     <label class="field">النوع<input name="kind" value="منتج رقمي" required></label>
@@ -754,9 +777,10 @@ def admin():
     <label class="field">أيقونة<input name="icon" value="✦" maxlength="8"></label>
     <label class="field">شارة<input name="badge" maxlength="30"></label>
     <label class="field" style="grid-column:1/-1">الوصف<input name="description" maxlength="250"></label>
+    <label class="field" style="grid-column:1/-1">صورة المنتج من الموبايل (اختياري)<input type="file" name="product_image" accept="image/png,image/jpeg,image/webp,image/gif" capture="environment"></label>
     <button class="btn primary" type="submit">+ إضافة المنتج</button></form></div>
-    <h2>المنتجات</h2><div class="tablewrap"><table><thead><tr><th>#</th><th>المنتج</th><th>القسم</th><th>السعر</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody>
-    {% for p in products %}<tr><td>{{p.id}}</td><td>{{p.name}}</td><td>{{p.category}}</td><td>{{'{:,.2f}'.format(p.price/100)}} ج.م</td><td>{{'ظاهر' if p.active else 'مخفي'}}</td><td><form method="post" action="{{url_for('admin_toggle_product',product_id=p.id)}}"><button class="btn small" type="submit">{{'إخفاء' if p.active else 'إظهار'}}</button></form></td></tr>{% endfor %}
+    <h2>المنتجات</h2><div class="tablewrap"><table><thead><tr><th>#</th><th>الصورة</th><th>المنتج</th><th>القسم</th><th>السعر</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody>
+    {% for p in products %}<tr><td>{{p.id}}</td><td>{% if p.image_url %}<img src="{{p.image_url}}" style="width:55px;height:45px;object-fit:cover;border-radius:8px">{% else %}—{% endif %}</td><td>{{p.name}}</td><td>{{p.category}}</td><td>{{'{:,.2f}'.format(p.price/100)}} ج.م</td><td>{{'ظاهر' if p.active else 'مخفي'}}</td><td><form method="post" action="{{url_for('admin_toggle_product',product_id=p.id)}}"><button class="btn small" type="submit">{{'إخفاء' if p.active else 'إظهار'}}</button></form></td></tr>{% endfor %}
     </tbody></table></div>
     <h2 style="margin-top:30px">آخر الطلبات</h2><div class="tablewrap"><table><thead><tr><th>رقم</th><th>العميل</th><th>المنتج</th><th>الإجمالي</th><th>الحالة</th><th>تحديث</th></tr></thead><tbody>
     {% for o in orders %}<tr><td>#{{o.id}}</td><td>{{o.user_name}}<br>{{o.email}}</td><td>{{o.product_name}}</td><td>{{'{:,.2f}'.format(o.total/100)}} ج.م</td><td>{{o.status}}</td><td><form method="post" action="{{url_for('admin_order_status',order_id=o.id)}}" style="display:flex;gap:5px"><select name="status"><option>قيد المراجعة</option><option>تم التأكيد</option><option>تم التسليم</option><option>ملغي</option></select><button class="btn small" type="submit">حفظ</button></form></td></tr>{% else %}<tr><td colspan="6">لا توجد طلبات بعد.</td></tr>{% endfor %}
@@ -777,7 +801,7 @@ def admin():
     <button class="btn primary" type="submit">إنشاء الكود</button></form>
     <div class="tablewrap"><table><thead><tr><th>الكود</th><th>الخصم</th><th>المتبقي</th><th>الحالة</th></tr></thead><tbody>{% for c in coupons %}<tr><td>{{c.code}}</td><td>{{c.percent}}%</td><td>{{c.uses_left}}</td><td>{{'فعال' if c.active else 'موقوف'}}</td></tr>{% endfor %}</tbody></table></div></div>
     <div class="notice">تنبيه أمني: غيّر كلمة مرور الإدارة الافتراضية وإعداد SECRET_KEY قبل النشر. أضف حماية CSRF وتحديد معدل المحاولات وربط بوابة دفع موثوقة قبل استقبال مدفوعات حقيقية.</div></section>"""
-    return page("لوحة الإدارة", body, orders=orders, products=products, posts=posts, coupons=coupons)
+    return page("لوحة الإدارة", body, orders=orders, products=products, posts=posts, coupons=coupons, announcements=announcements, banner=banner)
 
 @app.route("/admin/product/add", methods=["POST"])
 @admin_required
@@ -793,13 +817,26 @@ def admin_add_product():
     except ValueError:
         price = 0
     allowed = {"google", "games", "digital", "products"}
+    image = request.files.get("product_image")
+    image_path = ""
+    if image and image.filename:
+        if image.mimetype not in {"image/png", "image/jpeg", "image/webp", "image/gif"}:
+            flash("نوع صورة المنتج غير مدعوم.")
+            return redirect(url_for("admin"))
+        ext = os.path.splitext(secure_filename(image.filename))[1].lower()
+        if ext not in {".png", ".jpg", ".jpeg", ".webp", ".gif"}:
+            flash("امتداد صورة المنتج غير مدعوم.")
+            return redirect(url_for("admin"))
+        filename = secrets.token_hex(16) + ext
+        image.save(os.path.join(UPLOAD_FOLDER, filename))
+        image_path = "/static/uploads/" + filename
     if not name or category not in allowed or price <= 0:
         flash("راجع اسم المنتج والقسم والسعر.")
     else:
         with db() as con:
-            con.execute("""INSERT INTO products(name,category,kind,price,icon,badge,description)
-                VALUES(?,?,?,?,?,?,?)""", (name, category, kind, price, icon, badge, description))
-        flash("تمت إضافة المنتج.")
+            con.execute("""INSERT INTO products(name,category,kind,price,icon,badge,description,image_url)
+                VALUES(?,?,?,?,?,?,?,?)""", (name, category, kind, price, icon, badge, description, image_path))
+        flash("تمت إضافة المنتج بالصورة والتفاصيل.")
     return redirect(url_for("admin"))
 
 @app.route("/admin/product/<int:product_id>/toggle", methods=["POST"])
@@ -859,6 +896,56 @@ def admin_toggle_post(post_id):
         if post:
             con.execute("UPDATE posts SET active=? WHERE id=?", (0 if post["active"] else 1, post_id))
             flash("تم تحديث المنشور.")
+    return redirect(url_for("admin"))
+
+@app.route("/admin/announcement/add", methods=["POST"])
+@admin_required
+def admin_add_announcement():
+    title = request.form.get("title", "").strip()[:100]
+    body = request.form.get("body", "").strip()[:500]
+    try:
+        days = int(request.form.get("days", "3"))
+    except ValueError:
+        days = 0
+    if not title or not body or not 1 <= days <= 365:
+        flash("راجع عنوان الإعلان ونصه ومدته (من يوم إلى 365 يومًا).")
+    else:
+        expiry = (datetime.now() + timedelta(days=days)).strftime("%Y-%m-%dT%H:%M")
+        with db() as con:
+            con.execute("INSERT INTO announcements(title,body,expires_at) VALUES(?,?,?)", (title, body, expiry))
+        flash("تم نشر الإعلان وسيختفي تلقائيًا بعد انتهاء مدته.")
+    return redirect(url_for("admin"))
+
+@app.route("/admin/announcement/<int:announcement_id>/toggle", methods=["POST"])
+@admin_required
+def admin_toggle_announcement(announcement_id):
+    with db() as con:
+        row = con.execute("SELECT active FROM announcements WHERE id=?", (announcement_id,)).fetchone()
+        if row:
+            con.execute("UPDATE announcements SET active=? WHERE id=?", (0 if row["active"] else 1, announcement_id))
+            flash("تم تحديث حالة الإعلان.")
+    return redirect(url_for("admin"))
+
+@app.route("/admin/banner", methods=["POST"])
+@admin_required
+def admin_banner():
+    image = request.files.get("banner_image")
+    if not image or not image.filename:
+        flash("اختار صورة للبانر أولًا.")
+        return redirect(url_for("admin"))
+    if image.mimetype not in {"image/png", "image/jpeg", "image/webp", "image/gif"}:
+        flash("نوع صورة البانر غير مدعوم.")
+        return redirect(url_for("admin"))
+    ext = os.path.splitext(secure_filename(image.filename))[1].lower()
+    if ext not in {".png", ".jpg", ".jpeg", ".webp", ".gif"}:
+        flash("امتداد صورة البانر غير مدعوم.")
+        return redirect(url_for("admin"))
+    filename = secrets.token_hex(16) + ext
+    image.save(os.path.join(UPLOAD_FOLDER, filename))
+    image_path = "/static/uploads/" + filename
+    with db() as con:
+        con.execute("INSERT INTO site_settings(key,value) VALUES('banner',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (image_path,))
+    flash("تم تحديث بانر الموقع.")
     return redirect(url_for("admin"))
 
 @app.route("/admin/coupon/add", methods=["POST"])
