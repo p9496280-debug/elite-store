@@ -1,6 +1,15 @@
 import os
 import sqlite3
 import secrets
+import smtplib
+import ssl
+import random
+import json
+import urllib.parse
+import urllib.request
+from email.message import EmailMessage
+from datetime import datetime, timedelta
+from werkzeug.utils import secure_filename
 from functools import wraps
 from flask import Flask, render_template_string, request, redirect, url_for, session, flash, abort
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -16,6 +25,19 @@ app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 DB_PATH = os.environ.get("DATABASE_PATH", "mido_nova.db")
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@midonova.com").lower()
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeThis-Admin-123!")
+UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+SMTP_HOST = os.environ.get("SMTP_HOST", "")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER = os.environ.get("SMTP_USER", "")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+SMTP_FROM = os.environ.get("SMTP_FROM", SMTP_USER)
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "ضع رقم فودافون كاش هنا")
+
 
 CATEGORIES = [
     ("all", "كل المنتجات", "✦"),
@@ -58,6 +80,29 @@ def init_db():
             product_id INTEGER NOT NULL, quantity INTEGER NOT NULL DEFAULT 1,
             total INTEGER NOT NULL, status TEXT DEFAULT 'قيد المراجعة',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        con.execute("""CREATE TABLE IF NOT EXISTS posts(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT NOT NULL,
+            kind TEXT NOT NULL DEFAULT 'خبر', image TEXT DEFAULT '', active INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        con.execute("""CREATE TABLE IF NOT EXISTS discount_codes(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT UNIQUE NOT NULL,
+            percent INTEGER NOT NULL, uses_left INTEGER NOT NULL DEFAULT 100,
+            active INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        con.execute("""CREATE TABLE IF NOT EXISTS otp_codes(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL, code_hash TEXT NOT NULL,
+            purpose TEXT NOT NULL, payload TEXT DEFAULT '', expires_at TEXT NOT NULL,
+            used INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        # Additive migrations for databases created by an earlier version.
+        for column, definition in [
+            ("payment_method", "TEXT DEFAULT 'غير محدد'"),
+            ("payment_reference", "TEXT DEFAULT ''"),
+            ("discount_code", "TEXT DEFAULT ''"),
+            ("discount_amount", "INTEGER DEFAULT 0")
+        ]:
+            try:
+                con.execute(f"ALTER TABLE orders ADD COLUMN {column} {definition}")
+            except sqlite3.OperationalError:
+                pass
         count = con.execute("SELECT COUNT(*) n FROM products").fetchone()["n"]
         if count == 0:
             con.executemany("""INSERT INTO products(name,category,kind,price,icon,badge,description)
@@ -85,6 +130,39 @@ def admin_required(fn):
             abort(403)
         return fn(*args, **kwargs)
     return wrapper
+
+def send_otp_email(to_email, code, purpose="تأكيد الحساب"):
+    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD and SMTP_FROM):
+        raise RuntimeError("إعدادات SMTP غير مكتملة. أضف SMTP_HOST وSMTP_USER وSMTP_PASSWORD وSMTP_FROM.")
+    msg = EmailMessage()
+    msg["Subject"] = f"MIDO NOVA | {purpose}"
+    msg["From"] = SMTP_FROM
+    msg["To"] = to_email
+    msg.set_content(f"""مرحبًا بك في MIDO NOVA
+
+رمز التحقق الخاص بك هو: {code}
+
+ينتهي الرمز خلال 10 دقائق. لا تشاركه مع أي شخص.
+إذا لم تطلب هذا الرمز، يمكنك تجاهل الرسالة.""")
+    context = ssl.create_default_context()
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as server:
+        server.starttls(context=context)
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.send_message(msg)
+
+def notify_telegram(message):
+    if not (TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID):
+        return False
+    data = urllib.parse.urlencode({"chat_id": TELEGRAM_CHAT_ID, "text": message}).encode()
+    req = urllib.request.Request(
+        f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+        data=data, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as response:
+            return response.status == 200
+    except Exception:
+        app.logger.exception("Telegram notification failed")
+        return False
 
 BASE = r"""
 <!doctype html>
@@ -126,7 +204,7 @@ a{color:inherit;text-decoration:none}button,input,select{font:inherit}.wrap{max-
 {% for msg in get_flashed_messages() %}<div class="flash">{{ msg }}</div>{% endfor %}
 {{ body|safe }}
 </main>
-<footer class="footer"><div class="wrap footerinner"><div>© {{ year }} MIDO NOVA — كل احتياجاتك الرقمية في مكان واحد.</div><div>تجربة متجر أنيقة • دعم العملاء • حماية الحساب</div></div></footer>
+<footer class="footer"><div class="wrap footerinner"><div>© {{ year }} MIDO NOVA — كل احتياجاتك الرقمية في مكان واحد.</div><div style="display:flex;gap:14px;flex-wrap:wrap"><a href="https://t.me/Mido_M9do" target="_blank" rel="noopener">✦ المطور</a><a href="https://t.me/Midomsn" target="_blank" rel="noopener">◉ القناة الرسمية</a><a href="https://t.me/midoassistantAIbot" target="_blank" rel="noopener">✧ البوت</a></div></div></footer>
 </body></html>
 """
 
@@ -143,14 +221,15 @@ HOME = r"""
 </section>
 <section class="section" id="categories"><div class="section-head"><div><h2>تصفح الأقسام</h2><p>اختار القسم اللي يناسبك</p></div></div>
 <div class="categories">{% for key,name,icon in categories %}{% if key != 'all' %}<a class="cat" href="#products" onclick="pickCategory('{{key}}')"><div class="cat-icon">{{icon}}</div><strong>{{name}}</strong><small>اكتشف المزيد ←</small></a>{% endif %}{% endfor %}</div></section>
+{% if posts %}<section class="section" id="news"><div class="section-head"><div><h2>الأخبار والتحديثات <span style="color:var(--mint)">✦</span></h2><p>آخر أخبار MIDO NOVA</p></div></div><div class="products">{% for post in posts %}<article class="product">{% if post.image %}<img src="{{post.image}}" alt="" style="width:100%;height:120px;object-fit:cover;border-radius:12px">{% else %}<div class="prodvisual">✧</div>{% endif %}<div class="prodtype">{{post.kind}}</div><h3>{{post.title}}</h3><p style="white-space:pre-line">{{post.body}}</p></article>{% endfor %}</div></section>{% endif %}
 <section class="section" id="products"><div class="section-head"><div><h2>اختيارات مميزة <span style="color:var(--mint)">✦</span></h2><p>منتجات وخدمات متنوعة في انتظارك</p></div><span class="pill">{{ products|length }} منتج</span></div>
 <div class="toolbar"><input class="search" id="searchBox" placeholder="ابحث عن منتج أو خدمة..." oninput="filterProducts()"><select class="filter" id="categoryFilter" onchange="filterProducts()">{% for key,name,icon in categories %}<option value="{{key}}">{{name}}</option>{% endfor %}</select></div>
 <div class="products" id="productGrid">
 {% for p in products %}<article class="product" data-name="{{p.name|lower}}" data-category="{{p.category}}">
-<div class="prodvisual">{% if p.badge %}<span class="badge">{{p.badge}}</span>{% endif %}{{p.icon}}</div><div class="prodtype">{{p.kind}}</div><h3>{{p.name}}</h3><p>{{p.description}}</p><div class="prodfoot"><div class="price">{{ '{:,.0f}'.format(p.price/100) }} <small>ج.م</small></div><form method="post" action="{{url_for('order_product', product_id=p.id)}}"><button class="btn primary small" type="submit">اطلب الآن +</button></form></div>
+<div class="prodvisual">{% if p.badge %}<span class="badge">{{p.badge}}</span>{% endif %}{{p.icon}}</div><div class="prodtype">{{p.kind}}</div><h3>{{p.name}}</h3><p>{{p.description}}</p><div class="prodfoot"><div class="price">{{ '{:,.0f}'.format(p.price/100) }} <small>ج.م</small></div><form method="post" action="{{url_for('order_product', product_id=p.id)}}" style="display:grid;gap:5px"><input name="discount_code" placeholder="كود الخصم (اختياري)" style="width:100%;min-width:0;background:#08120f;color:white;border:1px solid #29463d;border-radius:9px;padding:7px;font-size:10px"><input name="payment_reference" placeholder="مرجع التحويل (بعد الدفع)" style="width:100%;min-width:0;background:#08120f;color:white;border:1px solid #29463d;border-radius:9px;padding:7px;font-size:10px"><button class="btn primary small" type="submit">اطلب عبر فودافون كاش +</button></form></div>
 </article>{% else %}<div class="empty">لا توجد منتجات حاليًا.</div>{% endfor %}
 </div>
-<div class="notice">ملاحظة: المنتجات المعروضة بيانات تجريبية قابلة للتعديل. لا يتم تنفيذ دفع إلكتروني أو تسليم أكواد تلقائيًا في هذا الإصدار. تأكد من السعر والمنطقة وشروط المنتج قبل إتمام أي عملية. العملات الرقمية هنا قسم تعريفي فقط وليست خدمة تداول.</div>
+<div class="notice">الدفع اليدوي: فودافون كاش على الرقم {{vodafone_number}}. المنتجات المعروضة بيانات تجريبية قابلة للتعديل. لا يتم تنفيذ دفع إلكتروني أو تسليم أكواد تلقائيًا في هذا الإصدار. تأكد من السعر والمنطقة وشروط المنتج قبل إتمام أي عملية. العملات الرقمية هنا قسم تعريفي فقط وليست خدمة تداول.</div>
 </section>
 <section class="section"><div class="section-head"><div><h2>تجربة معمولة ليك</h2><p>كل حاجة واضحة من أول خطوة</p></div></div><div class="benefits">
 <div class="benefit"><i>◈</i><div><b>تنظيم ذكي</b><p>أقسام واضحة تساعدك توصل للي بتدور عليه بسرعة.</p></div></div>
@@ -165,16 +244,18 @@ function pickCategory(c){document.getElementById('categoryFilter').value=c;filte
 
 def page(title, body, **kwargs):
     user = current_user()
-    rendered_body = render_template_string(body, user=user, categories=CATEGORIES, **kwargs)
+    rendered_body = render_template_string(body, user=user, categories=CATEGORIES, vodafone_number=VODAFONE_CASH_NUMBER, **kwargs)
     return render_template_string(BASE, title=title, body=rendered_body, user=user,
-                                 year=__import__("datetime").datetime.now().year)
+                                 year=__import__("datetime").datetime.now().year,
+                                 vodafone_number=VODAFONE_CASH_NUMBER)
 
 @app.route("/")
 def home():
     category = request.args.get("category", "all")
     with db() as con:
         products = con.execute("SELECT * FROM products WHERE active=1 ORDER BY id DESC").fetchall()
-    return page("الرئيسية", HOME, products=products)
+        posts = con.execute("SELECT * FROM posts WHERE active=1 ORDER BY id DESC LIMIT 6").fetchall()
+    return page("الرئيسية", HOME, products=products, posts=posts)
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -189,10 +270,22 @@ def register():
                 with db() as con:
                     cur = con.execute("INSERT INTO users(name,email,password_hash) VALUES(?,?,?)",
                                       (name, email, generate_password_hash(password)))
+                    new_uid = cur.lastrowid
+                code = f"{random.randint(0, 999999):06d}"
+                with db() as con:
+                    con.execute("INSERT INTO otp_codes(email,code_hash,purpose,payload,expires_at) VALUES(?,?,?,?,?)",
+                        (email, generate_password_hash(code), "تأكيد إنشاء الحساب", "{}", (datetime.utcnow()+timedelta(minutes=10)).isoformat()))
+                try:
+                    send_otp_email(email, code, "تأكيد إنشاء الحساب")
                     session.clear()
-                    session["user_id"] = cur.lastrowid
-                flash("أهلًا بيك! حسابك اتعمل.")
-                return redirect(url_for("home"))
+                    session["otp_email"] = email
+                    session["pending_auth_uid"] = new_uid
+                    flash("بعتنالك كود تحقق على بريدك. اكتبه لتفعيل تسجيل الدخول.")
+                    return redirect(url_for("verify_otp"))
+                except Exception:
+                    app.logger.exception("Registration OTP email failed")
+                    flash("الحساب اتسجل لكن تعذر إرسال كود التحقق. راجع إعدادات البريد قبل تسجيل الدخول.")
+                    return redirect(url_for("login"))
             except sqlite3.IntegrityError:
                 flash("البريد الإلكتروني مستخدم بالفعل.")
     body = r"""
@@ -200,7 +293,7 @@ def register():
     <form method="post"><label class="field">الاسم<input name="name" maxlength="70" required autocomplete="name"></label>
     <label class="field">البريد الإلكتروني<input type="email" name="email" required autocomplete="email"></label>
     <label class="field">كلمة المرور<input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
-    <button class="btn primary" type="submit">إنشاء الحساب</button></form><p>عندك حساب؟ <a style="color:var(--mint)" href="{{url_for('login')}}">سجل دخولك</a></p></section>"""
+    <button class="btn primary" type="submit">إنشاء الحساب</button></form><a class="btn" style="width:100%;margin-top:8px" href="{{url_for('google_login')}}">◉ التسجيل باستخدام Google</a><p>عندك حساب؟ <a style="color:var(--mint)" href="{{url_for('login')}}">سجل دخولك</a></p></section>"""
     return page("حساب جديد", body)
 
 @app.route("/login", methods=["GET", "POST"])
@@ -211,17 +304,125 @@ def login():
         with db() as con:
             user = con.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
         if user and check_password_hash(user["password_hash"], password):
-            session.clear()
-            session["user_id"] = user["id"]
-            flash("تم تسجيل الدخول.")
-            return redirect(url_for("admin") if email == ADMIN_EMAIL else url_for("home"))
-        flash("بيانات الدخول غير صحيحة.")
+            code = f"{random.randint(0, 999999):06d}"
+            with db() as con:
+                con.execute("INSERT INTO otp_codes(email,code_hash,purpose,payload,expires_at) VALUES(?,?,?,?,?)",
+                    (email, generate_password_hash(code), "كود تسجيل الدخول", "{}", (datetime.utcnow()+timedelta(minutes=10)).isoformat()))
+            try:
+                send_otp_email(email, code, "كود تسجيل الدخول")
+                session.clear()
+                session["otp_email"] = email
+                session["pending_auth_uid"] = user["id"]
+                flash("تم التحقق من كلمة المرور. أدخل كود الأمان الذي أرسلناه لبريدك.")
+                return redirect(url_for("verify_otp"))
+            except Exception:
+                app.logger.exception("Login OTP email failed")
+                flash("تعذر إرسال كود الأمان. تأكد من إعدادات SMTP ثم حاول مجددًا.")
+        else:
+            flash("بيانات الدخول غير صحيحة.")
     body = r"""
     <section class="formcard"><h1>أهلًا بعودتك</h1><p>سجل دخولك إلى حسابك.</p>
     <form method="post"><label class="field">البريد الإلكتروني<input type="email" name="email" required autocomplete="email"></label>
     <label class="field">كلمة المرور<input type="password" name="password" required autocomplete="current-password"></label>
-    <button class="btn primary" type="submit">دخول</button></form><p>لسه جديد؟ <a style="color:var(--mint)" href="{{url_for('register')}}">اعمل حساب</a></p></section>"""
+    <button class="btn primary" type="submit">دخول</button></form><a class="btn" style="width:100%;margin-top:8px" href="{{url_for('google_login')}}">◉ المتابعة باستخدام Google</a><p>لسه جديد؟ <a style="color:var(--mint)" href="{{url_for('register')}}">اعمل حساب</a></p></section>"""
     return page("تسجيل الدخول", body)
+
+@app.route("/login/google")
+def google_login():
+    if not (GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET):
+        flash("تسجيل Google يحتاج ضبط GOOGLE_CLIENT_ID وGOOGLE_CLIENT_SECRET من إعدادات Google Cloud.")
+        return redirect(url_for("login"))
+    try:
+        from authlib.integrations.flask_client import OAuth
+        if not hasattr(app, "_oauth_google"):
+            oauth = OAuth(app)
+            oauth.register(name="google", client_id=GOOGLE_CLIENT_ID,
+                client_secret=GOOGLE_CLIENT_SECRET,
+                server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+                client_kwargs={"scope": "openid email profile"})
+            app._oauth_google = oauth.create_client("google")
+        return app._oauth_google.authorize_redirect(url_for("google_callback", _external=True))
+    except ImportError:
+        flash("ثبت مكتبة authlib أولًا: pip install authlib")
+        return redirect(url_for("login"))
+
+@app.route("/login/google/callback")
+def google_callback():
+    if not (GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET):
+        return redirect(url_for("login"))
+    try:
+        client = app._oauth_google
+        token = client.authorize_access_token()
+        info = token.get("userinfo") or client.userinfo()
+        email = (info.get("email") or "").lower()
+        name = info.get("name") or email.split("@")[0]
+        if not email or not info.get("email_verified", False):
+            flash("تعذر التحقق من بريد Google.")
+            return redirect(url_for("login"))
+        with db() as con:
+            user = con.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+            if not user:
+                cur = con.execute("INSERT INTO users(name,email,password_hash) VALUES(?,?,?)",
+                    (name[:70], email, generate_password_hash(secrets.token_urlsafe(32))))
+                uid = cur.lastrowid
+            else:
+                uid = user["id"]
+        session.clear()
+        session["user_id"] = uid
+        flash("تم تسجيل الدخول باستخدام Google.")
+        return redirect(url_for("home"))
+    except Exception:
+        app.logger.exception("Google OAuth failed")
+        flash("تعذر تسجيل الدخول عبر Google. راجع إعدادات OAuth.")
+        return redirect(url_for("login"))
+
+@app.route("/send-otp", methods=["GET", "POST"])
+def send_otp():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()[:160]
+        purpose = request.form.get("purpose", "تأكيد الحساب")[:60]
+        if "@" not in email:
+            flash("اكتب بريدًا إلكترونيًا صحيحًا.")
+            return redirect(url_for("send_otp"))
+        code = f"{random.randint(0, 999999):06d}"
+        payload = json.dumps({"name": request.form.get("name", "").strip()[:70],
+                              "password": request.form.get("password", "")})
+        with db() as con:
+            con.execute("INSERT INTO otp_codes(email,code_hash,purpose,payload,expires_at) VALUES(?,?,?,?,?)",
+                (email, generate_password_hash(code), purpose, payload, (datetime.utcnow()+timedelta(minutes=10)).isoformat()))
+        try:
+            send_otp_email(email, code, purpose)
+            session["otp_email"] = email
+            flash("أرسلنا كود التحقق إلى بريدك الإلكتروني.")
+            return redirect(url_for("verify_otp"))
+        except Exception as exc:
+            app.logger.warning("OTP email unavailable: %s", exc)
+            flash("تعذر إرسال البريد. راجع إعدادات SMTP في الاستضافة.")
+    body = r"""<section class="formcard"><h1>التحقق بالبريد</h1><p>أرسل كود أمان مكونًا من 6 أرقام إلى بريدك.</p><form method="post"><label class="field">البريد الإلكتروني<input name="email" type="email" required></label><label class="field">الغرض<input name="purpose" value="تأكيد الحساب" required></label><button class="btn primary">إرسال كود التحقق</button></form></section>"""
+    return page("التحقق بالبريد", body)
+
+@app.route("/verify-otp", methods=["GET", "POST"])
+def verify_otp():
+    if request.method == "POST":
+        email = session.get("otp_email", "")
+        code = request.form.get("code", "").strip()
+        with db() as con:
+            records = con.execute("SELECT * FROM otp_codes WHERE email=? AND used=0 ORDER BY id DESC LIMIT 5", (email,)).fetchall()
+            match = next((r for r in records if datetime.fromisoformat(r["expires_at"]) > datetime.utcnow() and check_password_hash(r["code_hash"], code)), None)
+            if match:
+                con.execute("UPDATE otp_codes SET used=1 WHERE id=?", (match["id"],))
+                flash("تم التحقق من كود الأمان بنجاح.")
+                pending_uid = session.pop("pending_auth_uid", None)
+                session.pop("otp_email", None)
+                if pending_uid:
+                    session.clear()
+                    session["user_id"] = pending_uid
+                    user = current_user()
+                    return redirect(url_for("admin") if user and user["email"].lower() == ADMIN_EMAIL else url_for("home"))
+                return redirect(url_for("login"))
+        flash("الكود غير صحيح أو انتهت صلاحيته.")
+    body = r"""<section class="formcard"><h1>اكتب كود التحقق</h1><p>أدخل الأرقام الستة التي وصلتك عبر البريد.</p><form method="post"><label class="field">كود OTP<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required></label><button class="btn primary">تحقق</button></form></section>"""
+    return page("كود التحقق", body)
 
 @app.route("/logout")
 def logout():
@@ -239,10 +440,23 @@ def order_product(product_id):
         product = con.execute("SELECT * FROM products WHERE id=? AND active=1", (product_id,)).fetchone()
         if not product:
             abort(404)
-        cur = con.execute("INSERT INTO orders(user_id,product_id,quantity,total) VALUES(?,?,1,?)",
-                          (user["id"], product_id, product["price"]))
+        code = request.form.get("discount_code", "").strip().upper()
+        discount = 0
+        if code:
+            coupon = con.execute("SELECT * FROM discount_codes WHERE code=? AND active=1 AND uses_left>0", (code,)).fetchone()
+            if not coupon:
+                flash("كود الخصم غير صالح أو انتهى استخدامه.")
+                return redirect(url_for("home"))
+            discount = product["price"] * coupon["percent"] // 100
+            con.execute("UPDATE discount_codes SET uses_left=uses_left-1 WHERE id=?", (coupon["id"],))
+        total = product["price"] - discount
+        reference = request.form.get("payment_reference", "").strip()[:120]
+        cur = con.execute("""INSERT INTO orders(user_id,product_id,quantity,total,status,payment_method,payment_reference,discount_code,discount_amount)
+            VALUES(?,?,1,?,'بانتظار مراجعة التحويل','Vodafone Cash',?,?,?)""",
+            (user["id"], product_id, total, reference, code, discount))
         order_id = cur.lastrowid
-    flash(f"تم تسجيل طلب رقم #{order_id} للمراجعة. الطلب غير مدفوع حتى الآن.")
+    notify_telegram(f"🛒 طلب جديد في MIDO NOVA\\nرقم الطلب: #{order_id}\\nالعميل: {user['name']} ({user['email']})\\nالمنتج: {product['name']}\\nالإجمالي: {total/100:.2f} ج.م\\nطريقة الدفع: Vodafone Cash\\nرقم مرجع التحويل: {reference or 'لم يرسل'}")
+    flash(f"تم تسجيل الطلب #{order_id}. حوّل المبلغ إلى فودافون كاش ثم أرسل رقم مرجع التحويل؛ الطلب ينتظر مراجعة الإدارة.")
     return redirect(url_for("my_orders"))
 
 @app.route("/my-orders")
@@ -271,6 +485,8 @@ def admin():
             FROM orders o JOIN users u ON u.id=o.user_id JOIN products p ON p.id=o.product_id
             ORDER BY o.id DESC LIMIT 250""").fetchall()
         products = con.execute("SELECT * FROM products ORDER BY id DESC").fetchall()
+        posts = con.execute("SELECT * FROM posts ORDER BY id DESC").fetchall()
+        coupons = con.execute("SELECT * FROM discount_codes ORDER BY id DESC").fetchall()
     body = r"""
     <section class="section"><div class="section-head"><div><h2>لوحة الإدارة</h2><p>إدارة المنتجات ومراجعة الطلبات</p></div><a class="btn small" href="{{url_for('home')}}">عرض المتجر</a></div>
     <div class="formcard" style="max-width:none;margin:15px 0"><h2 style="margin-top:0">إضافة منتج</h2>
@@ -289,8 +505,23 @@ def admin():
     <h2 style="margin-top:30px">آخر الطلبات</h2><div class="tablewrap"><table><thead><tr><th>رقم</th><th>العميل</th><th>المنتج</th><th>الإجمالي</th><th>الحالة</th><th>تحديث</th></tr></thead><tbody>
     {% for o in orders %}<tr><td>#{{o.id}}</td><td>{{o.user_name}}<br>{{o.email}}</td><td>{{o.product_name}}</td><td>{{'{:,.2f}'.format(o.total/100)}} ج.م</td><td>{{o.status}}</td><td><form method="post" action="{{url_for('admin_order_status',order_id=o.id)}}" style="display:flex;gap:5px"><select name="status"><option>قيد المراجعة</option><option>تم التأكيد</option><option>تم التسليم</option><option>ملغي</option></select><button class="btn small" type="submit">حفظ</button></form></td></tr>{% else %}<tr><td colspan="6">لا توجد طلبات بعد.</td></tr>{% endfor %}
     </tbody></table></div>
+    <h2 style="margin-top:30px">المنشورات والأخبار والتحديثات</h2>
+    <div class="formcard" style="max-width:none;margin:12px 0"><form method="post" action="{{url_for('admin_add_post')}}" enctype="multipart/form-data" style="display:grid;gap:8px">
+    <label class="field">العنوان<input name="title" required maxlength="140"></label>
+    <label class="field">النوع<select name="kind"><option>خبر</option><option>تحديث</option><option>إعلان</option><option>منشور</option></select></label>
+    <label class="field">المحتوى<input name="body" required maxlength="3000"></label>
+    <label class="field">صورة (اختياري)<input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+    <button class="btn primary" type="submit">نشر المحتوى</button></form>
+    <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>العنوان</th><th>النوع</th><th>إجراء</th></tr></thead><tbody>{% for post in posts %}<tr><td>{{post.title}}</td><td>{{post.kind}}</td><td><form method="post" action="{{url_for('admin_toggle_post',post_id=post.id)}}"><button class="btn small">{{'إخفاء' if post.active else 'إظهار'}}</button></form></td></tr>{% endfor %}</tbody></table></div></div>
+    <h2 style="margin-top:30px">أكواد الخصم</h2>
+    <div class="formcard" style="max-width:none;margin:12px 0"><form method="post" action="{{url_for('admin_add_coupon')}}" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
+    <label class="field">الكود<input name="code" required maxlength="30" placeholder="MIDO10"></label>
+    <label class="field">نسبة الخصم %<input name="percent" type="number" min="1" max="90" required></label>
+    <label class="field">عدد الاستخدامات<input name="uses_left" type="number" min="1" max="100000" value="100" required></label>
+    <button class="btn primary" type="submit">إنشاء الكود</button></form>
+    <div class="tablewrap"><table><thead><tr><th>الكود</th><th>الخصم</th><th>المتبقي</th><th>الحالة</th></tr></thead><tbody>{% for c in coupons %}<tr><td>{{c.code}}</td><td>{{c.percent}}%</td><td>{{c.uses_left}}</td><td>{{'فعال' if c.active else 'موقوف'}}</td></tr>{% endfor %}</tbody></table></div></div>
     <div class="notice">تنبيه أمني: غيّر كلمة مرور الإدارة الافتراضية وإعداد SECRET_KEY قبل النشر. أضف حماية CSRF وتحديد معدل المحاولات وربط بوابة دفع موثوقة قبل استقبال مدفوعات حقيقية.</div></section>"""
-    return page("لوحة الإدارة", body, orders=orders, products=products)
+    return page("لوحة الإدارة", body, orders=orders, products=products, posts=posts, coupons=coupons)
 
 @app.route("/admin/product/add", methods=["POST"])
 @admin_required
@@ -335,6 +566,63 @@ def admin_order_status(order_id):
     with db() as con:
         con.execute("UPDATE orders SET status=? WHERE id=?", (status, order_id))
     flash("تم تحديث حالة الطلب.")
+    return redirect(url_for("admin"))
+
+@app.route("/admin/post/add", methods=["POST"])
+@admin_required
+def admin_add_post():
+    title = request.form.get("title", "").strip()[:140]
+    body = request.form.get("body", "").strip()[:3000]
+    kind = request.form.get("kind", "خبر")[:30]
+    image = request.files.get("image")
+    image_path = ""
+    if image and image.filename:
+        if image.mimetype not in {"image/png", "image/jpeg", "image/webp", "image/gif"}:
+            flash("نوع الصورة غير مدعوم.")
+            return redirect(url_for("admin"))
+        ext = os.path.splitext(secure_filename(image.filename))[1].lower()
+        if ext not in {".png", ".jpg", ".jpeg", ".webp", ".gif"}:
+            flash("امتداد الصورة غير مدعوم.")
+            return redirect(url_for("admin"))
+        filename = secrets.token_hex(16) + ext
+        image.save(os.path.join(UPLOAD_FOLDER, filename))
+        image_path = "/static/uploads/" + filename
+    if not title or not body:
+        flash("اكتب عنوان ومحتوى المنشور.")
+    else:
+        with db() as con:
+            con.execute("INSERT INTO posts(title,body,kind,image) VALUES(?,?,?,?)", (title, body, kind, image_path))
+        flash("تم نشر المحتوى.")
+    return redirect(url_for("admin"))
+
+@app.route("/admin/post/<int:post_id>/toggle", methods=["POST"])
+@admin_required
+def admin_toggle_post(post_id):
+    with db() as con:
+        post = con.execute("SELECT active FROM posts WHERE id=?", (post_id,)).fetchone()
+        if post:
+            con.execute("UPDATE posts SET active=? WHERE id=?", (0 if post["active"] else 1, post_id))
+            flash("تم تحديث المنشور.")
+    return redirect(url_for("admin"))
+
+@app.route("/admin/coupon/add", methods=["POST"])
+@admin_required
+def admin_add_coupon():
+    code = "".join(ch for ch in request.form.get("code", "").upper().strip() if ch.isalnum() or ch in "-_")[:30]
+    try:
+        percent = int(request.form.get("percent", "0"))
+        uses = int(request.form.get("uses_left", "100"))
+    except ValueError:
+        percent, uses = 0, 0
+    if not code or not 1 <= percent <= 90 or not 1 <= uses <= 100000:
+        flash("راجع بيانات كود الخصم.")
+    else:
+        try:
+            with db() as con:
+                con.execute("INSERT INTO discount_codes(code,percent,uses_left) VALUES(?,?,?)", (code, percent, uses))
+            flash("تم إنشاء كود الخصم.")
+        except sqlite3.IntegrityError:
+            flash("الكود موجود بالفعل.")
     return redirect(url_for("admin"))
 
 @app.errorhandler(403)
