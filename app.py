@@ -1,263 +1,350 @@
-from flask import Flask, render_template_string
 import os
+import sqlite3
+import secrets
+from functools import wraps
+from flask import Flask, render_template_string, request, redirect, url_for, session, flash, abort
+from werkzeug.security import generate_password_hash, check_password_hash
 
+# =========================================================
+# MIDO NOVA | Digital Store
+# Run: python app.py
+# Optional environment variables:
+#   SECRET_KEY, ADMIN_EMAIL, ADMIN_PASSWORD, PORT
+# =========================================================
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
+DB_PATH = os.environ.get("DATABASE_PATH", "mido_nova.db")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@midonova.com").lower()
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeThis-Admin-123!")
 
-HTML_TEMPLATE = """
-<!DOCTYPE html>
+CATEGORIES = [
+    ("all", "كل المنتجات", "✦"),
+    ("google", "Google Play", "▶"),
+    ("games", "الألعاب", "🎮"),
+    ("digital", "الخدمات الرقمية", "☁"),
+    ("products", "المنتجات", "▣"),
+    ("crypto", "العملات الرقمية", "₿"),
+]
+
+SEED_PRODUCTS = [
+    ("Google Play $10", "google", "بطاقة رقمية", 499, "▶", "الأكثر طلبًا", "بطاقات Google Play حسب المنطقة والتوفر."),
+    ("Google Play $25", "google", "بطاقة رقمية", 1199, "▶", "عرض مميز", "بطاقات Google Play حسب المنطقة والتوفر."),
+    ("Steam Wallet $20", "games", "بطاقة ألعاب", 999, "◉", "للجيمرز", "اشحن محفظة Steam بكود صالح للمنطقة المحددة."),
+    ("PlayStation Store $20", "games", "بطاقة ألعاب", 999, "△", "", "بطاقات متجر PlayStation حسب المنطقة والتوفر."),
+    ("Xbox Gift Card $25", "games", "بطاقة ألعاب", 1249, "✕", "", "بطاقات Xbox الرقمية حسب المنطقة والتوفر."),
+    ("اشتراك أدوات رقمية", "digital", "خدمة رقمية", 299, "✧", "جديد", "خدمات رقمية يتم توضيح تفاصيلها قبل الشراء."),
+    ("سماعة لاسلكية", "products", "منتج فعلي", 1499, "♫", "", "منتج تجريبي للعرض — حدّث التفاصيل والمخزون قبل البيع."),
+    ("لوحة مفاتيح Gaming", "products", "منتج فعلي", 2199, "⌨", "", "منتج تجريبي للعرض — حدّث التفاصيل والمخزون قبل البيع."),
+]
+
+def db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    with db() as con:
+        con.execute("""CREATE TABLE IF NOT EXISTS users(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL, email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        con.execute("""CREATE TABLE IF NOT EXISTS products(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,
+            category TEXT NOT NULL, kind TEXT NOT NULL, price INTEGER NOT NULL,
+            icon TEXT DEFAULT '✦', badge TEXT DEFAULT '', description TEXT DEFAULT '',
+            active INTEGER DEFAULT 1)""")
+        con.execute("""CREATE TABLE IF NOT EXISTS orders(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+            product_id INTEGER NOT NULL, quantity INTEGER NOT NULL DEFAULT 1,
+            total INTEGER NOT NULL, status TEXT DEFAULT 'قيد المراجعة',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        count = con.execute("SELECT COUNT(*) n FROM products").fetchone()["n"]
+        if count == 0:
+            con.executemany("""INSERT INTO products(name,category,kind,price,icon,badge,description)
+                VALUES(?,?,?,?,?,?,?)""", SEED_PRODUCTS)
+        # Admin account is created from environment settings; change defaults in production.
+        admin = con.execute("SELECT id FROM users WHERE email=?", (ADMIN_EMAIL,)).fetchone()
+        if not admin:
+            con.execute("INSERT INTO users(name,email,password_hash) VALUES(?,?,?)",
+                        ("Mido ADMIN", ADMIN_EMAIL, generate_password_hash(ADMIN_PASSWORD)))
+
+init_db()
+
+def current_user():
+    uid = session.get("user_id")
+    if not uid:
+        return None
+    with db() as con:
+        return con.execute("SELECT id,name,email FROM users WHERE id=?", (uid,)).fetchone()
+
+def admin_required(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        user = current_user()
+        if not user or user["email"].lower() != ADMIN_EMAIL:
+            abort(403)
+        return fn(*args, **kwargs)
+    return wrapper
+
+BASE = r"""
+<!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MIDO NOVA — Everything in One Place</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
-        body { background-color: #030712; color: #f9fafb; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-
-        /* Top Header */
-        header { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(16px); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(56, 189, 248, 0.2); z-index: 20; }
-        .logo-area { display: flex; align-items: center; gap: 10px; font-size: 1.3rem; font-weight: 800; color: #38bdf8; letter-spacing: 0.5px; }
-        .logo-badge { background: linear-gradient(135deg, #059669, #10b981); color: #fff; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; }
-
-        /* Workspace */
-        .workspace { display: flex; flex: 1; height: calc(100vh - 120px); position: relative; overflow: hidden; }
-        .main-content { flex: 1; position: relative; background: radial-gradient(circle at center, #111827 0%, #030712 100%); overflow-y: auto; padding: 20px; }
-
-        /* Banner */
-        .promo-banner { background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 16px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-        .promo-banner h3 { color: #38bdf8; font-size: 1.1rem; margin-bottom: 4px; }
-        .promo-banner p { color: #94a3b8; font-size: 0.85rem; }
-
-        /* Search Box */
-        .search-box { background: #0f172a; border: 1px solid #334155; border-radius: 14px; padding: 12px 18px; display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-        .search-box input { background: none; border: none; color: #fff; width: 100%; outline: none; font-size: 0.9rem; }
-
-        /* Categories Grid */
-        .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 25px; }
-        .dash-card { border-radius: 16px; padding: 18px 14px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; transition: all 0.25s ease; box-shadow: 0 10px 20px rgba(0,0,0,0.4); text-align: right; }
-        .dash-card:hover { transform: translateY(-4px); filter: brightness(1.1); }
-        .dash-card h4 { font-size: 1.05rem; font-weight: 800; color: #fff; }
-        .dash-card p { font-size: 0.75rem; color: rgba(255,255,255,0.8); line-height: 1.3; }
-        
-        .card-google { background: linear-gradient(135deg, #0284c7, #0369a1); }
-        .card-games { background: linear-gradient(135deg, #7c3aed, #5b21b6); }
-        .card-digital { background: linear-gradient(135deg, #0d9488, #0f766e); }
-        .card-crypto { background: linear-gradient(135deg, #d97706, #b45309); }
-        .card-products { background: linear-gradient(135deg, #059669, #047857); }
-        .card-wallet { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
-        .card-support { background: linear-gradient(135deg, #4f46e5, #3730a3); }
-        .card-account { background: linear-gradient(135deg, #dc2626, #991b1b); }
-
-        /* Section Title */
-        .section-title { font-size: 1.1rem; font-weight: 700; color: #fff; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-
-        /* Offers Grid */
-        .offers-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
-        .offer-card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 14px; text-align: center; cursor: pointer; transition: 0.2s; }
-        .offer-card:hover { border-color: #38bdf8; transform: translateY(-2px); }
-        .offer-card h5 { font-size: 0.95rem; color: #fff; margin-top: 6px; }
-        .offer-card .price { font-size: 0.85rem; color: #10b981; font-weight: bold; margin-top: 4px; }
-        .offer-card .discount { font-size: 0.7rem; background: #059669; color: #fff; padding: 2px 6px; border-radius: 10px; display: inline-block; margin-top: 4px; }
-
-        /* Bottom Navigation */
-        nav.bottom-nav { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(16px); height: 60px; display: flex; justify-content: space-around; align-items: center; border-top: 1px solid rgba(56, 189, 248, 0.2); z-index: 20; }
-        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; color: #64748b; font-size: 0.7rem; cursor: pointer; transition: 0.2s; }
-        .nav-item.active, .nav-item:hover { color: #38bdf8; }
-
-        /* Modals */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 100; justify-content: center; align-items: center; }
-        .modal-content { background: #0f172a; border: 1px solid #38bdf8; width: 92%; max-width: 650px; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 25px 50px rgba(0,0,0,0.9); max-height: 85vh; overflow-y: auto; }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 12px; }
-        .modal-header h3 { color: #38bdf8; font-size: 1.2rem; }
-        .close-btn { background: none; border: none; color: #64748b; font-size: 1.5rem; cursor: pointer; }
-
-        .sub-item { background: #1e293b; border: 1px solid #334155; padding: 14px 16px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: 0.2s; margin-bottom: 10px; }
-        .sub-item:hover { background: #334155; border-color: #38bdf8; }
-        .sub-item span { color: #fff; font-weight: 600; font-size: 0.9rem; }
-        
-        /* Chat Box */
-        .chat-box { display: flex; flex-direction: column; gap: 10px; height: 260px; overflow-y: auto; padding: 10px; background: #030712; border-radius: 12px; border: 1px solid #1e293b; }
-        .message { padding: 10px 14px; border-radius: 10px; max-width: 80%; font-size: 0.85rem; line-height: 1.4; }
-        .message.ai { background: #1e293b; color: #f8fafc; align-self: flex-start; border-right: 3px solid #38bdf8; }
-        .message.user { background: #0284c7; color: #fff; align-self: flex-end; }
-        .chat-input { display: flex; gap: 10px; margin-top: 10px; }
-        .chat-input input { flex: 1; background: #030712; border: 1px solid #1e293b; padding: 10px; border-radius: 8px; color: #fff; outline: none; }
-        .chat-input button { background: #0284c7; color: #fff; border: none; padding: 0 18px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-    </style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#07110f">
+<title>{{ title }} | MIDO NOVA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07100f;--panel:#0d1917;--panel2:#10211e;--line:#1d3933;--mint:#39edbd;--mint2:#12b98b;--text:#f1fbf7;--muted:#91aaa1;--gold:#d9ff72;--danger:#ff7373}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 85% -10%,#124b3b66,transparent 42%),radial-gradient(ellipse at 0% 40%,#0d2825,transparent 34%),var(--bg);color:var(--text);font-family:'Cairo',sans-serif;min-height:100vh}
+a{color:inherit;text-decoration:none}button,input,select{font:inherit}.wrap{max-width:1190px;margin:auto;padding:0 20px}
+.topbar{position:sticky;top:0;z-index:20;background:#07100feF;border-bottom:1px solid #1b302b;backdrop-filter:blur(18px)}
+.nav{height:78px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{display:flex;align-items:center;gap:11px;font-weight:900;font-size:23px;letter-spacing:-.5px}.mark{width:43px;height:43px;border:1px solid #46f5c5;border-radius:15px;display:grid;place-items:center;color:var(--mint);font-size:24px;font-weight:900;background:linear-gradient(145deg,#1b5545,#0a1513);box-shadow:0 0 24px #2be5b21c}.brand span{color:var(--mint)}.navlinks{display:flex;gap:22px;color:#b8cbc4;font-size:13px}.navlinks a:hover{color:var(--mint)}.navactions{display:flex;align-items:center;gap:9px}.btn{border:1px solid var(--line);background:#11221e;color:var(--text);border-radius:13px;padding:10px 15px;cursor:pointer;display:inline-flex;justify-content:center;align-items:center;gap:7px;font-weight:700;transition:.2s}.btn:hover{transform:translateY(-2px);border-color:#3ce3b3}.btn.primary{background:linear-gradient(120deg,#46f3c0,#12b78a);color:#042219;border:0;box-shadow:0 8px 25px #20c79522}.btn.small{font-size:12px;padding:8px 12px}.menu-toggle{display:none}
+.hero{padding:53px 0 28px;display:grid;grid-template-columns:1.15fr .85fr;gap:28px;align-items:center}.eyebrow{display:inline-flex;gap:8px;align-items:center;color:var(--mint);border:1px solid #245748;background:#0b211b;border-radius:99px;padding:6px 13px;font-size:12px;font-weight:800}.dot{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 12px var(--mint)}h1{font-size:clamp(35px,5vw,58px);line-height:1.25;margin:17px 0 12px;font-weight:900;letter-spacing:-1.5px}.gradient{background:linear-gradient(90deg,#f5fff9,#4af2c0 75%);background-clip:text;color:transparent}.hero p{color:#9bb5ab;line-height:2;font-size:15px;max-width:590px}.hero-ctas{display:flex;gap:10px;flex-wrap:wrap;margin:24px 0}.trust{display:flex;gap:18px;flex-wrap:wrap;color:#8fa69d;font-size:12px}.trust b{color:#e5fff5}.showcase{position:relative;min-height:315px;border:1px solid #255347;border-radius:28px;padding:22px;background:linear-gradient(140deg,#102b24,#0b1514 68%);overflow:hidden;box-shadow:inset 0 1px #ffffff08,0 20px 70px #0005}.showcase:before{content:"";position:absolute;width:270px;height:270px;background:#20e2a422;filter:blur(70px);border-radius:50%;top:0;left:10%}.showtop{display:flex;justify-content:space-between;align-items:center;color:#92b8aa;font-size:12px;position:relative}.bigcoin{position:relative;margin:24px auto 20px;width:142px;height:142px;border-radius:42px;display:grid;place-items:center;font-size:74px;color:#caffee;border:1px solid #4af4c2;background:linear-gradient(145deg,#174c3e,#091512);box-shadow:0 0 65px #23dba52b;transform:rotate(-7deg)}.showfoot{position:relative;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #24443a;padding-top:16px}.showfoot strong{font-size:20px}.pill{background:#133a2e;color:#6df6c9;border:1px solid #24624d;border-radius:50px;padding:5px 10px;font-size:11px}
+.section{padding:28px 0}.section-head{display:flex;justify-content:space-between;align-items:end;gap:15px;margin-bottom:18px}.section-head h2{margin:0;font-size:25px}.section-head p{color:var(--muted);margin:3px 0 0;font-size:12px}.categories{display:grid;grid-template-columns:repeat(6,1fr);gap:11px}.cat{padding:17px 12px;background:linear-gradient(145deg,#10211d,#0a1513);border:1px solid var(--line);border-radius:18px;text-align:center;transition:.2s}.cat:hover{border-color:#3bdcae;transform:translateY(-3px)}.cat-icon{margin:0 auto 9px;width:47px;height:47px;display:grid;place-items:center;border-radius:15px;background:#17372d;color:var(--mint);font-size:24px}.cat strong{display:block;font-size:13px}.cat small{color:#7e9b90;font-size:10px}
+.toolbar{display:flex;gap:10px;margin:18px 0;flex-wrap:wrap}.search{flex:1;min-width:190px;background:#0d1b18;border:1px solid #234039;color:white;padding:12px 15px;border-radius:14px;outline:none}.search:focus{border-color:var(--mint)}.filter{background:#0d1b18;color:#bcd0c7;border:1px solid #234039;border-radius:13px;padding:10px 13px}
+.products{display:grid;grid-template-columns:repeat(4,1fr);gap:13px}.product{border:1px solid #1d3831;background:linear-gradient(145deg,#10201c,#0b1513);border-radius:19px;padding:14px;transition:.2s;position:relative;overflow:hidden}.product:hover{transform:translateY(-4px);border-color:#337b61;box-shadow:0 15px 30px #0002}.prodvisual{height:123px;border-radius:14px;background:radial-gradient(circle at 50% 20%,#24654c,#102a22 55%,#0b1714);display:grid;place-items:center;font-size:53px;color:#7cfbd0;position:relative}.badge{position:absolute;top:10px;right:10px;border-radius:30px;padding:3px 8px;background:#caff72;color:#152513;font-size:10px;font-weight:900}.prodtype{font-size:10px;color:#79b6a0;margin:13px 0 2px}.product h3{font-size:15px;margin:0 0 5px}.product p{font-size:11px;color:#89a59a;min-height:40px;line-height:1.8;margin:0 0 13px}.prodfoot{display:flex;justify-content:space-between;align-items:center;gap:6px;border-top:1px solid #203830;padding-top:12px}.price{font-size:17px;font-weight:900;color:#e8fff5}.price small{font-size:10px;color:#91a99f;font-weight:500}.empty{grid-column:1/-1;padding:35px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:18px}
+.benefits{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.benefit{border:1px solid var(--line);background:#0c1916;border-radius:17px;padding:19px;display:flex;gap:13px}.benefit i{font-style:normal;font-size:23px;color:var(--mint)}.benefit b{font-size:13px}.benefit p{font-size:11px;color:var(--muted);margin:4px 0 0;line-height:1.8}
+.footer{margin-top:45px;border-top:1px solid #1b302b;padding:26px 0;color:#779188;font-size:11px}.footerinner{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}.flash{margin:12px auto;padding:12px 15px;border:1px solid #286b51;background:#10271f;border-radius:12px;color:#9effd5;font-size:13px}.notice{font-size:11px;line-height:1.9;color:#7e9a90;border:1px solid #1b3930;background:#0b1714;border-radius:14px;padding:13px;margin-top:18px}
+.formcard{max-width:510px;margin:48px auto;background:#0d1a17;border:1px solid var(--line);border-radius:22px;padding:25px}.formcard h1{font-size:27px;margin:0 0 8px}.formcard p{color:var(--muted);font-size:13px}.field{display:block;margin:14px 0;color:#a9c0b7;font-size:12px}.field input,.field select{display:block;width:100%;margin-top:7px;border:1px solid #29463d;background:#08120f;color:#fff;padding:12px;border-radius:12px;outline:none}.field input:focus{border-color:var(--mint)}.formcard .btn{width:100%;margin-top:10px}
+.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:15px}table{width:100%;border-collapse:collapse;min-width:650px}th,td{text-align:right;padding:13px;border-bottom:1px solid #1b322b;font-size:12px}th{color:var(--mint);background:#10211c}td{color:#d9e9e2}.status{color:#baffdf}
+@media(max-width:900px){.hero{grid-template-columns:1fr}.showcase{min-height:270px}.categories{grid-template-columns:repeat(3,1fr)}.products{grid-template-columns:repeat(2,1fr)}.navlinks{display:none}.benefits{grid-template-columns:1fr}}
+@media(max-width:520px){.wrap{padding:0 13px}.nav{height:67px}.brand{font-size:19px}.mark{width:38px;height:38px}.navactions .btn{padding:8px 10px;font-size:11px}.hero{padding-top:32px}h1{font-size:37px}.showcase{min-height:255px}.categories{gap:8px}.cat{padding:13px 5px}.cat strong{font-size:11px}.products{gap:9px}.product{padding:9px}.prodvisual{height:95px;font-size:43px}.product h3{font-size:13px}.product p{font-size:10px}.prodfoot{align-items:flex-start;flex-direction:column}.prodfoot .btn{width:100%}.section-head h2{font-size:21px}}
+</style>
 </head>
 <body>
-
-    <header>
-        <div class="logo-area"><span>MIDO NOVA</span></div>
-        <div class="header-icons"><span class="logo-badge">⚡ متجر شامل</span></div>
-    </header>
-
-    <div class="workspace">
-        <div class="main-content">
-            <div class="promo-banner">
-                <div>
-                    <h3>بطاقات جوجل بلاي والستور</h3>
-                    <p>متوفرة الآن بأسعار مميزة وخصومات تصل إلى 25% 🔥</p>
-                </div>
-                <div style="font-size: 2.2rem;">🛒</div>
-            </div>
-
-            <div class="search-box">
-                <span>🔍</span>
-                <input type="text" placeholder="ابحث عن منتج، بطاقة، عملة رقمية أو خدمة...">
-            </div>
-
-            <div class="section-title"><span>الأقسام الرئيسية</span></div>
-            <div class="cards-grid">
-                <div class="dash-card card-google" onclick="openModal('googleModal')"><h4>جوجل بلاي</h4><p>بطاقات وشحن خدمات</p></div>
-                <div class="dash-card card-games" onclick="openModal('gamesModal')"><h4>الألعاب</h4><p>بطاقات وشحن ألعاب</p></div>
-                <div class="dash-card card-digital" onclick="openModal('digitalModal')"><h4>الخدمات الرقمية</h4><p>اشتراكات وبرامج وأدوات</p></div>
-                <div class="dash-card card-crypto" onclick="openModal('cryptoModal')"><h4>العملات الرقمية</h4><p>شراء - بيع - محافظ</p></div>
-                <div class="dash-card card-products" onclick="openModal('productsModal')"><h4>المنتجات</h4><p>إلكترونيات ومننوعات</p></div>
-                <div class="dash-card card-wallet" onclick="openModal('walletModal')"><h4>محفظتي</h4><p>الرصيد وسجل المعاملات</p></div>
-                <div class="dash-card card-support" onclick="openModal('aiModal')"><h4>الدعم والمساعدة</h4><p>مساعد ذكي وخدمة عملاء</p></div>
-                <div class="dash-card card-account" onclick="openModal('accountModal')"><h4>حسابي</h4><p>البيانات والأمان</p></div>
-            </div>
-
-            <div class="section-title"><span>عروض مميزة</span></div>
-            <div class="offers-grid">
-                <div class="offer-card" onclick="openModal('googleModal')">
-                    <div style="font-size: 1.5rem;">🎮</div>
-                    <h5>Google Play $10</h5>
-                    <div class="price">$7.50</div>
-                    <div class="discount">خصم 25%</div>
-                </div>
-                <div class="offer-card" onclick="openModal('gamesModal')">
-                    <div style="font-size: 1.5rem;">🎯</div>
-                    <h5>PlayStation $20</h5>
-                    <div class="price">$15.90</div>
-                    <div class="discount">خصم 20%</div>
-                </div>
-                <div class="offer-card" onclick="openModal('gamesModal')">
-                    <div style="font-size: 1.5rem;">🚀</div>
-                    <h5>Xbox Gift Card</h5>
-                    <div class="price">$19.90</div>
-                    <div class="discount">خصم 20%</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <nav class="bottom-nav">
-        <div class="nav-item active"><span>🏠</span><span>الرئيسية</span></div>
-        <div class="nav-item" onclick="openModal('googleModal')"><span>🛍️</span><span>الأقسام</span></div>
-        <div class="nav-item" onclick="openModal('walletModal')"><span>💰</span><span>محفظتي</span></div>
-        <div class="nav-item" onclick="openModal('aiModal')"><span>🤖</span><span>الدعم</span></div>
-        <div class="nav-item" onclick="openModal('accountModal')"><span>👤</span><span>حسابي</span></div>
-    </nav>
-
-    <!-- Modals -->
-    <div id="googleModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header"><h3>Google Play — بطاقات وشحن</h3><button class="close-btn" onclick="closeModal('googleModal')">&times;</button></div>
-            <div class="sub-item" onclick="alert('تمت إضافة المنتج للسلة!')"><span>Google Play $10 (سعر: $7.50)</span><span>شراء ➔</span></div>
-            <div class="sub-item" onclick="alert('تمت إضافة المنتج للسلة!')"><span>Google Play $25 (سعر: $18.90)</span><span>شراء ➔</span></div>
-            <div class="sub-item" onclick="alert('تمت إضافة المنتج للسلة!')"><span>Google Play $50 (سعر: $36.90)</span><span>شراء ➔</span></div>
-        </div>
-    </div>
-
-    <div id="gamesModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header"><h3>بطاقات وشحن الألعاب</h3><button class="close-btn" onclick="closeModal('gamesModal')">&times;</button></div>
-            <div class="sub-item" onclick="alert('تمت إضافة المنتج للسلة!')"><span>Steam Wallet $20 ($14.90)</span><span>شراء ➔</span></div>
-            <div class="sub-item" onclick="alert('تمت إضافة المنتج للسلة!')"><span>PlayStation Store $20 ($15.90)</span><span>شراء ➔</span></div>
-            <div class="sub-item" onclick="alert('تمت إضافة المنتج للسلة!')"><span>Xbox Gift Card $25 ($19.90)</span><span>شراء ➔</span></div>
-            <div class="sub-item" onclick="alert('تمت إضافة المنتج للسلة!')"><span>Roblox Gift Card $25 ($18.50)</span><span>شراء ➔</span></div>
-        </div>
-    </div>
-
-    <div id="cryptoModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header"><h3>العملات الرقمية (تداول ومعاملات)</h3><button class="close-btn" onclick="closeModal('cryptoModal')">&times;</button></div>
-            <div class="sub-item"><span>Bitcoin (BTC) — $67,432.21 (+2.4%)</span><span>تداول ➔</span></div>
-            <div class="sub-item"><span>Ethereum (ETH) — $3,248.75 (+1.8%)</span><span>تداول ➔</span></div>
-            <div class="sub-item"><span>Tether (USDT) — $1.00 (+0.1%)</span><span>تداول ➔</span></div>
-        </div>
-    </div>
-
-    <div id="productsModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header"><h3>المنتجات والإلكترونيات</h3><button class="close-btn" onclick="closeModal('productsModal')">&times;</button></div>
-            <div class="sub-item"><span>ساعات ذكية أصلية ($49.90)</span><span>طلب ➔</span></div>
-            <div class="sub-item"><span>سماعات لاسلكية برو ($29.90)</span><span>طلب ➔</span></div>
-            <div class="sub-item"><span>كيورد ألعاب ميكانيكي ($39.90)</span><span>طلب ➔</span></div>
-        </div>
-    </div>
-
-    <div id="digitalModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header"><h3>الخدمات الرقمية والاشتراكات</h3><button class="close-btn" onclick="closeModal('digitalModal')">&times;</button></div>
-            <div class="sub-item"><span>اشتراك Netflix شهري ($9.99)</span><span>شراء ➔</span></div>
-            <div class="sub-item"><span>اشتراك Spotify بريميوم ($4.99)</span><span>شراء ➔</span></div>
-        </div>
-    </div>
-
-    <div id="walletModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header"><h3>محفظتي ورصيدك</h3><button class="close-btn" onclick="closeModal('walletModal')">&times;</button></div>
-            <div style="background:#1e293b; padding:16px; border-radius:12px; text-align:center;">
-                <p style="color:#94a3b8; font-size:0.85rem;">الرصيد الكلي</p>
-                <h2 style="color:#10b981; font-size:1.8rem; margin-top:5px;">$ 125.50</h2>
-            </div>
-            <div class="sub-item" onclick="alert('تم إضافة رصيد تجريبي بنجاح!')"><span>➕ إضافة رصيد جديد للمحفظة</span><span>إيداع ➔</span></div>
-            <div class="sub-item"><span>📜 سجل المعاملات السابقة</span><span>عرض ➔</span></div>
-        </div>
-    </div>
-
-    <div id="aiModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header"><h3>مساعد MIDO AI الذكي</h3><button class="close-btn" onclick="closeModal('aiModal')">&times;</button></div>
-            <div class="chat-box" id="chatBox">
-                <div class="message ai">أهلاً بك في MIDO NOVA! أنا مساعدك الذكي، كيف يمكنني مساعدتك في عمليات الشحن أو الخدمات اليوم؟</div>
-            </div>
-            <div class="chat-input">
-                <input type="text" id="userInput" placeholder="اكتب سؤالك هنا..." onkeypress="handleKeyPress(event)">
-                <button onclick="sendAiMessage()">إرسال</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="accountModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header"><h3>حسابي والأمان</h3><button class="close-btn" onclick="closeModal('accountModal')">&times;</button></div>
-            <div class="sub-item"><span>Mido Nova (mido@example.com)</span><span>حساب معتمد 👑</span></div>
-            <div class="sub-item"><span>🔒 الأمان والحماية المصرفية</span><span>إدارة ➔</span></div>
-            <div class="sub-item"><span>🔔 الإشعارات والتنبيهات</span><span>تخصيص ➔</span></div>
-        </div>
-    </div>
-
-    <script>
-        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
-        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-
-        function sendAiMessage() {
-            const input = document.getElementById('userInput');
-            const chatBox = document.getElementById('chatBox');
-            const text = input.value.trim();
-            if(!text) return;
-            chatBox.innerHTML += `<div class="message user">${text}</div>`;
-            input.value = '';
-            chatBox.scrollTop = chatBox.scrollHeight;
-            setTimeout(() => {
-                chatBox.innerHTML += `<div class="message ai">مساعد MIDO AI: تم استلام طلبك بنجاح، فريق الدعم الفني جاهز لمساعدتك على مدار الساعة!</div>`;
-                chatBox.scrollTop = chatBox.scrollHeight;
-            }, 800);
-        }
-        function handleKeyPress(e) { if(e.key === 'Enter') sendAiMessage(); }
-    </script>
-</body>
-</html>
+<header class="topbar"><div class="wrap nav">
+<a class="brand" href="{{ url_for('home') }}"><div class="mark">M</div><div>MIDO <span>NOVA</span></div></a>
+<nav class="navlinks"><a href="{{ url_for('home') }}">الرئيسية</a><a href="{{ url_for('home') }}#categories">الأقسام</a><a href="{{ url_for('home') }}#products">المتجر</a><a href="{{ url_for('my_orders') }}">طلباتي</a></nav>
+<div class="navactions">
+{% if user %}<a class="btn small" href="{{ url_for('my_orders') }}">طلباتي</a><a class="btn primary small" href="{{ url_for('logout') }}">خروج</a>
+{% else %}<a class="btn small" href="{{ url_for('login') }}">دخول</a><a class="btn primary small" href="{{ url_for('register') }}">حساب جديد</a>{% endif %}
+</div>
+</div></header>
+<main class="wrap">
+{% for msg in get_flashed_messages() %}<div class="flash">{{ msg }}</div>{% endfor %}
+{{ body|safe }}
+</main>
+<footer class="footer"><div class="wrap footerinner"><div>© {{ year }} MIDO NOVA — كل احتياجاتك الرقمية في مكان واحد.</div><div>تجربة متجر أنيقة • دعم العملاء • حماية الحساب</div></div></footer>
+</body></html>
 """
 
-@app.route('/')
-def index():
-    return render_template_string(HTML_TEMPLATE)
+HOME = r"""
+<section class="hero">
+<div>
+<div class="eyebrow"><span class="dot"></span> وجهتك الرقمية الجديدة</div>
+<h1>كل اللي تحتاجه<br><span class="gradient">في مكان واحد.</span></h1>
+<p>اكتشف البطاقات الرقمية، وشحن الألعاب، والخدمات، والمنتجات — بتجربة شراء مرتبة وسهلة من MIDO NOVA.</p>
+<div class="hero-ctas"><a class="btn primary" href="#products">اكتشف المتجر <span>←</span></a><a class="btn" href="#categories">تصفح الأقسام ◈</a></div>
+<div class="trust"><span>✦ <b>واجهة سهلة</b></span><span>◉ <b>تفاصيل واضحة</b></span><span>⌁ <b>متابعة الطلبات</b></span></div>
+</div>
+<div class="showcase"><div class="showtop"><span>✦ MIDO NOVA</span><span class="pill">متجرك الرقمي</span></div><div class="bigcoin">M</div><div class="showfoot"><div><small style="color:#8aa99b">EVERYTHING IN ONE PLACE</small><br><strong>ابدأ اكتشافك</strong></div><span class="pill">آمن • بسيط • أنيق</span></div></div>
+</section>
+<section class="section" id="categories"><div class="section-head"><div><h2>تصفح الأقسام</h2><p>اختار القسم اللي يناسبك</p></div></div>
+<div class="categories">{% for key,name,icon in categories %}{% if key != 'all' %}<a class="cat" href="#products" onclick="pickCategory('{{key}}')"><div class="cat-icon">{{icon}}</div><strong>{{name}}</strong><small>اكتشف المزيد ←</small></a>{% endif %}{% endfor %}</div></section>
+<section class="section" id="products"><div class="section-head"><div><h2>اختيارات مميزة <span style="color:var(--mint)">✦</span></h2><p>منتجات وخدمات متنوعة في انتظارك</p></div><span class="pill">{{ products|length }} منتج</span></div>
+<div class="toolbar"><input class="search" id="searchBox" placeholder="ابحث عن منتج أو خدمة..." oninput="filterProducts()"><select class="filter" id="categoryFilter" onchange="filterProducts()">{% for key,name,icon in categories %}<option value="{{key}}">{{name}}</option>{% endfor %}</select></div>
+<div class="products" id="productGrid">
+{% for p in products %}<article class="product" data-name="{{p.name|lower}}" data-category="{{p.category}}">
+<div class="prodvisual">{% if p.badge %}<span class="badge">{{p.badge}}</span>{% endif %}{{p.icon}}</div><div class="prodtype">{{p.kind}}</div><h3>{{p.name}}</h3><p>{{p.description}}</p><div class="prodfoot"><div class="price">{{ '{:,.0f}'.format(p.price/100) }} <small>ج.م</small></div><form method="post" action="{{url_for('order_product', product_id=p.id)}}"><button class="btn primary small" type="submit">اطلب الآن +</button></form></div>
+</article>{% else %}<div class="empty">لا توجد منتجات حاليًا.</div>{% endfor %}
+</div>
+<div class="notice">ملاحظة: المنتجات المعروضة بيانات تجريبية قابلة للتعديل. لا يتم تنفيذ دفع إلكتروني أو تسليم أكواد تلقائيًا في هذا الإصدار. تأكد من السعر والمنطقة وشروط المنتج قبل إتمام أي عملية. العملات الرقمية هنا قسم تعريفي فقط وليست خدمة تداول.</div>
+</section>
+<section class="section"><div class="section-head"><div><h2>تجربة معمولة ليك</h2><p>كل حاجة واضحة من أول خطوة</p></div></div><div class="benefits">
+<div class="benefit"><i>◈</i><div><b>تنظيم ذكي</b><p>أقسام واضحة تساعدك توصل للي بتدور عليه بسرعة.</p></div></div>
+<div class="benefit"><i>↗</i><div><b>متابعة طلباتك</b><p>راجع طلباتك وحالتها من حسابك في أي وقت.</p></div></div>
+<div class="benefit"><i>♧</i><div><b>تجربة شفافة</b><p>تفاصيل وأسعار واضحة، مع تطوير بوابات الدفع لاحقًا.</p></div></div>
+</div></section>
+<script>
+function filterProducts(){const q=document.getElementById('searchBox').value.toLowerCase().trim(),c=document.getElementById('categoryFilter').value;let shown=0;document.querySelectorAll('.product').forEach(p=>{const ok=(c==='all'||p.dataset.category===c)&&p.dataset.name.includes(q);p.style.display=ok?'':'none';if(ok)shown++});let e=document.getElementById('noProducts');if(!shown){if(!e){e=document.createElement('div');e.id='noProducts';e.className='empty';e.textContent='مفيش نتائج مطابقة لبحثك.';document.getElementById('productGrid').appendChild(e)}}else if(e)e.remove()}
+function pickCategory(c){document.getElementById('categoryFilter').value=c;filterProducts()}
+</script>
+"""
 
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+def page(title, body, **kwargs):
+    user = current_user()
+    rendered_body = render_template_string(body, user=user, categories=CATEGORIES, **kwargs)
+    return render_template_string(BASE, title=title, body=rendered_body, user=user,
+                                 year=__import__("datetime").datetime.now().year)
+
+@app.route("/")
+def home():
+    category = request.args.get("category", "all")
+    with db() as con:
+        products = con.execute("SELECT * FROM products WHERE active=1 ORDER BY id DESC").fetchall()
+    return page("الرئيسية", HOME, products=products)
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()[:70]
+        email = request.form.get("email", "").strip().lower()[:160]
+        password = request.form.get("password", "")
+        if not name or "@" not in email or len(password) < 8:
+            flash("اكتب بيانات صحيحة، وكلمة مرور 8 أحرف على الأقل.")
+        else:
+            try:
+                with db() as con:
+                    cur = con.execute("INSERT INTO users(name,email,password_hash) VALUES(?,?,?)",
+                                      (name, email, generate_password_hash(password)))
+                    session.clear()
+                    session["user_id"] = cur.lastrowid
+                flash("أهلًا بيك! حسابك اتعمل.")
+                return redirect(url_for("home"))
+            except sqlite3.IntegrityError:
+                flash("البريد الإلكتروني مستخدم بالفعل.")
+    body = r"""
+    <section class="formcard"><h1>انضم إلى <span class="gradient">MIDO NOVA</span></h1><p>أنشئ حسابك وابدأ اكتشاف المتجر.</p>
+    <form method="post"><label class="field">الاسم<input name="name" maxlength="70" required autocomplete="name"></label>
+    <label class="field">البريد الإلكتروني<input type="email" name="email" required autocomplete="email"></label>
+    <label class="field">كلمة المرور<input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
+    <button class="btn primary" type="submit">إنشاء الحساب</button></form><p>عندك حساب؟ <a style="color:var(--mint)" href="{{url_for('login')}}">سجل دخولك</a></p></section>"""
+    return page("حساب جديد", body)
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+        with db() as con:
+            user = con.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+        if user and check_password_hash(user["password_hash"], password):
+            session.clear()
+            session["user_id"] = user["id"]
+            flash("تم تسجيل الدخول.")
+            return redirect(url_for("admin") if email == ADMIN_EMAIL else url_for("home"))
+        flash("بيانات الدخول غير صحيحة.")
+    body = r"""
+    <section class="formcard"><h1>أهلًا بعودتك</h1><p>سجل دخولك إلى حسابك.</p>
+    <form method="post"><label class="field">البريد الإلكتروني<input type="email" name="email" required autocomplete="email"></label>
+    <label class="field">كلمة المرور<input type="password" name="password" required autocomplete="current-password"></label>
+    <button class="btn primary" type="submit">دخول</button></form><p>لسه جديد؟ <a style="color:var(--mint)" href="{{url_for('register')}}">اعمل حساب</a></p></section>"""
+    return page("تسجيل الدخول", body)
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    flash("تم تسجيل الخروج.")
+    return redirect(url_for("home"))
+
+@app.route("/order/<int:product_id>", methods=["POST"])
+def order_product(product_id):
+    user = current_user()
+    if not user:
+        flash("سجل دخولك الأول عشان تقدر تسجل طلب.")
+        return redirect(url_for("login"))
+    with db() as con:
+        product = con.execute("SELECT * FROM products WHERE id=? AND active=1", (product_id,)).fetchone()
+        if not product:
+            abort(404)
+        cur = con.execute("INSERT INTO orders(user_id,product_id,quantity,total) VALUES(?,?,1,?)",
+                          (user["id"], product_id, product["price"]))
+        order_id = cur.lastrowid
+    flash(f"تم تسجيل طلب رقم #{order_id} للمراجعة. الطلب غير مدفوع حتى الآن.")
+    return redirect(url_for("my_orders"))
+
+@app.route("/my-orders")
+def my_orders():
+    user = current_user()
+    if not user:
+        flash("سجل دخولك لمتابعة طلباتك.")
+        return redirect(url_for("login"))
+    with db() as con:
+        orders = con.execute("""SELECT o.*,p.name product_name FROM orders o
+            JOIN products p ON p.id=o.product_id WHERE o.user_id=? ORDER BY o.id DESC""",
+            (user["id"],)).fetchall()
+    body = r"""
+    <section class="section"><div class="section-head"><div><h2>طلباتي</h2><p>طلباتك المسجلة وحالتها الحالية</p></div><a class="btn small" href="{{url_for('home')}}">رجوع للمتجر</a></div>
+    {% if orders %}<div class="tablewrap"><table><thead><tr><th>رقم الطلب</th><th>المنتج</th><th>الإجمالي</th><th>الحالة</th><th>التاريخ</th></tr></thead><tbody>
+    {% for o in orders %}<tr><td>#{{o.id}}</td><td>{{o.product_name}}</td><td>{{'{:,.2f}'.format(o.total/100)}} ج.م</td><td class="status">{{o.status}}</td><td>{{o.created_at}}</td></tr>{% endfor %}
+    </tbody></table></div>{% else %}<div class="empty">لسه معندكش طلبات. <a style="color:var(--mint)" href="{{url_for('home')}}">تصفح المتجر</a></div>{% endif %}
+    </section>"""
+    return page("طلباتي", body, orders=orders)
+
+@app.route("/admin")
+@admin_required
+def admin():
+    with db() as con:
+        orders = con.execute("""SELECT o.*,u.name user_name,u.email,p.name product_name
+            FROM orders o JOIN users u ON u.id=o.user_id JOIN products p ON p.id=o.product_id
+            ORDER BY o.id DESC LIMIT 250""").fetchall()
+        products = con.execute("SELECT * FROM products ORDER BY id DESC").fetchall()
+    body = r"""
+    <section class="section"><div class="section-head"><div><h2>لوحة الإدارة</h2><p>إدارة المنتجات ومراجعة الطلبات</p></div><a class="btn small" href="{{url_for('home')}}">عرض المتجر</a></div>
+    <div class="formcard" style="max-width:none;margin:15px 0"><h2 style="margin-top:0">إضافة منتج</h2>
+    <form method="post" action="{{url_for('admin_add_product')}}" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+    <label class="field">اسم المنتج<input name="name" required maxlength="100"></label>
+    <label class="field">القسم<select name="category">{% for k,n,i in categories if k!='all' and k!='crypto' %}<option value="{{k}}">{{n}}</option>{% endfor %}</select></label>
+    <label class="field">النوع<input name="kind" value="منتج رقمي" required></label>
+    <label class="field">السعر بالجنيه<input name="price" type="number" min="0.01" step="0.01" required></label>
+    <label class="field">أيقونة<input name="icon" value="✦" maxlength="8"></label>
+    <label class="field">شارة<input name="badge" maxlength="30"></label>
+    <label class="field" style="grid-column:1/-1">الوصف<input name="description" maxlength="250"></label>
+    <button class="btn primary" type="submit">+ إضافة المنتج</button></form></div>
+    <h2>المنتجات</h2><div class="tablewrap"><table><thead><tr><th>#</th><th>المنتج</th><th>القسم</th><th>السعر</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody>
+    {% for p in products %}<tr><td>{{p.id}}</td><td>{{p.name}}</td><td>{{p.category}}</td><td>{{'{:,.2f}'.format(p.price/100)}} ج.م</td><td>{{'ظاهر' if p.active else 'مخفي'}}</td><td><form method="post" action="{{url_for('admin_toggle_product',product_id=p.id)}}"><button class="btn small" type="submit">{{'إخفاء' if p.active else 'إظهار'}}</button></form></td></tr>{% endfor %}
+    </tbody></table></div>
+    <h2 style="margin-top:30px">آخر الطلبات</h2><div class="tablewrap"><table><thead><tr><th>رقم</th><th>العميل</th><th>المنتج</th><th>الإجمالي</th><th>الحالة</th><th>تحديث</th></tr></thead><tbody>
+    {% for o in orders %}<tr><td>#{{o.id}}</td><td>{{o.user_name}}<br>{{o.email}}</td><td>{{o.product_name}}</td><td>{{'{:,.2f}'.format(o.total/100)}} ج.م</td><td>{{o.status}}</td><td><form method="post" action="{{url_for('admin_order_status',order_id=o.id)}}" style="display:flex;gap:5px"><select name="status"><option>قيد المراجعة</option><option>تم التأكيد</option><option>تم التسليم</option><option>ملغي</option></select><button class="btn small" type="submit">حفظ</button></form></td></tr>{% else %}<tr><td colspan="6">لا توجد طلبات بعد.</td></tr>{% endfor %}
+    </tbody></table></div>
+    <div class="notice">تنبيه أمني: غيّر كلمة مرور الإدارة الافتراضية وإعداد SECRET_KEY قبل النشر. أضف حماية CSRF وتحديد معدل المحاولات وربط بوابة دفع موثوقة قبل استقبال مدفوعات حقيقية.</div></section>"""
+    return page("لوحة الإدارة", body, orders=orders, products=products)
+
+@app.route("/admin/product/add", methods=["POST"])
+@admin_required
+def admin_add_product():
+    name = request.form.get("name", "").strip()[:100]
+    category = request.form.get("category", "digital")
+    kind = request.form.get("kind", "منتج").strip()[:60]
+    icon = request.form.get("icon", "✦").strip()[:8] or "✦"
+    badge = request.form.get("badge", "").strip()[:30]
+    description = request.form.get("description", "").strip()[:250]
+    try:
+        price = round(float(request.form.get("price", "0")) * 100)
+    except ValueError:
+        price = 0
+    allowed = {"google", "games", "digital", "products"}
+    if not name or category not in allowed or price <= 0:
+        flash("راجع اسم المنتج والقسم والسعر.")
+    else:
+        with db() as con:
+            con.execute("""INSERT INTO products(name,category,kind,price,icon,badge,description)
+                VALUES(?,?,?,?,?,?,?)""", (name, category, kind, price, icon, badge, description))
+        flash("تمت إضافة المنتج.")
+    return redirect(url_for("admin"))
+
+@app.route("/admin/product/<int:product_id>/toggle", methods=["POST"])
+@admin_required
+def admin_toggle_product(product_id):
+    with db() as con:
+        p = con.execute("SELECT active FROM products WHERE id=?", (product_id,)).fetchone()
+        if p:
+            con.execute("UPDATE products SET active=? WHERE id=?", (0 if p["active"] else 1, product_id))
+            flash("تم تحديث ظهور المنتج.")
+    return redirect(url_for("admin"))
+
+@app.route("/admin/order/<int:order_id>/status", methods=["POST"])
+@admin_required
+def admin_order_status(order_id):
+    status = request.form.get("status", "")
+    allowed = {"قيد المراجعة", "تم التأكيد", "تم التسليم", "ملغي"}
+    if status not in allowed:
+        abort(400)
+    with db() as con:
+        con.execute("UPDATE orders SET status=? WHERE id=?", (status, order_id))
+    flash("تم تحديث حالة الطلب.")
+    return redirect(url_for("admin"))
+
+@app.errorhandler(403)
+def forbidden(_):
+    return page("غير مسموح", '<section class="formcard"><h1>مش مسموح بالدخول</h1><p>الصفحة دي للإدارة فقط.</p><a class="btn primary" href="/">العودة للرئيسية</a></section>'), 403
+
+@app.errorhandler(404)
+def not_found(_):
+    return page("الصفحة غير موجودة", '<section class="formcard"><h1>الصفحة مش موجودة</h1><p>الرابط اللي فتحته غير صحيح.</p><a class="btn primary" href="/">العودة للرئيسية</a></section>'), 404
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", "5000"))
+    app.run(host="0.0.0.0", port=port, debug=False)
