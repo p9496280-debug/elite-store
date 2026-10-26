@@ -34,7 +34,7 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 # Private API endpoint for the separate Telegram verification bot service.
 BOT_BRIDGE_URL = os.environ.get("BOT_BRIDGE_URL", "").rstrip("/")
 BRIDGE_API_SECRET = os.environ.get("BRIDGE_API_SECRET", "")
-VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "ضع رقم فودافون كاش هنا")
+VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "01011541698")
 
 
 CATEGORIES = [
