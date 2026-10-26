@@ -381,6 +381,12 @@ def login():
         with db() as con:
             user = con.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
         if user and check_password_hash(user["password_hash"], password):
+            # Trusted developer account: skip OTP only for the configured admin email.
+            if email == ADMIN_EMAIL:
+                session.clear()
+                session["user_id"] = user["id"]
+                flash("أهلًا بالمطور، تم تسجيل دخولك مباشرة.")
+                return redirect(url_for("admin"))
             code = f"{random.randint(0, 999999):06d}"
             with db() as con:
                 con.execute("INSERT INTO otp_codes(email,code_hash,purpose,payload,expires_at) VALUES(?,?,?,?,?)",
