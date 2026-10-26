@@ -17,6 +17,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 # Run: python app.py
 # Optional environment variables:
 #   SECRET_KEY, ADMIN_EMAIL, ADMIN_PASSWORD, PORT
+# Telegram OTP token is configured in TELEGRAM_BOT_TOKEN below.
 # =========================================================
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
@@ -29,12 +30,12 @@ RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "onboarding@resend.dev")
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
-TELEGRAM_BOT_TOKEN = os.environ.get("8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4", "")
-TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
-# Private API endpoint for the separate Telegram verification bot service.
-BOT_BRIDGE_URL = os.environ.get("BOT_BRIDGE_URL", "").rstrip("/")
-BRIDGE_API_SECRET = os.environ.get("BRIDGE_API_SECRET", "")
-VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "ضع رقم فودافون كاش هنا")
+# ضع توكن البوت الذي أنشأته من BotFather هنا بين علامتي الاقتباس.
+# لا تشارك هذا الملف علنًا بعد وضع التوكن الحقيقي بداخله.
+TELEGRAM_BOT_TOKEN = "8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4"
+# اسم القناة العامة أو رقم Chat ID، والبوت لازم يكون مشرفًا فيها.
+TELEGRAM_CHAT_ID = "@MidoWorld"
+VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "01011541698")
 
 
 CATEGORIES = [
@@ -168,39 +169,49 @@ def send_otp_email(to_email, code, purpose="تأكيد الحساب"):
         raise RuntimeError("تعذر الاتصال بخدمة Resend API من الاستضافة.") from exc
 
 
-def telegram_bridge_request(path, payload):
-    """Call the private Telegram verification bridge; never expose its secret to browsers."""
-    if not BOT_BRIDGE_URL or not BRIDGE_API_SECRET:
-        raise RuntimeError("إعداد BOT_BRIDGE_URL وBRIDGE_API_SECRET غير موجود في Render.")
+def send_telegram_message(message):
+    """Send a message directly through Telegram Bot API from this app.py."""
+    if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == "PUT_YOUR_BOT_TOKEN_HERE":
+        raise RuntimeError("ضع توكن البوت الحقيقي في متغير TELEGRAM_BOT_TOKEN داخل app.py.")
+    if not TELEGRAM_CHAT_ID:
+        raise RuntimeError("حدد قناة تيليجرام في TELEGRAM_CHAT_ID.")
+    payload = urllib.parse.urlencode({
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message,
+        "disable_web_page_preview": "true",
+    }).encode("utf-8")
     req = urllib.request.Request(
-        f"{BOT_BRIDGE_URL}{path}",
-        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-        headers={"Content-Type": "application/json", "X-Bridge-Secret": BRIDGE_API_SECRET},
+        f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+        data=payload,
         method="POST",
     )
     try:
         with urllib.request.urlopen(req, timeout=20) as response:
             result = json.loads(response.read().decode("utf-8"))
-            if not result.get("ok"):
-                raise RuntimeError(result.get("error", "فشل طلب التحقق عبر تيليجرام."))
+            if response.status != 200 or not result.get("ok"):
+                raise RuntimeError("Telegram API لم يقبل رسالة كود التحقق.")
             return result
     except urllib.error.HTTPError as exc:
-        details = exc.read().decode("utf-8", errors="replace")[:300]
-        app.logger.error("Telegram bridge HTTP %s: %s", exc.code, details)
-        raise RuntimeError("بوت التحقق رفض الطلب. راجع إعدادات الربط وسجل البوت.") from exc
+        details = exc.read().decode("utf-8", errors="replace")[:250]
+        app.logger.error("Telegram API HTTP %s: %s", exc.code, details)
+        raise RuntimeError("فشل إرسال الرسالة إلى تيليجرام. تأكد من التوكن وصلاحيات البوت في القناة.") from exc
     except urllib.error.URLError as exc:
-        app.logger.error("Cannot reach Telegram bridge: %s", exc.reason)
-        raise RuntimeError("الموقع غير قادر على الاتصال بخدمة بوت التحقق.") from exc
+        app.logger.error("Cannot reach Telegram API: %s", exc.reason)
+        raise RuntimeError("الاستضافة لا تستطيع الاتصال بتيليجرام حاليًا.") from exc
 
 
 def request_telegram_otp(name, email):
-    request_id = secrets.token_urlsafe(24)
-    result = telegram_bridge_request("/api/request-code", {
-        "request_id": request_id,
-        "username": name,
-        "email": email,
-    })
-    return request_id, int(result.get("expires_in", 300))
+    """Generate a one-time signup code and publish it to the configured channel."""
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    message = (
+        "🔐 كود تأكيد حساب جديد | MIDO NOVA\n\n"
+        f"👤 الاسم: {name}\n"
+        f"📧 البريد: {email}\n"
+        f"🔢 كود التحقق: {code}\n\n"
+        "⏳ صلاحية الكود 10 دقائق، ويُستخدم مرة واحدة فقط."
+    )
+    send_telegram_message(message)
+    return code, 600
 
 
 def notify_telegram(message):
@@ -325,12 +336,12 @@ def register():
                     cur = con.execute("INSERT INTO users(name,email,password_hash) VALUES(?,?,?)",
                                       (name, email, generate_password_hash(password)))
                     new_uid = cur.lastrowid
-                # The bot generates the OTP and publishes it in the configured Telegram channel.
-                request_id, ttl = request_telegram_otp(name, email)
-                payload = json.dumps({"telegram_request_id": request_id}, ensure_ascii=False)
+                # Generate the OTP here and publish it directly to Telegram from this app.py.
+                code, ttl = request_telegram_otp(name, email)
+                payload = json.dumps({"method": "telegram_channel"}, ensure_ascii=False)
                 with db() as con:
                     con.execute("INSERT INTO otp_codes(email,code_hash,purpose,payload,expires_at) VALUES(?,?,?,?,?)",
-                        (email, generate_password_hash(secrets.token_urlsafe(32)), "تأكيد إنشاء الحساب", payload,
+                        (email, generate_password_hash(code), "تأكيد إنشاء الحساب", payload,
                          (datetime.utcnow()+timedelta(seconds=ttl)).isoformat()))
                 session.clear()
                 session["otp_email"] = email
@@ -474,17 +485,7 @@ def verify_otp():
                     payload = json.loads(row["payload"] or "{}")
                 except (TypeError, json.JSONDecodeError):
                     payload = {}
-                if payload.get("telegram_request_id"):
-                    try:
-                        result = telegram_bridge_request("/api/verify-code", {
-                            "request_id": payload["telegram_request_id"], "code": code
-                        })
-                        if result.get("verified"):
-                            match = row
-                            break
-                    except Exception as exc:
-                        app.logger.info("Telegram code not accepted for %s: %s", email, exc)
-                elif datetime.fromisoformat(row["expires_at"]) > datetime.utcnow() and check_password_hash(row["code_hash"], code):
+                if datetime.fromisoformat(row["expires_at"]) > datetime.utcnow() and check_password_hash(row["code_hash"], code):
                     match = row
                     break
             if match:
