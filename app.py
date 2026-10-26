@@ -9,49 +9,55 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NovaLab 3D Ultimate — Ultimate Science & Biology Lab</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <title>MIDO NOVA — Everything in One Place</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
         body { background-color: #030712; color: #f9fafb; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
         /* Top Header */
         header { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(16px); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(56, 189, 248, 0.2); z-index: 20; }
-        .logo-area { display: flex; align-items: center; gap: 10px; font-size: 1.3rem; font-weight: 800; color: #38bdf8; }
-        .crown-badge { background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; }
+        .logo-area { display: flex; align-items: center; gap: 10px; font-size: 1.3rem; font-weight: 800; color: #38bdf8; letter-spacing: 0.5px; }
+        .logo-badge { background: linear-gradient(135deg, #059669, #10b981); color: #fff; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; }
 
-        /* Main Workspace */
+        /* Workspace */
         .workspace { display: flex; flex: 1; height: calc(100vh - 120px); position: relative; overflow: hidden; }
-
         .main-content { flex: 1; position: relative; background: radial-gradient(circle at center, #111827 0%, #030712 100%); overflow-y: auto; padding: 20px; }
-        #viewport-container { width: 100%; height: 260px; background: rgba(15, 23, 42, 0.6); border-radius: 16px; border: 1px solid rgba(56, 189, 248, 0.3); position: relative; overflow: hidden; margin-bottom: 20px; }
-        #viewport { width: 100%; height: 100%; }
 
-        /* AI Greeting Banner */
-        .ai-banner { background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 16px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .ai-banner h3 { color: #38bdf8; font-size: 1.1rem; margin-bottom: 4px; }
-        .ai-banner p { color: #94a3b8; font-size: 0.85rem; }
+        /* Banner */
+        .promo-banner { background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 16px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        .promo-banner h3 { color: #38bdf8; font-size: 1.1rem; margin-bottom: 4px; }
+        .promo-banner p { color: #94a3b8; font-size: 0.85rem; }
 
-        /* Search Bar */
+        /* Search Box */
         .search-box { background: #0f172a; border: 1px solid #334155; border-radius: 14px; padding: 12px 18px; display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
         .search-box input { background: none; border: none; color: #fff; width: 100%; outline: none; font-size: 0.9rem; }
 
-        /* Dashboard Cards Grid */
-        .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 20px; }
+        /* Categories Grid */
+        .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 25px; }
         .dash-card { border-radius: 16px; padding: 18px 14px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; transition: all 0.25s ease; box-shadow: 0 10px 20px rgba(0,0,0,0.4); text-align: right; }
         .dash-card:hover { transform: translateY(-4px); filter: brightness(1.1); }
         .dash-card h4 { font-size: 1.05rem; font-weight: 800; color: #fff; }
         .dash-card p { font-size: 0.75rem; color: rgba(255,255,255,0.8); line-height: 1.3; }
         
-        .card-bio { background: linear-gradient(135deg, #059669, #047857); }
-        .card-phy { background: linear-gradient(135deg, #0284c7, #0369a1); }
-        .card-chem { background: linear-gradient(135deg, #d97706, #b45309); }
-        .card-eq { background: linear-gradient(135deg, #7c3aed, #5b21b6); }
-        .card-info { background: linear-gradient(135deg, #0d9488, #0f766e); }
-        .card-anat { background: linear-gradient(135deg, #dc2626, #991b1b); }
-        .card-ai { background: linear-gradient(135deg, #4f46e5, #3730a3); }
-        .card-lib { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+        .card-google { background: linear-gradient(135deg, #0284c7, #0369a1); }
+        .card-games { background: linear-gradient(135deg, #7c3aed, #5b21b6); }
+        .card-digital { background: linear-gradient(135deg, #0d9488, #0f766e); }
+        .card-crypto { background: linear-gradient(135deg, #d97706, #b45309); }
+        .card-products { background: linear-gradient(135deg, #059669, #047857); }
+        .card-wallet { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+        .card-support { background: linear-gradient(135deg, #4f46e5, #3730a3); }
+        .card-account { background: linear-gradient(135deg, #dc2626, #991b1b); }
+
+        /* Section Title */
+        .section-title { font-size: 1.1rem; font-weight: 700; color: #fff; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+
+        /* Offers Grid */
+        .offers-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .offer-card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 14px; text-align: center; cursor: pointer; transition: 0.2s; }
+        .offer-card:hover { border-color: #38bdf8; transform: translateY(-2px); }
+        .offer-card h5 { font-size: 0.95rem; color: #fff; margin-top: 6px; }
+        .offer-card .price { font-size: 0.85rem; color: #10b981; font-weight: bold; margin-top: 4px; }
+        .offer-card .discount { font-size: 0.7rem; background: #059669; color: #fff; padding: 2px 6px; border-radius: 10px; display: inline-block; margin-top: 4px; }
 
         /* Bottom Navigation */
         nav.bottom-nav { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(16px); height: 60px; display: flex; justify-content: space-around; align-items: center; border-top: 1px solid rgba(56, 189, 248, 0.2); z-index: 20; }
@@ -65,14 +71,10 @@ HTML_TEMPLATE = """
         .modal-header h3 { color: #38bdf8; font-size: 1.2rem; }
         .close-btn { background: none; border: none; color: #64748b; font-size: 1.5rem; cursor: pointer; }
 
-        .sub-item { background: #1e293b; border: 1px solid #334155; padding: 12px 16px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: 0.2s; margin-bottom: 8px; }
+        .sub-item { background: #1e293b; border: 1px solid #334155; padding: 14px 16px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: 0.2s; margin-bottom: 10px; }
         .sub-item:hover { background: #334155; border-color: #38bdf8; }
         .sub-item span { color: #fff; font-weight: 600; font-size: 0.9rem; }
         
-        .preview-box { border-radius: 12px; overflow: hidden; border: 1px solid #334155; height: 190px; margin-bottom: 12px; position: relative; }
-        .preview-box img { width: 100%; height: 100%; object-fit: cover; }
-        .preview-label { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(3, 7, 18, 0.9); font-size: 0.75rem; color: #38bdf8; padding: 6px 12px; text-align: center; font-weight: bold; }
-
         /* Chat Box */
         .chat-box { display: flex; flex-direction: column; gap: 10px; height: 260px; overflow-y: auto; padding: 10px; background: #030712; border-radius: 12px; border: 1px solid #1e293b; }
         .message { padding: 10px 14px; border-radius: 10px; max-width: 80%; font-size: 0.85rem; line-height: 1.4; }
@@ -86,124 +88,146 @@ HTML_TEMPLATE = """
 <body>
 
     <header>
-        <div class="logo-area"><span>🔬 NovaLab 3D</span></div>
-        <div class="header-icons"><span class="crown-badge">👑 النسخة الاحترافية</span></div>
+        <div class="logo-area"><span>MIDO NOVA</span></div>
+        <div class="header-icons"><span class="logo-badge">⚡ متجر شامل</span></div>
     </header>
 
     <div class="workspace">
         <div class="main-content">
-            <div class="ai-banner">
+            <div class="promo-banner">
                 <div>
-                    <h3>مرحباً بك في NovaLab 3D Ultimate</h3>
-                    <p>رحلتك نحو التفوق والابتكار العلمي تبدأ من هنا 🚀</p>
+                    <h3>بطاقات جوجل بلاي والستور</h3>
+                    <p>متوفرة الآن بأسعار مميزة وخصومات تصل إلى 25% 🔥</p>
                 </div>
-                <div style="font-size: 2.2rem;">🤖</div>
+                <div style="font-size: 2.2rem;">🛒</div>
             </div>
 
             <div class="search-box">
                 <span>🔍</span>
-                <input type="text" placeholder="ابحث عن أي موضوع، تجربة، عنصر أو قانون علمي...">
+                <input type="text" placeholder="ابحث عن منتج، بطاقة، عملة رقمية أو خدمة...">
             </div>
 
+            <div class="section-title"><span>الأقسام الرئيسية</span></div>
             <div class="cards-grid">
-                <div class="dash-card card-bio" onclick="openModal('bioModal')"><h4>🌱 أحياء</h4><p>كل ما يخص علم الأحياء والخلية</p></div>
-                <div class="dash-card card-phy" onclick="openModal('phyModal')"><h4>⚡ فيزياء</h4><p>قوانين - مسائل - شرح مفصل</p></div>
-                <div class="dash-card card-chem" onclick="openModal('chemModal')"><h4>🧪 كيمياء</h4><p>تفاعلات - معادلات - دروس</p></div>
-                <div class="dash-card card-eq" onclick="openModal('eqModal')"><h4>📊 معادلات</h4><p>حل المعادلات خطوة بخطوة</p></div>
-                <div class="dash-card card-info" onclick="openModal('infoModal')"><h4>💡 معلومات</h4><p>تقنية - برمجة - حاسوب</p></div>
-                <div class="dash-card card-anat" onclick="openModal('anatModal')"><h4>❤️ تشريح</h4><p>جسم الإنسان - الأعضاء الحيوية</p></div>
-                <div class="dash-card card-ai" onclick="openModal('aiModal')"><h4>🤖 مساعد الذكاء الاصطناعي</h4><p>اسأل - واحصل على إجابة فورية</p></div>
-                <div class="dash-card card-lib" onclick="openModal('libModal')"><h4>📚 مكتبة شاملة</h4><p>ملفات - ملخصات - اختبارات</p></div>
+                <div class="dash-card card-google" onclick="openModal('googleModal')"><h4>جوجل بلاي</h4><p>بطاقات وشحن خدمات</p></div>
+                <div class="dash-card card-games" onclick="openModal('gamesModal')"><h4>الألعاب</h4><p>بطاقات وشحن ألعاب</p></div>
+                <div class="dash-card card-digital" onclick="openModal('digitalModal')"><h4>الخدمات الرقمية</h4><p>اشتراكات وبرامج وأدوات</p></div>
+                <div class="dash-card card-crypto" onclick="openModal('cryptoModal')"><h4>العملات الرقمية</h4><p>شراء - بيع - محافظ</p></div>
+                <div class="dash-card card-products" onclick="openModal('productsModal')"><h4>المنتجات</h4><p>إلكترونيات ومننوعات</p></div>
+                <div class="dash-card card-wallet" onclick="openModal('walletModal')"><h4>محفظتي</h4><p>الرصيد وسجل المعاملات</p></div>
+                <div class="dash-card card-support" onclick="openModal('aiModal')"><h4>الدعم والمساعدة</h4><p>مساعد ذكي وخدمة عملاء</p></div>
+                <div class="dash-card card-account" onclick="openModal('accountModal')"><h4>حسابي</h4><p>البيانات والأمان</p></div>
             </div>
 
-            <div id="viewport-container"><div id="viewport"></div></div>
+            <div class="section-title"><span>عروض مميزة</span></div>
+            <div class="offers-grid">
+                <div class="offer-card" onclick="openModal('googleModal')">
+                    <div style="font-size: 1.5rem;">🎮</div>
+                    <h5>Google Play $10</h5>
+                    <div class="price">$7.50</div>
+                    <div class="discount">خصم 25%</div>
+                </div>
+                <div class="offer-card" onclick="openModal('gamesModal')">
+                    <div style="font-size: 1.5rem;">🎯</div>
+                    <h5>PlayStation $20</h5>
+                    <div class="price">$15.90</div>
+                    <div class="discount">خصم 20%</div>
+                </div>
+                <div class="offer-card" onclick="openModal('gamesModal')">
+                    <div style="font-size: 1.5rem;">🚀</div>
+                    <h5>Xbox Gift Card</h5>
+                    <div class="price">$19.90</div>
+                    <div class="discount">خصم 20%</div>
+                </div>
+            </div>
         </div>
     </div>
 
     <nav class="bottom-nav">
         <div class="nav-item active"><span>🏠</span><span>الرئيسية</span></div>
-        <div class="nav-item" onclick="openModal('libModal')"><span>📚</span><span>المكتبة</span></div>
-        <div class="nav-item" onclick="openModal('aiModal')"><span>🤖</span><span>الذكاء الاصطناعي</span></div>
-        <div class="nav-item" onclick="openModal('devModal')"><span>⚙️</span><span>الإعدادات</span></div>
+        <div class="nav-item" onclick="openModal('googleModal')"><span>🛍️</span><span>الأقسام</span></div>
+        <div class="nav-item" onclick="openModal('walletModal')"><span>💰</span><span>محفظتي</span></div>
+        <div class="nav-item" onclick="openModal('aiModal')"><span>🤖</span><span>الدعم</span></div>
+        <div class="nav-item" onclick="openModal('accountModal')"><span>👤</span><span>حسابي</span></div>
     </nav>
 
-    <!-- Modals مع الصور الحقيقية الواقعية -->
-    <div id="bioModal" class="modal">
+    <!-- Modals -->
+    <div id="googleModal" class="modal">
         <div class="modal-content">
-            <div class="modal-header"><h3>🌱 قسم الأحياء وعلوم الحياة</h3><button class="close-btn" onclick="closeModal('bioModal')">&times;</button></div>
-            <div class="preview-box">
-                <img src="https://images.unsplash.com/photo-1530497610245-94d3c16cda28?auto=format&fit=crop&w=800&q=85" alt="DNA">
-                <div class="preview-label">صورة حقيقية لتركيب الحمض النووي (DNA) تحت المجهر</div>
-            </div>
-            <div class="sub-item" onclick="loadModel('dna'); closeModal('bioModal')"><span>🧬 حلزون الحمض النووي (DNA)</span><span>عرض 3D ➔</span></div>
-            <div class="sub-item" onclick="closeModal('bioModal')"><span>🦠 الخلية الحية وأجزاؤها</span><span>دروس ➔</span></div>
+            <div class="modal-header"><h3>Google Play — بطاقات وشحن</h3><button class="close-btn" onclick="closeModal('googleModal')">&times;</button></div>
+            <div class="sub-item" onclick="alert('تمت إضافة المنتج للسلة!')"><span>Google Play $10 (سعر: $7.50)</span><span>شراء ➔</span></div>
+            <div class="sub-item" onclick="alert('تمت إضافة المنتج للسلة!')"><span>Google Play $25 (سعر: $18.90)</span><span>شراء ➔</span></div>
+            <div class="sub-item" onclick="alert('تمت إضافة المنتج للسلة!')"><span>Google Play $50 (سعر: $36.90)</span><span>شراء ➔</span></div>
         </div>
     </div>
 
-    <div id="phyModal" class="modal">
+    <div id="gamesModal" class="modal">
         <div class="modal-content">
-            <div class="modal-header"><h3>⚡ قسم الفيزياء وميكانيكا الكم</h3><button class="close-btn" onclick="closeModal('phyModal')">&times;</button></div>
-            <div class="preview-box">
-                <img src="https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=800&q=85" alt="Physics">
-                <div class="preview-label">محاكاة فيزيائية حقيقية للجسيمات والطاقة</div>
-            </div>
-            <div class="sub-item" onclick="loadModel('atom'); closeModal('phyModal')"><span>⚛️ الذرة ومستويات الطاقة</span><span>عرض 3D ➔</span></div>
-            <div class="sub-item" onclick="loadModel('solar'); closeModal('phyModal')"><span>🪐 الجاذبية وحركة الكواكب</span><span>عرض 3D ➔</span></div>
+            <div class="modal-header"><h3>بطاقات وشحن الألعاب</h3><button class="close-btn" onclick="closeModal('gamesModal')">&times;</button></div>
+            <div class="sub-item" onclick="alert('تمت إضافة المنتج للسلة!')"><span>Steam Wallet $20 ($14.90)</span><span>شراء ➔</span></div>
+            <div class="sub-item" onclick="alert('تمت إضافة المنتج للسلة!')"><span>PlayStation Store $20 ($15.90)</span><span>شراء ➔</span></div>
+            <div class="sub-item" onclick="alert('تمت إضافة المنتج للسلة!')"><span>Xbox Gift Card $25 ($19.90)</span><span>شراء ➔</span></div>
+            <div class="sub-item" onclick="alert('تمت إضافة المنتج للسلة!')"><span>Roblox Gift Card $25 ($18.50)</span><span>شراء ➔</span></div>
         </div>
     </div>
 
-    <div id="chemModal" class="modal">
+    <div id="cryptoModal" class="modal">
         <div class="modal-content">
-            <div class="modal-header"><h3>🧪 قسم الكيمياء والمعامل التفاعلية</h3><button class="close-btn" onclick="closeModal('chemModal')">&times;</button></div>
-            <div class="preview-box">
-                <img src="https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&w=800&q=85" alt="Chemistry">
-                <div class="preview-label">معمل كيميائي حقيقي وتفاعلات عناصر الجدول الدوري</div>
+            <div class="modal-header"><h3>العملات الرقمية (تداول ومعاملات)</h3><button class="close-btn" onclick="closeModal('cryptoModal')">&times;</button></div>
+            <div class="sub-item"><span>Bitcoin (BTC) — $67,432.21 (+2.4%)</span><span>تداول ➔</span></div>
+            <div class="sub-item"><span>Ethereum (ETH) — $3,248.75 (+1.8%)</span><span>تداول ➔</span></div>
+            <div class="sub-item"><span>Tether (USDT) — $1.00 (+0.1%)</span><span>تداول ➔</span></div>
+        </div>
+    </div>
+
+    <div id="productsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h3>المنتجات والإلكترونيات</h3><button class="close-btn" onclick="closeModal('productsModal')">&times;</button></div>
+            <div class="sub-item"><span>ساعات ذكية أصلية ($49.90)</span><span>طلب ➔</span></div>
+            <div class="sub-item"><span>سماعات لاسلكية برو ($29.90)</span><span>طلب ➔</span></div>
+            <div class="sub-item"><span>كيورد ألعاب ميكانيكي ($39.90)</span><span>طلب ➔</span></div>
+        </div>
+    </div>
+
+    <div id="digitalModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h3>الخدمات الرقمية والاشتراكات</h3><button class="close-btn" onclick="closeModal('digitalModal')">&times;</button></div>
+            <div class="sub-item"><span>اشتراك Netflix شهري ($9.99)</span><span>شراء ➔</span></div>
+            <div class="sub-item"><span>اشتراك Spotify بريميوم ($4.99)</span><span>شراء ➔</span></div>
+        </div>
+    </div>
+
+    <div id="walletModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h3>محفظتي ورصيدك</h3><button class="close-btn" onclick="closeModal('walletModal')">&times;</button></div>
+            <div style="background:#1e293b; padding:16px; border-radius:12px; text-align:center;">
+                <p style="color:#94a3b8; font-size:0.85rem;">الرصيد الكلي</p>
+                <h2 style="color:#10b981; font-size:1.8rem; margin-top:5px;">$ 125.50</h2>
             </div>
-            <div class="sub-item" onclick="loadModel('sodium'); closeModal('chemModal')"><span>💥 تفاعل الصوديوم مع الماء (2Na + 2H₂O)</span><span>تفاعل 3D ➔</span></div>
-            <div class="sub-item" onclick="loadModel('water'); closeModal('chemModal')"><span>💧 جزيء الماء التساهمي (H₂O)</span><span>عرض 3D ➔</span></div>
+            <div class="sub-item" onclick="alert('تم إضافة رصيد تجريبي بنجاح!')"><span>➕ إضافة رصيد جديد للمحفظة</span><span>إيداع ➔</span></div>
+            <div class="sub-item"><span>📜 سجل المعاملات السابقة</span><span>عرض ➔</span></div>
         </div>
-    </div>
-
-    <div id="eqModal" class="modal">
-        <div class="modal-content"><div class="modal-header"><h3>📊 قسم المعادلات وحل المسائل</h3><button class="close-btn" onclick="closeModal('eqModal')">&times;</button></div>
-        <div class="sub-item"><span>📈 المعادلات الخطية (Linear Equations)</span><span>حل ➔</span></div></div>
-    </div>
-
-    <div id="infoModal" class="modal">
-        <div class="modal-content"><div class="modal-header"><h3>💡 قسم المعلومات والتقنية</h3><button class="close-btn" onclick="closeModal('infoModal')">&times;</button></div>
-        <div class="sub-item"><span>💻 أساسيات البرمجة وعلوم الحاسوب</span><span>مقال ➔</span></div></div>
-    </div>
-
-    <div id="anatModal" class="modal">
-        <div class="modal-content"><div class="modal-header"><h3>❤️ قسم تشريح جسم الإنسان</h3><button class="close-btn" onclick="closeModal('anatModal')">&times;</button></div>
-        <div class="preview-box">
-            <img src="https://images.unsplash.com/photo-1559757148-5c350d0d3c56?auto=format&fit=crop&w=800&q=85" alt="Anatomy">
-            <div class="preview-label">تشريح الأعضاء الحيوية ووظائفها في جسم الإنسان</div>
-        </div>
-        <div class="sub-item"><span>🫀 الجهاز الدوري والقلب</span><span>تفاصيل ➔</span></div></div>
     </div>
 
     <div id="aiModal" class="modal">
         <div class="modal-content">
-            <div class="modal-header"><h3>🤖 مساعد الذكاء الاصطناعي</h3><button class="close-btn" onclick="closeModal('aiModal')">&times;</button></div>
-            <div class="chat-box" id="chatBox"><div class="message ai">مرحباً! أنا مساعدك الذكي في NovaLab 3D. اسألني عن أي تجربة أو قانون علمي!</div></div>
-            <div class="chat-input"><input type="text" id="userInput" placeholder="اكتب سؤالك العلمي..." onkeypress="handleKeyPress(event)"><button onclick="sendAiMessage()">إرسال</button></div>
+            <div class="modal-header"><h3>مساعد MIDO AI الذكي</h3><button class="close-btn" onclick="closeModal('aiModal')">&times;</button></div>
+            <div class="chat-box" id="chatBox">
+                <div class="message ai">أهلاً بك في MIDO NOVA! أنا مساعدك الذكي، كيف يمكنني مساعدتك في عمليات الشحن أو الخدمات اليوم؟</div>
+            </div>
+            <div class="chat-input">
+                <input type="text" id="userInput" placeholder="اكتب سؤالك هنا..." onkeypress="handleKeyPress(event)">
+                <button onclick="sendAiMessage()">إرسال</button>
+            </div>
         </div>
     </div>
 
-    <div id="libModal" class="modal">
-        <div class="modal-content"><div class="modal-header"><h3>📚 المكتبة الشاملة والملفات</h3><button class="close-btn" onclick="closeModal('libModal')">&times;</button></div>
-        <div class="sub-item"><span>📄 ملفات PDF التعليمية</span><span>تحميل ➔</span></div></div>
-    </div>
-
-    <div id="devModal" class="modal">
+    <div id="accountModal" class="modal">
         <div class="modal-content">
-            <div class="modal-header"><h3>⚙️ إعدادات التطبيق والمطور</h3><button class="close-btn" onclick="closeModal('devModal')">&times;</button></div>
-            <div style="text-align:center; padding:15px; display:flex; flex-direction:column; gap:12px;">
-                <h4 style="color:#38bdf8; font-size:1.3rem;">NOVA eHUB 26 Team</h4>
-                <p style="color:#94a3b8; font-size:0.88rem;">المختبر العلمي ثلاثي الأبعاد المخصص لمنافسات أمازون.</p>
-                <button onclick="window.open('https://t.me/', '_blank')" style="background:#0284c7; color:#fff; border:none; padding:12px; border-radius:10px; font-weight:bold; cursor:pointer;">📢 القناة الرسمية وبوت التلجرام</button>
-            </div>
+            <div class="modal-header"><h3>حسابي والأمان</h3><button class="close-btn" onclick="closeModal('accountModal')">&times;</button></div>
+            <div class="sub-item"><span>Mido Nova (mido@example.com)</span><span>حساب معتمد 👑</span></div>
+            <div class="sub-item"><span>🔒 الأمان والحماية المصرفية</span><span>إدارة ➔</span></div>
+            <div class="sub-item"><span>🔔 الإشعارات والتنبيهات</span><span>تخصيص ➔</span></div>
         </div>
     </div>
 
@@ -220,99 +244,11 @@ HTML_TEMPLATE = """
             input.value = '';
             chatBox.scrollTop = chatBox.scrollHeight;
             setTimeout(() => {
-                chatBox.innerHTML += `<div class="message ai">إجابة دقيقة: هذا الموضوع يتبع المبادئ العلمية المثبتة في مختبر NovaLab 3D.</div>`;
+                chatBox.innerHTML += `<div class="message ai">مساعد MIDO AI: تم استلام طلبك بنجاح، فريق الدعم الفني جاهز لمساعدتك على مدار الساعة!</div>`;
                 chatBox.scrollTop = chatBox.scrollHeight;
             }, 800);
         }
         function handleKeyPress(e) { if(e.key === 'Enter') sendAiMessage(); }
-
-        let scene, camera, renderer, controls, activeGroup;
-        function init3D() {
-            const container = document.getElementById('viewport');
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 0.1, 1000);
-            camera.position.set(0, 0, 7);
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            container.appendChild(renderer.domElement);
-            controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-            const light = new THREE.DirectionalLight(0x38bdf8, 1.2);
-            light.position.set(5, 10, 7);
-            scene.add(light);
-            activeGroup = new THREE.Group();
-            scene.add(activeGroup);
-            window.addEventListener('resize', () => {
-                camera.aspect = container.clientWidth / container.clientHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(container.clientWidth, container.clientHeight);
-            });
-            loadModel('sodium');
-            animate3D();
-        }
-
-        function clearScene() {
-            while (activeGroup.children.length > 0) {
-                const obj = activeGroup.children[0];
-                if (obj.geometry) obj.geometry.dispose();
-                activeGroup.remove(obj);
-            }
-        }
-
-        function loadModel(type) {
-            clearScene();
-            if (type === 'sodium') {
-                const glass = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 2.5, 32, 1, true), new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, transmission: 0.9 }));
-                activeGroup.add(glass);
-                const water = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.45, 1.8, 32), new THREE.MeshStandardMaterial({ color: 0x0284c7, transparent: true, opacity: 0.7 }));
-                water.position.y = -0.3;
-                activeGroup.add(water);
-                const sodium = new THREE.Mesh(new THREE.DodecahedronGeometry(0.3), new THREE.MeshStandardMaterial({ color: 0xf97316, emissive: 0xef4444 }));
-                sodium.position.set(0, 0.4, 0);
-                activeGroup.add(sodium);
-            } else if (type === 'dna') {
-                for (let i = -2.5; i <= 2.5; i += 0.35) {
-                    const s1 = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 16), new THREE.MeshStandardMaterial({ color: 0xec4899 }));
-                    s1.position.set(Math.sin(i * 1.5) * 1.3, i * 0.4, Math.cos(i * 1.5) * 1.3);
-                    activeGroup.add(s1);
-                    const s2 = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 16), new THREE.MeshStandardMaterial({ color: 0x38bdf8 }));
-                    s2.position.set(Math.sin(i * 1.5 + Math.PI) * 1.3, i * 0.4, Math.cos(i * 1.5 + Math.PI) * 1.3);
-                    activeGroup.add(s2);
-                }
-            } else if (type === 'atom') {
-                const nucleus = new THREE.Mesh(new THREE.SphereGeometry(0.6, 32, 32), new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xd97706 }));
-                activeGroup.add(nucleus);
-                for (let i = 0; i < 3; i++) {
-                    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.6 + (i * 0.35), 0.02, 16, 100), new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true }));
-                    ring.rotation.x = Math.PI / (i + 1); ring.rotation.y = Math.PI / (i + 2);
-                    activeGroup.add(ring);
-                }
-            } else if (type === 'solar') {
-                const sun = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 32), new THREE.MeshBasicMaterial({ color: 0xf97316 }));
-                activeGroup.add(sun);
-                const planet = new THREE.Mesh(new THREE.SphereGeometry(0.3, 32, 32), new THREE.MeshStandardMaterial({ color: 0x06b6d4 }));
-                planet.position.x = 2.5;
-                activeGroup.add(planet);
-            } else if (type === 'water') {
-                const oxy = new THREE.Mesh(new THREE.SphereGeometry(0.9, 32, 32), new THREE.MeshStandardMaterial({ color: 0xef4444 }));
-                activeGroup.add(oxy);
-                const hMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc });
-                const h1 = new THREE.Mesh(new THREE.SphereGeometry(0.45, 32, 32), hMat); h1.position.set(-1.2, -0.6, 0);
-                const h2 = new THREE.Mesh(new THREE.SphereGeometry(0.45, 32, 32), hMat); h2.position.set(1.2, -0.6, 0);
-                activeGroup.add(h1); activeGroup.add(h2);
-            }
-        }
-
-        function animate3D() {
-            requestAnimationFrame(animate3D);
-            if (activeGroup) activeGroup.rotation.y += 0.007;
-            controls.update();
-            renderer.render(scene, camera);
-        }
-
-        window.onload = init3D;
     </script>
 </body>
 </html>
