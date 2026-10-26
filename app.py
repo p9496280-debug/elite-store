@@ -1,8 +1,6 @@
 import os
 import sqlite3
 import secrets
-import smtplib
-import ssl
 import random
 import json
 import urllib.parse
@@ -27,15 +25,15 @@ ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@midonova.com").lower()
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeThis-Admin-123!")
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-SMTP_HOST = os.environ.get("SMTP_HOST", "")
-SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
-SMTP_USER = os.environ.get("SMTP_USER", "")
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
-SMTP_FROM = os.environ.get("SMTP_FROM", SMTP_USER)
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "onboarding@resend.dev")
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+# Private API endpoint for the separate Telegram verification bot service.
+BOT_BRIDGE_URL = os.environ.get("BOT_BRIDGE_URL", "").rstrip("/")
+BRIDGE_API_SECRET = os.environ.get("BRIDGE_API_SECRET", "")
 VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "ضع رقم فودافون كاش هنا")
 
 
@@ -132,23 +130,78 @@ def admin_required(fn):
     return wrapper
 
 def send_otp_email(to_email, code, purpose="تأكيد الحساب"):
-    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD and SMTP_FROM):
-        raise RuntimeError("إعدادات SMTP غير مكتملة. أضف SMTP_HOST وSMTP_USER وSMTP_PASSWORD وSMTP_FROM.")
-    msg = EmailMessage()
-    msg["Subject"] = f"MIDO NOVA | {purpose}"
-    msg["From"] = SMTP_FROM
-    msg["To"] = to_email
-    msg.set_content(f"""مرحبًا بك في MIDO NOVA
+    """Send OTP through Resend HTTP API (avoids outbound SMTP restrictions on hosting)."""
+    if not RESEND_API_KEY:
+        raise RuntimeError("إعداد RESEND_API_KEY غير موجود في Environment على Render.")
 
-رمز التحقق الخاص بك هو: {code}
+    payload = {
+        "from": f"MIDO NOVA <{RESEND_FROM_EMAIL}>",
+        "to": [to_email],
+        "subject": f"MIDO NOVA | {purpose}",
+        "text": (
+            f"مرحبًا بك في MIDO NOVA\n\n"
+            f"رمز التحقق الخاص بك هو: {code}\n\n"
+            "ينتهي الرمز خلال 10 دقائق. لا تشاركه مع أي شخص.\n"
+            "إذا لم تطلب هذا الرمز، يمكنك تجاهل الرسالة."
+        ),
+    }
+    request = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            if not 200 <= response.status < 300:
+                raise RuntimeError(f"Resend returned HTTP {response.status}")
+            response.read()
+    except urllib.error.HTTPError as exc:
+        details = exc.read().decode("utf-8", errors="replace")[:500]
+        app.logger.error("Resend email API rejected request: HTTP %s: %s", exc.code, details)
+        raise RuntimeError(f"Resend رفض إرسال البريد (HTTP {exc.code}). راجع إعدادات المرسل والدومين.") from exc
+    except urllib.error.URLError as exc:
+        app.logger.error("Cannot reach Resend email API: %s", exc.reason)
+        raise RuntimeError("تعذر الاتصال بخدمة Resend API من الاستضافة.") from exc
 
-ينتهي الرمز خلال 10 دقائق. لا تشاركه مع أي شخص.
-إذا لم تطلب هذا الرمز، يمكنك تجاهل الرسالة.""")
-    context = ssl.create_default_context()
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as server:
-        server.starttls(context=context)
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        server.send_message(msg)
+
+def telegram_bridge_request(path, payload):
+    """Call the private Telegram verification bridge; never expose its secret to browsers."""
+    if not BOT_BRIDGE_URL or not BRIDGE_API_SECRET:
+        raise RuntimeError("إعداد BOT_BRIDGE_URL وBRIDGE_API_SECRET غير موجود في Render.")
+    req = urllib.request.Request(
+        f"{BOT_BRIDGE_URL}{path}",
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers={"Content-Type": "application/json", "X-Bridge-Secret": BRIDGE_API_SECRET},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as response:
+            result = json.loads(response.read().decode("utf-8"))
+            if not result.get("ok"):
+                raise RuntimeError(result.get("error", "فشل طلب التحقق عبر تيليجرام."))
+            return result
+    except urllib.error.HTTPError as exc:
+        details = exc.read().decode("utf-8", errors="replace")[:300]
+        app.logger.error("Telegram bridge HTTP %s: %s", exc.code, details)
+        raise RuntimeError("بوت التحقق رفض الطلب. راجع إعدادات الربط وسجل البوت.") from exc
+    except urllib.error.URLError as exc:
+        app.logger.error("Cannot reach Telegram bridge: %s", exc.reason)
+        raise RuntimeError("الموقع غير قادر على الاتصال بخدمة بوت التحقق.") from exc
+
+
+def request_telegram_otp(name, email):
+    request_id = secrets.token_urlsafe(24)
+    result = telegram_bridge_request("/api/request-code", {
+        "request_id": request_id,
+        "username": name,
+        "email": email,
+    })
+    return request_id, int(result.get("expires_in", 300))
+
 
 def notify_telegram(message):
     if not (TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID):
@@ -266,38 +319,41 @@ def register():
         if not name or "@" not in email or len(password) < 8:
             flash("اكتب بيانات صحيحة، وكلمة مرور 8 أحرف على الأقل.")
         else:
+            new_uid = None
             try:
                 with db() as con:
                     cur = con.execute("INSERT INTO users(name,email,password_hash) VALUES(?,?,?)",
                                       (name, email, generate_password_hash(password)))
                     new_uid = cur.lastrowid
-                code = f"{random.randint(0, 999999):06d}"
+                # The bot generates the OTP and publishes it in the configured Telegram channel.
+                request_id, ttl = request_telegram_otp(name, email)
+                payload = json.dumps({"telegram_request_id": request_id}, ensure_ascii=False)
                 with db() as con:
                     con.execute("INSERT INTO otp_codes(email,code_hash,purpose,payload,expires_at) VALUES(?,?,?,?,?)",
-                        (email, generate_password_hash(code), "تأكيد إنشاء الحساب", "{}", (datetime.utcnow()+timedelta(minutes=10)).isoformat()))
-                try:
-                    send_otp_email(email, code, "تأكيد إنشاء الحساب")
-                    session.clear()
-                    session["otp_email"] = email
-                    session["pending_auth_uid"] = new_uid
-                    flash("بعتنالك كود تحقق على بريدك. اكتبه لتفعيل الحساب.")
-                    return redirect(url_for("verify_otp"))
-                except Exception:
-                    app.logger.exception("Registration OTP email failed")
-                    # Do not leave an unusable account behind when email delivery fails.
+                        (email, generate_password_hash(secrets.token_urlsafe(32)), "تأكيد إنشاء الحساب", payload,
+                         (datetime.utcnow()+timedelta(seconds=ttl)).isoformat()))
+                session.clear()
+                session["otp_email"] = email
+                session["pending_auth_uid"] = new_uid
+                session["otp_method"] = "telegram"
+                flash("طلبنا كود التحقق من بوت تيليجرام. افتح قناة MidoWorld واكتب الكود هنا.")
+                return redirect(url_for("verify_otp"))
+            except sqlite3.IntegrityError:
+                flash("البريد الإلكتروني مستخدم بالفعل.")
+            except Exception as exc:
+                app.logger.exception("Registration Telegram OTP failed")
+                if new_uid:
                     with db() as con:
                         con.execute("DELETE FROM otp_codes WHERE email=? AND purpose=? AND used=0",
                                     (email, "تأكيد إنشاء الحساب"))
                         con.execute("DELETE FROM users WHERE id=?", (new_uid,))
-                    flash("لم نقدرش نبعت كود التحقق، لذلك لم يتم إنشاء الحساب. راجع إعدادات SMTP في الاستضافة، ثم جرّب تاني.")
-            except sqlite3.IntegrityError:
-                flash("البريد الإلكتروني مستخدم بالفعل.")
+                flash(f"لم نقدرش نبعت كود التحقق عبر تيليجرام: {str(exc)[:180]}")
     body = r"""
     <section class="formcard"><h1>انضم إلى <span class="gradient">MIDO NOVA</span></h1><p>أنشئ حسابك وابدأ اكتشاف المتجر.</p>
     <form method="post"><label class="field">الاسم<input name="name" maxlength="70" required autocomplete="name"></label>
     <label class="field">البريد الإلكتروني<input type="email" name="email" required autocomplete="email"></label>
     <label class="field">كلمة المرور<input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
-    <button class="btn primary" type="submit">إنشاء الحساب</button></form><a class="btn" style="width:100%;margin-top:8px" href="{{url_for('google_login')}}">◉ التسجيل باستخدام Google</a><p>عندك حساب؟ <a style="color:var(--mint)" href="{{url_for('login')}}">سجل دخولك</a></p></section>"""
+    <button class="btn primary" type="submit">إنشاء الحساب</button></form><a class="btn" style="width:100%;margin-top:8px" href="{{url_for('google_login')}}">◉ التسجيل باستخدام Google</a><p>كود التسجيل هيظهر في قناة <a style="color:var(--mint)" href="https://t.me/MidoWorld" target="_blank" rel="noopener">MidoWorld</a>.</p><p>عندك حساب؟ <a style="color:var(--mint)" href="{{url_for('login')}}">سجل دخولك</a></p></section>"""
     return page("حساب جديد", body)
 
 @app.route("/login", methods=["GET", "POST"])
@@ -321,7 +377,7 @@ def login():
                 return redirect(url_for("verify_otp"))
             except Exception:
                 app.logger.exception("Login OTP email failed")
-                flash("تعذر إرسال كود الأمان إلى بريدك. راجع سجل التشغيل وإعدادات SMTP_HOST وSMTP_PORT وSMTP_USER وSMTP_PASSWORD وSMTP_FROM في الاستضافة، ثم حاول مجددًا.")
+                flash("تعذر إرسال كود الأمان إلى بريدك. راجع سجل التشغيل وRESEND_API_KEY وبيانات المرسل في Render، ثم حاول مجددًا.")
         else:
             flash("بيانات الدخول غير صحيحة.")
     body = r"""
@@ -401,7 +457,7 @@ def send_otp():
             return redirect(url_for("verify_otp"))
         except Exception as exc:
             app.logger.warning("OTP email unavailable: %s", exc)
-            flash("تعذر إرسال البريد. راجع إعدادات SMTP في الاستضافة.")
+            flash("تعذر إرسال البريد. راجع RESEND_API_KEY وبيانات المرسل في Render.")
     body = r"""<section class="formcard"><h1>التحقق بالبريد</h1><p>أرسل كود أمان مكونًا من 6 أرقام إلى بريدك.</p><form method="post"><label class="field">البريد الإلكتروني<input name="email" type="email" required></label><label class="field">الغرض<input name="purpose" value="تأكيد الحساب" required></label><button class="btn primary">إرسال كود التحقق</button></form></section>"""
     return page("التحقق بالبريد", body)
 
@@ -412,20 +468,39 @@ def verify_otp():
         code = request.form.get("code", "").strip()
         with db() as con:
             records = con.execute("SELECT * FROM otp_codes WHERE email=? AND used=0 ORDER BY id DESC LIMIT 5", (email,)).fetchall()
-            match = next((r for r in records if datetime.fromisoformat(r["expires_at"]) > datetime.utcnow() and check_password_hash(r["code_hash"], code)), None)
+            match = None
+            for row in records:
+                try:
+                    payload = json.loads(row["payload"] or "{}")
+                except (TypeError, json.JSONDecodeError):
+                    payload = {}
+                if payload.get("telegram_request_id"):
+                    try:
+                        result = telegram_bridge_request("/api/verify-code", {
+                            "request_id": payload["telegram_request_id"], "code": code
+                        })
+                        if result.get("verified"):
+                            match = row
+                            break
+                    except Exception as exc:
+                        app.logger.info("Telegram code not accepted for %s: %s", email, exc)
+                elif datetime.fromisoformat(row["expires_at"]) > datetime.utcnow() and check_password_hash(row["code_hash"], code):
+                    match = row
+                    break
             if match:
                 con.execute("UPDATE otp_codes SET used=1 WHERE id=?", (match["id"],))
                 flash("تم التحقق من كود الأمان بنجاح.")
                 pending_uid = session.pop("pending_auth_uid", None)
                 session.pop("otp_email", None)
+                session.pop("otp_method", None)
                 if pending_uid:
                     session.clear()
                     session["user_id"] = pending_uid
                     user = current_user()
                     return redirect(url_for("admin") if user and user["email"].lower() == ADMIN_EMAIL else url_for("home"))
                 return redirect(url_for("login"))
-        flash("الكود غير صحيح أو انتهت صلاحيته.")
-    body = r"""<section class="formcard"><h1>اكتب كود التحقق</h1><p>أدخل الأرقام الستة التي وصلتك عبر البريد.</p><form method="post"><label class="field">كود OTP<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required></label><button class="btn primary">تحقق</button></form></section>"""
+        flash("الكود غير صحيح أو انتهت صلاحيته، تأكد من إدخاله كما ظهر في القناة.")
+    body = r"""<section class="formcard"><h1>اكتب كود التحقق</h1><p>افتح قناة <a href="https://t.me/MidoWorld" target="_blank" rel="noopener">MidoWorld</a>، وأدخل كود التحقق المكوّن من 6 أرقام.</p><form method="post"><label class="field">كود OTP<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="one-time-code"></label><button class="btn primary">تحقق</button></form></section>"""
     return page("كود التحقق", body)
 
 @app.route("/logout")
