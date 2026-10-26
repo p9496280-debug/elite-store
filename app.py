@@ -9,7 +9,7 @@ from email.message import EmailMessage
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 from functools import wraps
-from flask import Flask, render_template_string, request, redirect, url_for, session, flash, abort
+from flask import Flask, render_template_string, request, redirect, url_for, session, flash, abort, send_from_directory, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # =========================================================
@@ -21,9 +21,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 # =========================================================
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # receipt images up to 5 MB
 DB_PATH = os.environ.get("DATABASE_PATH", "mido_nova.db")
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@midonova.com").lower()
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeThis-Admin-123!")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com").lower()
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
@@ -32,10 +33,12 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 # ضع توكن البوت الذي أنشأته من BotFather هنا بين علامتي الاقتباس.
 # لا تشارك هذا الملف علنًا بعد وضع التوكن الحقيقي بداخله.
-TELEGRAM_BOT_TOKEN = "PUT_YOUR_BOT_TOKEN_HERE"
+TELEGRAM_BOT_TOKEN = "8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4"
 # اسم القناة العامة أو رقم Chat ID، والبوت لازم يكون مشرفًا فيها.
 TELEGRAM_CHAT_ID = "@MidoWorld"
-VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "ضع رقم فودافون كاش هنا")
+TELEGRAM_BOT_URL = "https://t.me/midoassistantAIbot"
+PAYPAL_URL = os.environ.get("PAYPAL_URL", "https://www.paypal.com/")
+VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "01011541698")
 
 
 CATEGORIES = [
@@ -68,7 +71,7 @@ def init_db():
         con.execute("""CREATE TABLE IF NOT EXISTS users(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL, email TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+            password_hash TEXT NOT NULL, telegram_id TEXT DEFAULT '', wallet_balance INTEGER NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
         con.execute("""CREATE TABLE IF NOT EXISTS products(
             id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,
             category TEXT NOT NULL, kind TEXT NOT NULL, price INTEGER NOT NULL,
@@ -91,6 +94,20 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL, code_hash TEXT NOT NULL,
             purpose TEXT NOT NULL, payload TEXT DEFAULT '', expires_at TEXT NOT NULL,
             used INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        con.execute("""CREATE TABLE IF NOT EXISTS wallet_topups(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+            amount INTEGER NOT NULL, method TEXT NOT NULL, reference TEXT DEFAULT '',
+            receipt_filename TEXT DEFAULT '', status TEXT NOT NULL DEFAULT 'قيد المراجعة',
+            admin_note TEXT DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            reviewed_at TIMESTAMP DEFAULT NULL)""")
+        try:
+            con.execute("ALTER TABLE users ADD COLUMN wallet_balance INTEGER NOT NULL DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            con.execute("ALTER TABLE users ADD COLUMN telegram_id TEXT DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass
         # Additive migrations for databases created by an earlier version.
         for column, definition in [
             ("payment_method", "TEXT DEFAULT 'غير محدد'"),
@@ -169,50 +186,37 @@ def send_otp_email(to_email, code, purpose="تأكيد الحساب"):
         raise RuntimeError("تعذر الاتصال بخدمة Resend API من الاستضافة.") from exc
 
 
-def send_telegram_message(message):
-    """Send a message directly through Telegram Bot API from this app.py."""
+def send_telegram_message(message, chat_id=None):
+    """Send a Telegram message to a user who has started the bot, or fallback chat."""
     if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == "PUT_YOUR_BOT_TOKEN_HERE":
-        raise RuntimeError("ضع توكن البوت الحقيقي في متغير TELEGRAM_BOT_TOKEN داخل app.py.")
-    if not TELEGRAM_CHAT_ID:
-        raise RuntimeError("حدد قناة تيليجرام في TELEGRAM_CHAT_ID.")
-    payload = urllib.parse.urlencode({
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message,
-        "disable_web_page_preview": "true",
-    }).encode("utf-8")
-    req = urllib.request.Request(
-        f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
-        data=payload,
-        method="POST",
-    )
+        raise RuntimeError("ضع توكن البوت الحقيقي في TELEGRAM_BOT_TOKEN داخل app.py.")
+    target = str(chat_id or TELEGRAM_CHAT_ID).strip()
+    if not target:
+        raise RuntimeError("لا يوجد Telegram chat ID لإرسال الرسالة.")
+    payload = urllib.parse.urlencode({"chat_id": target, "text": message, "disable_web_page_preview": "true"}).encode()
+    req = urllib.request.Request(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage", data=payload, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=20) as response:
             result = json.loads(response.read().decode("utf-8"))
-            if response.status != 200 or not result.get("ok"):
-                raise RuntimeError("Telegram API لم يقبل رسالة كود التحقق.")
+            if not result.get("ok"):
+                raise RuntimeError(result.get("description", "Telegram rejected the message"))
             return result
     except urllib.error.HTTPError as exc:
-        details = exc.read().decode("utf-8", errors="replace")[:250]
+        details = exc.read().decode("utf-8", errors="replace")[:200]
         app.logger.error("Telegram API HTTP %s: %s", exc.code, details)
-        raise RuntimeError("فشل إرسال الرسالة إلى تيليجرام. تأكد من التوكن وصلاحيات البوت في القناة.") from exc
+        raise RuntimeError("تعذر إرسال رسالة للبوت. افتح البوت واضغط Start وتأكد من رقم Telegram ID.") from exc
     except urllib.error.URLError as exc:
         app.logger.error("Cannot reach Telegram API: %s", exc.reason)
         raise RuntimeError("الاستضافة لا تستطيع الاتصال بتيليجرام حاليًا.") from exc
 
 
-def request_telegram_otp(name, email):
-    """Generate a one-time signup code and publish it to the configured channel."""
+def request_telegram_otp(name, email, telegram_id):
     code = f"{secrets.randbelow(1_000_000):06d}"
-    message = (
-        "🔐 كود تأكيد حساب جديد | MIDO NOVA\n\n"
-        f"👤 الاسم: {name}\n"
-        f"📧 البريد: {email}\n"
-        f"🔢 كود التحقق: {code}\n\n"
-        "⏳ صلاحية الكود 10 دقائق، ويُستخدم مرة واحدة فقط."
-    )
-    send_telegram_message(message)
+    message = ("🔐 كود تأكيد حسابك في MIDO NOVA\n\n"
+               f"أهلًا {name}\n📧 البريد: {email}\n🔢 كود التحقق: {code}\n\n"
+               "⏳ صالح لمدة 10 دقائق ويُستخدم مرة واحدة. لا تشاركه مع أي شخص.")
+    send_telegram_message(message, chat_id=telegram_id)
     return code, 600
-
 
 def notify_telegram(message):
     if not (TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID):
@@ -250,7 +254,7 @@ a{color:inherit;text-decoration:none}button,input,select{font:inherit}.wrap{max-
 .benefits{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.benefit{border:1px solid var(--line);background:#0c1916;border-radius:17px;padding:19px;display:flex;gap:13px}.benefit i{font-style:normal;font-size:23px;color:var(--mint)}.benefit b{font-size:13px}.benefit p{font-size:11px;color:var(--muted);margin:4px 0 0;line-height:1.8}
 .footer{margin-top:45px;border-top:1px solid #1b302b;padding:26px 0;color:#779188;font-size:11px}.footerinner{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}.flash{margin:12px auto;padding:12px 15px;border:1px solid #286b51;background:#10271f;border-radius:12px;color:#9effd5;font-size:13px}.notice{font-size:11px;line-height:1.9;color:#7e9a90;border:1px solid #1b3930;background:#0b1714;border-radius:14px;padding:13px;margin-top:18px}
 .formcard{max-width:510px;margin:48px auto;background:#0d1a17;border:1px solid var(--line);border-radius:22px;padding:25px}.formcard h1{font-size:27px;margin:0 0 8px}.formcard p{color:var(--muted);font-size:13px}.field{display:block;margin:14px 0;color:#a9c0b7;font-size:12px}.field input,.field select{display:block;width:100%;margin-top:7px;border:1px solid #29463d;background:#08120f;color:#fff;padding:12px;border-radius:12px;outline:none}.field input:focus{border-color:var(--mint)}.formcard .btn{width:100%;margin-top:10px}
-.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:15px}table{width:100%;border-collapse:collapse;min-width:650px}th,td{text-align:right;padding:13px;border-bottom:1px solid #1b322b;font-size:12px}th{color:var(--mint);background:#10211c}td{color:#d9e9e2}.status{color:#baffdf}
+.social-btn{display:inline-flex;align-items:center;gap:7px;padding:10px 14px;border-radius:13px;font-weight:800;border:1px solid transparent;transition:.2s}.social-btn:hover{transform:translateY(-3px);filter:brightness(1.12)}.social-bot{background:linear-gradient(135deg,#1769aa,#24a1e8);color:#fff;box-shadow:0 7px 20px #1686cc22}.social-dev{background:linear-gradient(135deg,#6844bc,#a17aff);color:#fff;box-shadow:0 7px 20px #8c64ef22}.social-channel{background:linear-gradient(135deg,#087b61,#26d6a4);color:#031c15;box-shadow:0 7px 20px #26d6a422}.pay-options{display:flex;gap:6px;flex-wrap:wrap}.pay-options label{display:flex;align-items:center;gap:5px;border:1px solid #29463d;border-radius:10px;padding:7px 9px;font-size:10px;background:#08120f}.pay-options input{accent-color:#39edbd}.profile-card{max-width:760px;margin:35px auto;border:1px solid var(--line);background:linear-gradient(145deg,#10211d,#0a1513);border-radius:25px;padding:25px}.avatar{width:76px;height:76px;border-radius:24px;background:linear-gradient(135deg,#39edbd,#1478cf);display:grid;place-items:center;color:#041a14;font-size:34px;font-weight:900;box-shadow:0 10px 30px #23dba522}.profile-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:20px}.profile-stat{background:#08120f;border:1px solid var(--line);border-radius:15px;padding:15px}.profile-stat small{display:block;color:var(--muted);margin-bottom:5px}.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:15px}table{width:100%;border-collapse:collapse;min-width:650px}th,td{text-align:right;padding:13px;border-bottom:1px solid #1b322b;font-size:12px}th{color:var(--mint);background:#10211c}td{color:#d9e9e2}.status{color:#baffdf}
 @media(max-width:900px){.hero{grid-template-columns:1fr}.showcase{min-height:270px}.categories{grid-template-columns:repeat(3,1fr)}.products{grid-template-columns:repeat(2,1fr)}.navlinks{display:none}.benefits{grid-template-columns:1fr}}
 @media(max-width:520px){.wrap{padding:0 13px}.nav{height:67px}.brand{font-size:19px}.mark{width:38px;height:38px}.navactions .btn{padding:8px 10px;font-size:11px}.hero{padding-top:32px}h1{font-size:37px}.showcase{min-height:255px}.categories{gap:8px}.cat{padding:13px 5px}.cat strong{font-size:11px}.products{gap:9px}.product{padding:9px}.prodvisual{height:95px;font-size:43px}.product h3{font-size:13px}.product p{font-size:10px}.prodfoot{align-items:flex-start;flex-direction:column}.prodfoot .btn{width:100%}.section-head h2{font-size:21px}}
 </style>
@@ -258,9 +262,9 @@ a{color:inherit;text-decoration:none}button,input,select{font:inherit}.wrap{max-
 <body>
 <header class="topbar"><div class="wrap nav">
 <a class="brand" href="{{ url_for('home') }}"><div class="mark">M</div><div>MIDO <span>NOVA</span></div></a>
-<nav class="navlinks"><a href="{{ url_for('home') }}">الرئيسية</a><a href="{{ url_for('home') }}#categories">الأقسام</a><a href="{{ url_for('home') }}#products">المتجر</a><a href="{{ url_for('my_orders') }}">طلباتي</a></nav>
+<nav class="navlinks"><a href="{{ url_for('home') }}">الرئيسية</a><a href="{{ url_for('home') }}#categories">الأقسام</a><a href="{{ url_for('home') }}#products">المتجر</a><a href="{{ url_for('my_orders') }}">طلباتي</a>{% if user %}<a href="{{ url_for('profile') }}">بروفايلي</a>{% endif %}</nav>
 <div class="navactions">
-{% if user %}<a class="btn small" href="{{ url_for('my_orders') }}">طلباتي</a><a class="btn primary small" href="{{ url_for('logout') }}">خروج</a>
+{% if user %}<a class="btn small" href="{{ url_for('profile') }}">👤 بروفايلي</a><a class="btn primary small" href="{{ url_for('logout') }}">خروج</a>
 {% else %}<a class="btn small" href="{{ url_for('login') }}">دخول</a><a class="btn primary small" href="{{ url_for('register') }}">حساب جديد</a>{% endif %}
 </div>
 </div></header>
@@ -268,7 +272,7 @@ a{color:inherit;text-decoration:none}button,input,select{font:inherit}.wrap{max-
 {% for msg in get_flashed_messages() %}<div class="flash">{{ msg }}</div>{% endfor %}
 {{ body|safe }}
 </main>
-<footer class="footer"><div class="wrap footerinner"><div>© {{ year }} MIDO NOVA — كل احتياجاتك الرقمية في مكان واحد.</div><div style="display:flex;gap:14px;flex-wrap:wrap"><a href="https://t.me/Mido_M9do" target="_blank" rel="noopener">✦ المطور</a><a href="https://t.me/Midomsn" target="_blank" rel="noopener">◉ القناة الرسمية</a><a href="https://t.me/midoassistantAIbot" target="_blank" rel="noopener">✧ البوت</a></div></div></footer>
+<footer class="footer"><div class="wrap footerinner"><div>© {{ year }} MIDO NOVA — كل احتياجاتك الرقمية في مكان واحد.</div><div style="display:flex;gap:10px;flex-wrap:wrap"><a class="social-btn social-bot" href="https://t.me/midoassistantAIbot" target="_blank" rel="noopener">🤖 بوت التحقق</a><a class="social-btn social-dev" href="https://t.me/Mido_M9do" target="_blank" rel="noopener">👑 المطور</a><a class="social-btn social-channel" href="https://t.me/Midomsn" target="_blank" rel="noopener">📢 القناة الرسمية</a></div></div></footer>
 </body></html>
 """
 
@@ -290,10 +294,10 @@ HOME = r"""
 <div class="toolbar"><input class="search" id="searchBox" placeholder="ابحث عن منتج أو خدمة..." oninput="filterProducts()"><select class="filter" id="categoryFilter" onchange="filterProducts()">{% for key,name,icon in categories %}<option value="{{key}}">{{name}}</option>{% endfor %}</select></div>
 <div class="products" id="productGrid">
 {% for p in products %}<article class="product" data-name="{{p.name|lower}}" data-category="{{p.category}}">
-<div class="prodvisual">{% if p.badge %}<span class="badge">{{p.badge}}</span>{% endif %}{{p.icon}}</div><div class="prodtype">{{p.kind}}</div><h3>{{p.name}}</h3><p>{{p.description}}</p><div class="prodfoot"><div class="price">{{ '{:,.0f}'.format(p.price/100) }} <small>ج.م</small></div><form method="post" action="{{url_for('order_product', product_id=p.id)}}" style="display:grid;gap:5px"><input name="discount_code" placeholder="كود الخصم (اختياري)" style="width:100%;min-width:0;background:#08120f;color:white;border:1px solid #29463d;border-radius:9px;padding:7px;font-size:10px"><input name="payment_reference" placeholder="مرجع التحويل (بعد الدفع)" style="width:100%;min-width:0;background:#08120f;color:white;border:1px solid #29463d;border-radius:9px;padding:7px;font-size:10px"><button class="btn primary small" type="submit">اطلب عبر فودافون كاش +</button></form></div>
+<div class="prodvisual">{% if p.badge %}<span class="badge">{{p.badge}}</span>{% endif %}{{p.icon}}</div><div class="prodtype">{{p.kind}}</div><h3>{{p.name}}</h3><p>{{p.description}}</p><div class="prodfoot"><div class="price">{{ '{:,.0f}'.format(p.price/100) }} <small>ج.م</small></div><form method="post" action="{{url_for('order_product', product_id=p.id)}}" style="display:grid;gap:5px"><input name="discount_code" placeholder="كود الخصم (اختياري)" style="width:100%;min-width:0;background:#08120f;color:white;border:1px solid #29463d;border-radius:9px;padding:7px;font-size:10px"><div class="pay-options"><label><input type="radio" name="payment_method" value="Vodafone Cash" checked> 🔴 فودافون كاش</label><label><input type="radio" name="payment_method" value="PayPal"> 🔵 PayPal</label><label><input type="radio" name="payment_method" value="Visa/Mastercard"> 💳 Visa / Mastercard</label></div><input name="payment_reference" placeholder="مرجع التحويل (إن وجد)" style="width:100%;min-width:0;background:#08120f;color:white;border:1px solid #29463d;border-radius:9px;padding:7px;font-size:10px"><button class="btn primary small" type="submit">متابعة الطلب +</button></form></div>
 </article>{% else %}<div class="empty">لا توجد منتجات حاليًا.</div>{% endfor %}
 </div>
-<div class="notice">الدفع اليدوي: فودافون كاش على الرقم {{vodafone_number}}. المنتجات المعروضة بيانات تجريبية قابلة للتعديل. لا يتم تنفيذ دفع إلكتروني أو تسليم أكواد تلقائيًا في هذا الإصدار. تأكد من السعر والمنطقة وشروط المنتج قبل إتمام أي عملية. العملات الرقمية هنا قسم تعريفي فقط وليست خدمة تداول.</div>
+<div class="notice">طرق الدفع المتاحة: فودافون كاش على الرقم {{vodafone_number}}، وPayPal، وفيزا/ماستركارد. اختيار PayPal أو البطاقة هنا يسجل طريقة الدفع فقط؛ تفعيل الدفع الإلكتروني الحقيقي يحتاج ربط بوابة دفع وحساب تاجر معتمد. لا تدخل بيانات بطاقتك داخل المتجر. تأكد من السعر والمنطقة وشروط المنتج قبل إتمام أي عملية. العملات الرقمية هنا قسم تعريفي فقط وليست خدمة تداول.</div>
 </section>
 <section class="section"><div class="section-head"><div><h2>تجربة معمولة ليك</h2><p>كل حاجة واضحة من أول خطوة</p></div></div><div class="benefits">
 <div class="benefit"><i>◈</i><div><b>تنظيم ذكي</b><p>أقسام واضحة تساعدك توصل للي بتدور عليه بسرعة.</p></div></div>
@@ -327,18 +331,19 @@ def register():
         name = request.form.get("name", "").strip()[:70]
         email = request.form.get("email", "").strip().lower()[:160]
         password = request.form.get("password", "")
-        if not name or "@" not in email or len(password) < 8:
+        telegram_id = request.form.get("telegram_id", "").strip()[:30]
+        if not name or "@" not in email or len(password) < 8 or not telegram_id.isdigit():
             flash("اكتب بيانات صحيحة، وكلمة مرور 8 أحرف على الأقل.")
         else:
             new_uid = None
             try:
                 with db() as con:
-                    cur = con.execute("INSERT INTO users(name,email,password_hash) VALUES(?,?,?)",
-                                      (name, email, generate_password_hash(password)))
+                    cur = con.execute("INSERT INTO users(name,email,password_hash,telegram_id) VALUES(?,?,?,?)",
+                                      (name, email, generate_password_hash(password), telegram_id))
                     new_uid = cur.lastrowid
                 # Generate the OTP here and publish it directly to Telegram from this app.py.
-                code, ttl = request_telegram_otp(name, email)
-                payload = json.dumps({"method": "telegram_channel"}, ensure_ascii=False)
+                code, ttl = request_telegram_otp(name, email, telegram_id)
+                payload = json.dumps({"method": "telegram_dm"}, ensure_ascii=False)
                 with db() as con:
                     con.execute("INSERT INTO otp_codes(email,code_hash,purpose,payload,expires_at) VALUES(?,?,?,?,?)",
                         (email, generate_password_hash(code), "تأكيد إنشاء الحساب", payload,
@@ -347,7 +352,7 @@ def register():
                 session["otp_email"] = email
                 session["pending_auth_uid"] = new_uid
                 session["otp_method"] = "telegram"
-                flash("طلبنا كود التحقق من بوت تيليجرام. افتح قناة MidoWorld واكتب الكود هنا.")
+                flash("بعتنا كود التحقق في رسالة خاصة من البوت. افتح محادثة البوت واكتب الكود هنا.")
                 return redirect(url_for("verify_otp"))
             except sqlite3.IntegrityError:
                 flash("البريد الإلكتروني مستخدم بالفعل.")
@@ -364,7 +369,8 @@ def register():
     <form method="post"><label class="field">الاسم<input name="name" maxlength="70" required autocomplete="name"></label>
     <label class="field">البريد الإلكتروني<input type="email" name="email" required autocomplete="email"></label>
     <label class="field">كلمة المرور<input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
-    <button class="btn primary" type="submit">إنشاء الحساب</button></form><a class="btn" style="width:100%;margin-top:8px" href="{{url_for('google_login')}}">◉ التسجيل باستخدام Google</a><p>كود التسجيل هيظهر في قناة <a style="color:var(--mint)" href="https://t.me/MidoWorld" target="_blank" rel="noopener">MidoWorld</a>.</p><p>عندك حساب؟ <a style="color:var(--mint)" href="{{url_for('login')}}">سجل دخولك</a></p></section>"""
+    <label class="field">Telegram ID<input name="telegram_id" inputmode="numeric" pattern="[0-9]+" required placeholder="افتح البوت واضغط Start ثم أدخل رقمك"></label><a class="btn" href="https://t.me/midoassistantAIbot" target="_blank" rel="noopener">🤖 افتح بوت التحقق أولًا</a>
+    <button class="btn primary" type="submit">إنشاء الحساب</button></form><a class="btn" style="width:100%;margin-top:8px" href="{{url_for('google_login')}}">◉ التسجيل باستخدام Google</a><p>كود التسجيل هيوصلك في رسالة خاصة من البوت. لازم تفتح البوت وتضغط Start الأول، وتجيب Telegram ID من البوت.</p><p>عندك حساب؟ <a style="color:var(--mint)" href="{{url_for('login')}}">سجل دخولك</a></p></section>"""
     return page("حساب جديد", body)
 
 @app.route("/login", methods=["GET", "POST"])
@@ -500,9 +506,133 @@ def verify_otp():
                     user = current_user()
                     return redirect(url_for("admin") if user and user["email"].lower() == ADMIN_EMAIL else url_for("home"))
                 return redirect(url_for("login"))
-        flash("الكود غير صحيح أو انتهت صلاحيته، تأكد من إدخاله كما ظهر في القناة.")
-    body = r"""<section class="formcard"><h1>اكتب كود التحقق</h1><p>افتح قناة <a href="https://t.me/MidoWorld" target="_blank" rel="noopener">MidoWorld</a>، وأدخل كود التحقق المكوّن من 6 أرقام.</p><form method="post"><label class="field">كود OTP<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="one-time-code"></label><button class="btn primary">تحقق</button></form></section>"""
+        flash("الكود غير صحيح أو انتهت صلاحيته، راجع رسالة البوت وحاول تاني.")
+    body = r"""<section class="formcard"><h1>اكتب كود التحقق</h1><p>افتح محادثة بوت <a href="https://t.me/midoassistantAIbot" target="_blank" rel="noopener">Mido Assistant</a> وخد الكود اللي وصلك في الخاص.</p><form method="post"><label class="field">كود OTP<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="one-time-code"></label><button class="btn primary">تحقق</button></form></section>"""
     return page("كود التحقق", body)
+
+@app.route("/profile", methods=["GET", "POST"])
+def profile():
+    user = current_user()
+    if not user:
+        flash("سجل دخولك لعرض بروفايلك.")
+        return redirect(url_for("login"))
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()[:70]
+        if name:
+            with db() as con:
+                con.execute("UPDATE users SET name=? WHERE id=?", (name, user["id"]))
+            flash("تم تحديث اسم البروفايل.")
+            return redirect(url_for("profile"))
+    with db() as con:
+        full = con.execute("SELECT * FROM users WHERE id=?", (user["id"],)).fetchone()
+        count = con.execute("SELECT COUNT(*) n FROM orders WHERE user_id=?", (user["id"],)).fetchone()["n"]
+        spent = con.execute("SELECT COALESCE(SUM(total),0) n FROM orders WHERE user_id=?", (user["id"],)).fetchone()["n"]
+    is_admin = full["email"].lower() == ADMIN_EMAIL
+    body = r"""<section class="profile-card"><div style="display:flex;align-items:center;gap:17px;flex-wrap:wrap"><div class="avatar">{% if is_admin %}👑{% else %}{{full.name[:1]|upper}}{% endif %}</div><div><span class="pill">{% if is_admin %}مطور المتجر{% else %}عضو MIDO NOVA{% endif %}</span><h1 style="font-size:27px;margin:8px 0 0">{{full.name}}</h1><p style="color:var(--muted);margin:3px 0">{{full.email}}</p></div></div><div class="profile-grid"><div class="profile-stat"><small>رصيد المحفظة</small><b style="color:var(--mint)">{{'{:,.2f}'.format((full.wallet_balance or 0)/100)}} ج.م</b></div><div class="profile-stat"><small>الطلبات</small><b>{{count}}</b></div><div class="profile-stat"><small>إجمالي الطلبات</small><b>{{'{:,.2f}'.format(spent/100)}} ج.م</b></div><div class="profile-stat"><small>نوع الحساب</small><b>{% if is_admin %}المطور / الإدارة{% else %}مستخدم{% endif %}</b></div><div class="profile-stat"><small>Telegram ID</small><b>{{full.telegram_id or 'غير محدد'}}</b></div></div><form method="post" style="margin-top:20px"><label class="field">اسم العرض<input name="name" value="{{full.name}}" maxlength="70" required></label><button class="btn primary" type="submit">حفظ التغييرات</button></form><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:15px"><a class="btn" href="{{url_for('my_orders')}}">📦 طلباتي</a><a class="btn primary" href="{{url_for('wallet')}}">💳 محفظتي وشحن الرصيد</a>{% if is_admin %}<a class="btn" href="{{url_for('admin_wallet_topups')}}">🧾 مراجعة الشحنات</a>{% endif %}{% if is_admin %}<a class="btn primary" href="{{url_for('admin')}}">⚙ لوحة المطور</a>{% endif %}</div></section>"""
+    return page("بروفايلي", body, full=full, count=count, spent=spent, is_admin=is_admin)
+
+
+@app.route("/wallet/receipt/<path:filename>")
+def uploaded_file(filename):
+    user = current_user()
+    if not user:
+        abort(403)
+    with db() as con:
+        row = con.execute("SELECT user_id FROM wallet_topups WHERE receipt_filename=?", (filename,)).fetchone()
+    if not row or (row["user_id"] != user["id"] and user["email"].lower() != ADMIN_EMAIL):
+        abort(403)
+    return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=False)
+
+@app.route("/wallet", methods=["GET", "POST"])
+def wallet():
+    user = current_user()
+    if not user:
+        flash("سجل دخولك لاستخدام المحفظة.")
+        return redirect(url_for("login"))
+    methods = {"Vodafone Cash": "فودافون كاش", "PayPal": "PayPal",
+               "Card": "Visa / Mastercard", "Google Play": "رصيد Google Play"}
+    if request.method == "POST":
+        try:
+            amount = round(float(request.form.get("amount", "0")) * 100)
+        except (TypeError, ValueError):
+            amount = 0
+        method = request.form.get("method", "")
+        reference = request.form.get("reference", "").strip()[:120]
+        receipt = request.files.get("receipt")
+        if amount < 100 or amount > 50000000:
+            flash("اكتب مبلغًا صحيحًا بين 1 جنيه و500,000 جنيه.")
+            return redirect(url_for("wallet"))
+        if method not in methods:
+            flash("اختر طريقة دفع صحيحة.")
+            return redirect(url_for("wallet"))
+        if not receipt or not receipt.filename:
+            flash("ارفع صورة إيصال التحويل أو لقطة شاشة واضحة لإرسال الطلب.")
+            return redirect(url_for("wallet"))
+        ext = os.path.splitext(secure_filename(receipt.filename))[1].lower()
+        if ext not in {".png", ".jpg", ".jpeg", ".webp"}:
+            flash("صورة الإيصال يجب أن تكون PNG أو JPG أو WEBP.")
+            return redirect(url_for("wallet"))
+        filename = f"wallet_{user['id']}_{secrets.token_hex(8)}{ext}"
+        receipt.save(os.path.join(UPLOAD_FOLDER, filename))
+        with db() as con:
+            con.execute("INSERT INTO wallet_topups(user_id,amount,method,reference,receipt_filename) VALUES(?,?,?,?,?)",
+                        (user["id"], amount, methods[method], reference, filename))
+        notify_telegram(f"💳 طلب شحن محفظة جديد\nالمستخدم: {user['name']}\nالبريد: {user['email']}\nالمبلغ: {amount/100:.2f} ج.م\nالطريقة: {methods[method]}\nالمرجع: {reference or 'غير مرفق'}\nراجع لوحة الإدارة /admin/wallet-topups قبل اعتماد الرصيد.")
+        flash("تم إرسال طلب الشحن للمراجعة. احتفظ بلقطة شاشة للإيصال؛ سيُضاف الرصيد بعد مراجعة التحويل فعليًا.")
+        return redirect(url_for("wallet"))
+    with db() as con:
+        full = con.execute("SELECT * FROM users WHERE id=?", (user["id"],)).fetchone()
+        requests = con.execute("SELECT * FROM wallet_topups WHERE user_id=? ORDER BY id DESC LIMIT 20", (user["id"],)).fetchall()
+    body = r"""
+    <section class="profile-card"><span class="pill">MIDO NOVA WALLET</span><h1 style="font-size:32px">محفظتك الرقمية</h1>
+    <p style="color:var(--muted)">رصيدك الحالي يظهر هنا. طلب الشحن لا يضيف أموالًا تلقائيًا؛ يراجع المطور الإيصال والتحويل أولًا.</p>
+    <div class="profile-stat" style="margin:18px 0"><small>الرصيد المتاح</small><h1 style="font-size:36px;color:var(--mint);margin:0">{{'{:,.2f}'.format((full.wallet_balance or 0)/100)}} ج.م</h1></div>
+    <h2>➕ طلب شحن جديد</h2><div class="profile-stat" style="margin-bottom:18px;line-height:2">1. حوّل المبلغ بالطريقة المختارة.<br>2. ارفع لقطة شاشة واضحة للإيصال.<br>3. أرسل الطلب وانتظر مراجعة المطور.<br><b>لا ترسل كلمة المرور أو بيانات البطاقة السرية.</b></div>
+    <form method="post" enctype="multipart/form-data">
+    <label class="field">المبلغ بالجنيه المصري<input type="number" name="amount" min="1" max="500000" step="0.01" required></label>
+    <label class="field">طريقة الدفع<select name="method" required><option value="">اختر طريقة الدفع</option><option value="Vodafone Cash">🔴 Vodafone Cash</option><option value="PayPal">🔵 PayPal</option><option value="Card">💳 Visa / Mastercard</option><option value="Google Play">▶ Google Play</option></select></label>
+    <label class="field">رقم العملية أو مرجع التحويل (اختياري)<input name="reference" maxlength="120" placeholder="رقم العملية إن وجد"></label>
+    <label class="field">صورة الإيصال / لقطة الشاشة<input type="file" name="receipt" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" required></label>
+    <button class="btn primary" type="submit">📤 إرسال طلب الشحن للمراجعة</button></form>
+    <h2 style="margin-top:30px">سجل طلبات الشحن</h2><div class="tablewrap"><table><thead><tr><th>التاريخ</th><th>المبلغ</th><th>الطريقة</th><th>الحالة</th><th>الإيصال</th></tr></thead><tbody>
+    {% for r in requests %}<tr><td>{{r.created_at}}</td><td>{{'{:,.2f}'.format(r.amount/100)}} ج.م</td><td>{{r.method}}</td><td>{{r.status}}</td><td>{% if r.receipt_filename %}<a class="btn small" href="{{url_for('uploaded_file', filename=r.receipt_filename)}}" target="_blank">عرض</a>{% else %}—{% endif %}</td></tr>{% else %}<tr><td colspan="5">لا توجد طلبات شحن بعد.</td></tr>{% endfor %}</tbody></table></div></section>"""
+    return page("محفظتي", body, full=full, requests=requests)
+
+@app.route("/admin/wallet-topups", methods=["GET", "POST"])
+@admin_required
+def admin_wallet_topups():
+    if request.method == "POST":
+        try:
+            topup_id = int(request.form.get("topup_id", "0"))
+        except ValueError:
+            abort(400)
+        action = request.form.get("action", "")
+        note = request.form.get("admin_note", "").strip()[:250]
+        with db() as con:
+            topup = con.execute("SELECT * FROM wallet_topups WHERE id=?", (topup_id,)).fetchone()
+            if not topup:
+                abort(404)
+            if topup["status"] == "قيد المراجعة" and action in {"approve", "reject"}:
+                if action == "approve":
+                    con.execute("UPDATE users SET wallet_balance=wallet_balance+? WHERE id=?", (topup["amount"], topup["user_id"]))
+                    con.execute("UPDATE wallet_topups SET status='تم التأكيد',admin_note=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=?", (note, topup_id))
+                    flash("تم اعتماد التحويل وإضافة الرصيد للمحفظة.")
+                else:
+                    con.execute("UPDATE wallet_topups SET status='مرفوض',admin_note=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=?", (note, topup_id))
+                    flash("تم رفض طلب الشحن.")
+            else:
+                flash("تمت مراجعة هذا الطلب مسبقًا أو أن الإجراء غير صحيح.")
+        return redirect(url_for("admin_wallet_topups"))
+    with db() as con:
+        rows = con.execute("""SELECT w.*,u.name AS user_name,u.email AS user_email FROM wallet_topups w
+                              JOIN users u ON u.id=w.user_id
+                              ORDER BY CASE WHEN w.status='قيد المراجعة' THEN 0 ELSE 1 END,w.id DESC LIMIT 200""").fetchall()
+    body = r"""
+    <section class="profile-card"><span class="pill">ADMIN • WALLET</span><h1 style="font-size:30px">مراجعة طلبات شحن المحافظ</h1>
+    <p style="color:var(--muted)">افحص الإيصال وتأكد من وصول التحويل لحسابك فعليًا قبل اعتماد أي مبلغ. الصورة وحدها ليست إثباتًا كافيًا.</p>
+    <div class="tablewrap"><table><thead><tr><th>المستخدم</th><th>المبلغ</th><th>الطريقة</th><th>المرجع</th><th>الإيصال</th><th>الحالة</th><th>الإجراء</th></tr></thead><tbody>
+    {% for r in rows %}<tr><td>{{r.user_name}}<br><small>{{r.user_email}}</small></td><td>{{'{:,.2f}'.format(r.amount/100)}} ج.م</td><td>{{r.method}}</td><td>{{r.reference or '—'}}</td><td>{% if r.receipt_filename %}<a class="btn small" href="{{url_for('uploaded_file', filename=r.receipt_filename)}}" target="_blank">فتح الإيصال</a>{% endif %}</td><td>{{r.status}}</td><td>{% if r.status=='قيد المراجعة' %}<form method="post"><input type="hidden" name="topup_id" value="{{r.id}}"><input name="admin_note" placeholder="ملاحظة (اختياري)" style="width:130px"><button class="btn small primary" name="action" value="approve">تأكيد وإضافة الرصيد</button><button class="btn small" name="action" value="reject">رفض</button></form>{% else %}{{r.admin_note or '—'}}{% endif %}</td></tr>{% else %}<tr><td colspan="7">لا توجد طلبات شحن.</td></tr>{% endfor %}</tbody></table></div></section>"""
+    return page("مراجعة شحن المحافظ", body, rows=rows)
 
 @app.route("/logout")
 def logout():
@@ -531,12 +661,15 @@ def order_product(product_id):
             con.execute("UPDATE discount_codes SET uses_left=uses_left-1 WHERE id=?", (coupon["id"],))
         total = product["price"] - discount
         reference = request.form.get("payment_reference", "").strip()[:120]
+        payment_method = request.form.get("payment_method", "Vodafone Cash")
+        if payment_method not in ("Vodafone Cash", "PayPal", "Visa/Mastercard"):
+            payment_method = "Vodafone Cash"
         cur = con.execute("""INSERT INTO orders(user_id,product_id,quantity,total,status,payment_method,payment_reference,discount_code,discount_amount)
-            VALUES(?,?,1,?,'بانتظار مراجعة التحويل','Vodafone Cash',?,?,?)""",
-            (user["id"], product_id, total, reference, code, discount))
+            VALUES(?,?,1,?,'بانتظار مراجعة الدفع',?,?,?,?)""",
+            (user["id"], product_id, total, payment_method, reference, code, discount))
         order_id = cur.lastrowid
-    notify_telegram(f"🛒 طلب جديد في MIDO NOVA\\nرقم الطلب: #{order_id}\\nالعميل: {user['name']} ({user['email']})\\nالمنتج: {product['name']}\\nالإجمالي: {total/100:.2f} ج.م\\nطريقة الدفع: Vodafone Cash\\nرقم مرجع التحويل: {reference or 'لم يرسل'}")
-    flash(f"تم تسجيل الطلب #{order_id}. حوّل المبلغ إلى فودافون كاش ثم أرسل رقم مرجع التحويل؛ الطلب ينتظر مراجعة الإدارة.")
+    notify_telegram(f"🛒 طلب جديد في MIDO NOVA\\nرقم الطلب: #{order_id}\\nالعميل: {user['name']} ({user['email']})\\nالمنتج: {product['name']}\\nالإجمالي: {total/100:.2f} ج.م\\nطريقة الدفع: {payment_method}\\nرقم مرجع التحويل: {reference or 'لم يرسل'}")
+    flash(f"تم تسجيل الطلب #{order_id}. طريقة الدفع المختارة: {payment_method}. الطلب ينتظر مراجعة الإدارة. لو اخترت بطاقة أو PayPal، يلزم إتمام الدفع عبر بوابة رسمية قبل اعتماد الطلب.")
     return redirect(url_for("my_orders"))
 
 @app.route("/my-orders")
@@ -551,11 +684,48 @@ def my_orders():
             (user["id"],)).fetchall()
     body = r"""
     <section class="section"><div class="section-head"><div><h2>طلباتي</h2><p>طلباتك المسجلة وحالتها الحالية</p></div><a class="btn small" href="{{url_for('home')}}">رجوع للمتجر</a></div>
-    {% if orders %}<div class="tablewrap"><table><thead><tr><th>رقم الطلب</th><th>المنتج</th><th>الإجمالي</th><th>الحالة</th><th>التاريخ</th></tr></thead><tbody>
-    {% for o in orders %}<tr><td>#{{o.id}}</td><td>{{o.product_name}}</td><td>{{'{:,.2f}'.format(o.total/100)}} ج.م</td><td class="status">{{o.status}}</td><td>{{o.created_at}}</td></tr>{% endfor %}
+    {% if orders %}<div class="tablewrap"><table><thead><tr><th>رقم الطلب</th><th>المنتج</th><th>الإجمالي</th><th>الحالة</th><th>التاريخ</th><th>الإيصال</th></tr></thead><tbody>
+    {% for o in orders %}<tr><td>#{{o.id}}</td><td>{{o.product_name}}</td><td>{{'{:,.2f}'.format(o.total/100)}} ج.م</td><td class="status">{{o.status}}</td><td>{{o.created_at}}</td><td><a class="btn small" href="{{url_for('order_receipt',order_id=o.id)}}">🧾 عرض الإيصال</a> <a class="btn small primary" href="{{url_for('order_receipt_download',order_id=o.id)}}">⬇ تحميل</a></td></tr>{% endfor %}
     </tbody></table></div>{% else %}<div class="empty">لسه معندكش طلبات. <a style="color:var(--mint)" href="{{url_for('home')}}">تصفح المتجر</a></div>{% endif %}
     </section>"""
     return page("طلباتي", body, orders=orders)
+
+def _get_order_for_receipt(order_id):
+    user = current_user()
+    if not user:
+        return None, redirect(url_for("login"))
+    with db() as con:
+        order = con.execute("""SELECT o.*, p.name AS product_name, p.kind AS product_kind,
+            u.name AS customer_name, u.email AS customer_email
+            FROM orders o JOIN products p ON p.id=o.product_id
+            JOIN users u ON u.id=o.user_id WHERE o.id=?""", (order_id,)).fetchone()
+    if not order:
+        abort(404)
+    if order["user_id"] != user["id"] and user["email"].lower() != ADMIN_EMAIL:
+        abort(403)
+    return order, None
+
+RECEIPT_TEMPLATE = r"""<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>إيصال MIDO NOVA #{{o.id}}</title><style>
+*{box-sizing:border-box}body{margin:0;padding:28px;background:#07110f;color:#eafff6;font-family:Arial,Tahoma,sans-serif}.wrap{max-width:760px;margin:0 auto}.receipt{background:linear-gradient(145deg,#10251f,#0b1714);border:1px solid #2b5b4b;border-radius:25px;overflow:hidden;box-shadow:0 20px 60px #0005}.head{padding:28px;background:linear-gradient(120deg,#143e31,#0d211b);display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap;border-bottom:1px solid #285341}.brand{font-size:25px;font-weight:900;letter-spacing:1px;color:#7dffd3}.sub{font-size:12px;color:#a3c5b7;margin-top:7px}.stamp{border:1px solid #3c8268;border-radius:14px;padding:12px 16px;color:#9bffdb;font-weight:bold}.content{padding:28px}.status{display:inline-block;border-radius:30px;padding:7px 13px;background:#163e30;color:#a4ffdc;font-size:12px;font-weight:bold}.title{font-size:23px;margin:16px 0 6px}.muted{color:#9bb8ac;font-size:13px;line-height:1.9}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:24px 0}.item{padding:15px;border-radius:14px;border:1px solid #25483c;background:#091713}.item small{display:block;color:#91b3a4;font-size:11px;margin-bottom:8px}.item strong{font-size:14px;overflow-wrap:anywhere}.lines{border-top:1px dashed #386251;border-bottom:1px dashed #386251;padding:18px 0;margin:18px 0}.line{display:flex;justify-content:space-between;gap:15px;padding:9px 0;color:#cfe6dc}.total{display:flex;justify-content:space-between;align-items:center;font-size:17px;font-weight:bold;padding:17px;background:#15392d;border:1px solid #2a684f;border-radius:15px}.total strong{font-size:24px;color:#81ffd1}.foot{text-align:center;padding:20px;color:#86a99a;font-size:11px;line-height:1.9;border-top:1px solid #203d32}.actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:18px 0 0}.btn{display:inline-block;text-decoration:none;border:0;border-radius:12px;padding:12px 18px;font-weight:bold;background:#15382c;color:#dfffee;cursor:pointer}.primary{background:linear-gradient(120deg,#67f4c2,#16b88b);color:#062219}.print{background:#183e65;color:white}@media(max-width:540px){body{padding:10px}.content,.head{padding:18px}.grid{grid-template-columns:1fr}.title{font-size:20px}}@media print{body{background:white;color:#111;padding:0}.receipt{box-shadow:none;background:white;color:#111;border:1px solid #bbb}.head{background:#eef8f3!important;color:#111}.brand,.total strong{color:#126e50}.sub,.muted,.item small,.foot{color:#555}.item,.total{background:#f7fbf9;border-color:#ccc;color:#111}.line{color:#222}.actions{display:none}}
+</style></head><body><main class="wrap"><article class="receipt"><header class="head"><div><div class="brand">✦ MIDO NOVA</div><div class="sub">إيصال طلب إلكتروني · نسخة العميل</div></div><div class="stamp">🧾 إيصال #{{o.id}}</div></header><section class="content"><span class="status">{{o.status}}</span><h1 class="title">إيصال شراء المنتج</h1><p class="muted">احتفظ بهذا الإيصال للرجوع إلى تفاصيل طلبك. هذا المستند يوضح بيانات الطلب المسجلة في المتجر، ولا يُعد إثباتًا لتحصيل الدفع إذا كانت العملية ما زالت قيد المراجعة.</p><div class="grid"><div class="item"><small>اسم العميل</small><strong>{{o.customer_name}}</strong></div><div class="item"><small>البريد الإلكتروني</small><strong>{{o.customer_email}}</strong></div><div class="item"><small>رقم الطلب</small><strong>#{{o.id}}</strong></div><div class="item"><small>تاريخ الطلب</small><strong>{{o.created_at}}</strong></div><div class="item"><small>طريقة الدفع المختارة</small><strong>{{o.payment_method or 'غير محددة'}}</strong></div><div class="item"><small>رقم مرجع الدفع</small><strong>{{o.payment_reference or 'غير مرفق'}}</strong></div></div><div class="lines"><div class="line"><span>المنتج</span><strong>{{o.product_name}}</strong></div><div class="line"><span>نوع المنتج</span><strong>{{o.product_kind or 'منتج رقمي'}}</strong></div><div class="line"><span>الكمية</span><strong>{{o.quantity}}</strong></div><div class="line"><span>قيمة الخصم</span><strong>{{'{:,.2f}'.format((o.discount_amount or 0)/100)}} ج.م</strong></div></div><div class="total"><span>الإجمالي</span><strong>{{'{:,.2f}'.format(o.total/100)}} ج.م</strong></div><div class="actions"><button class="btn primary" onclick="window.print()">⬇ حفظ / طباعة PDF</button><a class="btn" href="{{url_for('my_orders')}}">العودة لطلباتي</a></div></section><footer class="foot">شكرًا لثقتك في MIDO NOVA<br>للاستفسارات أو المساعدة، تواصل مع المطور عبر قنوات المتجر الرسمية.</footer></article></main></body></html>"""
+
+@app.route("/order/<int:order_id>/receipt")
+def order_receipt(order_id):
+    order, response = _get_order_for_receipt(order_id)
+    if response is not None:
+        return response
+    return render_template_string(RECEIPT_TEMPLATE, o=order)
+
+@app.route("/order/<int:order_id>/receipt/download")
+def order_receipt_download(order_id):
+    order, response = _get_order_for_receipt(order_id)
+    if response is not None:
+        return response
+    html = render_template_string(RECEIPT_TEMPLATE, o=order)
+    resp = make_response(html)
+    resp.headers["Content-Type"] = "text/html; charset=utf-8"
+    resp.headers["Content-Disposition"] = f'attachment; filename="MIDO-NOVA-receipt-{order_id}.html"'
+    return resp
 
 @app.route("/admin")
 @admin_required
