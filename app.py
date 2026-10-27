@@ -24,7 +24,7 @@ app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024  # image uploads and receipts up to 8 MB
 DB_PATH = os.environ.get("DATABASE_PATH", "mido_nova.db")
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com").lower()
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD","mohammedaaa222")
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 SENDLIBERTY_API_KEY = os.environ.get("SENDLIBERTY_API_KEY", "").strip()
@@ -117,6 +117,13 @@ def init_db():
             receipt_filename TEXT DEFAULT '', status TEXT NOT NULL DEFAULT 'قيد المراجعة',
             admin_note TEXT DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             reviewed_at TIMESTAMP DEFAULT NULL)""")
+        con.execute("""CREATE TABLE IF NOT EXISTS digital_service_orders(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+            service_key TEXT NOT NULL, service_name TEXT NOT NULL,
+            details TEXT NOT NULL, price INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'قيد التنفيذ', admin_note TEXT DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
         try:
             con.execute("ALTER TABLE users ADD COLUMN wallet_balance INTEGER NOT NULL DEFAULT 0")
         except sqlite3.OperationalError:
@@ -301,7 +308,7 @@ a{color:inherit;text-decoration:none}button,input,select{font:inherit}.wrap{max-
 <div class="wrap install-strip" id="installStrip"><div><strong>📲 هل تريد تثبيت تطبيق MIDO NOVA؟</strong><small>ثبّته على هاتفك وافتحه مباشرة من الشاشة الرئيسية.</small></div><button class="btn primary small" id="installAppBtn" type="button">تثبيت التطبيق</button><button class="btn small" id="dismissInstallBtn" type="button" aria-label="إغلاق">×</button></div>
 <header class="topbar"><div class="wrap nav">
 <a class="brand" href="{{ url_for('home') }}"><div class="mark">M</div><div>MIDO <span>NOVA</span></div></a>
-<nav class="navlinks"><a href="{{ url_for('home') }}">الرئيسية</a><a href="{{ url_for('home') }}#categories">الأقسام</a><a href="{{ url_for('home') }}#products">المتجر</a><a href="{{url_for('lucky_wheel')}}">🎡 عجلة الحظ</a><a href="{{url_for('nova_ai')}}">✦ NOVA AI</a><a href="{{ url_for('my_orders') }}">طلباتي</a>{% if user %}<a href="{{ url_for('profile') }}">بروفايلي</a>{% endif %}</nav>
+<nav class="navlinks"><a href="{{ url_for('home') }}">الرئيسية</a><a href="{{ url_for('home') }}#categories">الأقسام</a><a href="{{ url_for('home') }}#products">المتجر</a><a href="{{url_for('lucky_wheel')}}">🎡 عجلة الحظ</a><a href="{{url_for('nova_ai')}}">✦ NOVA AI</a><a href="{{url_for('digital_hub')}}">NOVA HUB</a><a href="{{ url_for('my_orders') }}">طلباتي</a>{% if user %}<a href="{{ url_for('profile') }}">بروفايلي</a>{% endif %}</nav>
 <div class="navactions">
 {% if user %}<a class="btn small" href="{{ url_for('profile') }}">👤 بروفايلي</a><a class="btn primary small" href="{{ url_for('logout') }}">خروج</a>
 {% else %}<a class="btn small" href="{{ url_for('login') }}">دخول</a><a class="btn primary small" href="{{ url_for('register') }}">حساب جديد</a>{% endif %}
@@ -380,6 +387,75 @@ def page(title, body, **kwargs):
     return render_template_string(BASE, title=title, body=rendered_body, user=user, announcements=announcements,
                                  year=__import__("datetime").datetime.now().year,
                                  vodafone_number=VODAFONE_CASH_NUMBER)
+
+# NOVA DIGITAL HUB: paid service requests are recorded and handled from the admin panel.
+DIGITAL_SERVICES = [
+    {"key":"link_guard","name":"NOVA LINK GUARD","icon":"🛡️","price":1500,"desc":"طلب فحص رابط وتقرير أمان. يلزم ربط مزود فحص موثوق قبل التشغيل الآلي.","placeholder":"ضع الرابط الكامل الذي تريد فحصه (https://...)"},
+    {"key":"ai_pro","name":"NOVA AI PRO","icon":"🤖","price":1000,"desc":"طلب مساعدة ذكية أو كتابة أو تلخيص. سيُسجل الطلب لمراجعته؛ الربط الآلي يعتمد على إعداد مزود AI.","placeholder":"اكتب المطلوب بالتفصيل"},
+    {"key":"ai_studio","name":"NOVA AI STUDIO","icon":"🎨","price":2500,"desc":"طلب تصميم صورة بالذكاء الاصطناعي. يلزم إعداد مزود توليد صور لتسليم النتائج تلقائيًا.","placeholder":"وصف الصورة المطلوبة، المقاس، والألوان"},
+    {"key":"pdf_tools","name":"NOVA PDF TOOLS","icon":"📄","price":500,"desc":"طلب معالجة ملف PDF. اكتب نوع العملية؛ تجهيز المعالجة الآلية يحتاج إضافة مكتبات الأدوات المناسبة.","placeholder":"مثال: دمج ملفات أو ضغط PDF أو تحويل صورة إلى PDF"},
+    {"key":"pro_membership","name":"NOVA PRO MEMBERSHIP","icon":"👑","price":4999,"desc":"طلب باقة مميزات شهرية اختيارية؛ التفعيل يتم من لوحة الإدارة بعد مراجعة الطلب.","placeholder":"اكتب البريد المرتبط بحسابك وأي تفاصيل مطلوبة"},
+]
+
+@app.route("/digital-hub")
+def digital_hub():
+    user = current_user()
+    my_orders = []
+    if user:
+        with db() as con:
+            my_orders = con.execute("SELECT * FROM digital_service_orders WHERE user_id=? ORDER BY id DESC LIMIT 15", (user["id"],)).fetchall()
+    body = r"""
+    <section class="section"><div class="section-head"><div><span class="pill">NOVA DIGITAL HUB</span><h1 style="font-size:clamp(30px,5vw,46px)">خدماتك الرقمية في مكان واحد</h1><p>اختار الخدمة، راجع السعر، وادفع من محفظة الموقع. كل طلب يظهر في حسابك.</p></div><a class="btn" href="{{url_for('wallet')}}">💳 شحن المحفظة</a></div>
+    <div class="product-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:16px">
+    {% for s in services %}<article class="product-card" style="border:1px solid #285344;border-radius:22px;padding:20px;background:linear-gradient(145deg,#10241d,#091310);box-shadow:0 15px 40px #0003"><div style="font-size:34px">{{s.icon}}</div><h2 style="font-size:19px">{{s.name}}</h2><p style="color:#a7c2b6;line-height:1.8;min-height:82px">{{s.desc}}</p><div style="font-size:24px;font-weight:900;color:#caff72;margin:15px 0">{{'{:,.2f}'.format(s.price/100)}} ج.م</div><form method="post" action="{{url_for('digital_service_buy')}}"><input type="hidden" name="service_key" value="{{s.key}}"><label class="field">تفاصيل الطلب<textarea name="details" required minlength="5" maxlength="2000" placeholder="{{s.placeholder}}" style="width:100%;min-height:88px;background:#07100d;color:white;border:1px solid #315243;border-radius:12px;padding:10px"></textarea></label><button class="btn primary" style="width:100%;margin-top:10px">طلب الخدمة وخصم الرصيد</button></form></article>{% endfor %}</div>
+    <div class="notice" style="margin-top:20px">مهم: بعض الخدمات تحتاج ربط مزود خارجي قبل التسليم التلقائي. حالة الطلب وتفاصيله ستظهر هنا، ويُراجع الطلب من لوحة الإدارة. لا ترفع كلمات مرور أو أكواد تحقق أو بيانات دفع سرية.</div>
+    {% if user %}<h2 style="margin-top:30px">📋 طلباتي في NOVA HUB</h2><div class="tablewrap"><table><thead><tr><th>رقم</th><th>الخدمة</th><th>السعر</th><th>الحالة</th><th>التفاصيل</th><th>التاريخ</th></tr></thead><tbody>{% for o in my_orders %}<tr><td>#{{o.id}}</td><td>{{o.service_name}}</td><td>{{'{:,.2f}'.format(o.price/100)}} ج.م</td><td>{{o.status}}</td><td>{{o.admin_note or o.details}}</td><td>{{o.created_at}}</td></tr>{% else %}<tr><td colspan="6">لسه معندكش طلبات خدمات.</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="notice">سجّل الدخول أولًا لطلب خدمة مدفوعة.</p>{% endif %}</section>
+    """
+    return page("NOVA DIGITAL HUB", body, services=DIGITAL_SERVICES, my_orders=my_orders)
+
+@app.route("/digital-hub/buy", methods=["POST"])
+def digital_service_buy():
+    user = current_user()
+    if not user:
+        flash("سجّل الدخول أولًا لطلب خدمة.", "error")
+        return redirect(url_for("login"))
+    key = request.form.get("service_key", "")
+    details = request.form.get("details", "").strip()[:2000]
+    service = next((x for x in DIGITAL_SERVICES if x["key"] == key), None)
+    if not service or len(details) < 5:
+        flash("راجع الخدمة وتفاصيل الطلب.", "error")
+        return redirect(url_for("digital_hub"))
+    with db() as con:
+        con.execute("BEGIN IMMEDIATE")
+        fresh = con.execute("SELECT id,wallet_balance FROM users WHERE id=?", (user["id"],)).fetchone()
+        if not fresh or (fresh["wallet_balance"] or 0) < service["price"]:
+            con.rollback()
+            flash("رصيدك غير كافٍ. اشحن المحفظة ثم حاول مجددًا.", "error")
+            return redirect(url_for("wallet"))
+        con.execute("UPDATE users SET wallet_balance=wallet_balance-? WHERE id=?", (service["price"], user["id"]))
+        con.execute("INSERT INTO digital_service_orders(user_id,service_key,service_name,details,price) VALUES(?,?,?,?,?)", (user["id"], service["key"], service["name"], details, service["price"]))
+    notify_telegram(f"🧩 طلب خدمة NOVA HUB جديد\nالخدمة: {service['name']}\nالمستخدم: {user['email']}\nالسعر: {service['price']/100:.2f} ج.م\nالتفاصيل: {details[:500]}\nراجع /admin/service-orders")
+    flash("تم تسجيل الطلب وخصم قيمته من المحفظة. تابع حالته من صفحة NOVA HUB.", "success")
+    return redirect(url_for("digital_hub"))
+
+@app.route("/admin/service-orders", methods=["GET", "POST"])
+@admin_required
+def admin_service_orders():
+    if request.method == "POST":
+        order_id = request.form.get("order_id", type=int)
+        status = request.form.get("status", "قيد التنفيذ")
+        note = request.form.get("admin_note", "").strip()[:1000]
+        allowed = {"قيد التنفيذ", "يحتاج معلومات", "تم التسليم", "ملغي/استرداد مطلوب"}
+        if status not in allowed:
+            abort(400)
+        with db() as con:
+            con.execute("UPDATE digital_service_orders SET status=?,admin_note=?,updated_at=CURRENT_TIMESTAMP WHERE id=?", (status, note, order_id))
+        flash("تم تحديث حالة طلب الخدمة.", "success")
+        return redirect(url_for("admin_service_orders"))
+    with db() as con:
+        rows = con.execute("SELECT d.*,u.name user_name,u.email user_email FROM digital_service_orders d JOIN users u ON u.id=d.user_id ORDER BY d.id DESC LIMIT 300").fetchall()
+    body = r"""<section class="section"><div class="section-head"><div><h1>طلبات NOVA HUB</h1><p>راجع الطلبات وحدّث حالتها. لا تختَر «تم التسليم» إلا بعد إتمام الخدمة.</p></div><a class="btn" href="{{url_for('admin')}}">لوحة الإدارة</a></div><div class="tablewrap"><table><thead><tr><th>رقم</th><th>المستخدم</th><th>الخدمة</th><th>التفاصيل</th><th>السعر</th><th>الحالة والتحديث</th></tr></thead><tbody>{% for r in rows %}<tr><td>#{{r.id}}<br><small>{{r.created_at}}</small></td><td>{{r.user_name}}<br>{{r.user_email}}</td><td>{{r.service_name}}</td><td style="min-width:220px;white-space:pre-wrap">{{r.details}}</td><td>{{'{:,.2f}'.format(r.price/100)}} ج.م</td><td><form method="post" style="min-width:220px;display:grid;gap:7px"><input type="hidden" name="order_id" value="{{r.id}}"><select name="status">{% for st in ['قيد التنفيذ','يحتاج معلومات','تم التسليم','ملغي/استرداد مطلوب'] %}<option {% if r.status==st %}selected{% endif %}>{{st}}</option>{% endfor %}</select><input name="admin_note" maxlength="1000" value="{{r.admin_note}}" placeholder="رد أو تفاصيل التسليم"><button class="btn small primary">حفظ</button></form></td></tr>{% else %}<tr><td colspan="6">لا توجد طلبات حتى الآن.</td></tr>{% endfor %}</tbody></table></div></section>"""
+    return page("طلبات NOVA HUB", body, rows=rows)
 
 @app.route("/manifest.webmanifest")
 def pwa_manifest():
@@ -955,7 +1031,7 @@ def admin():
     <section class="section"><div class="section-head"><div><h2>لوحة الإدارة</h2><p>إدارة المنتجات ومراجعة الطلبات</p></div><a class="btn small" href="{{url_for('home')}}">عرض المتجر</a></div>
     <div class="formcard" style="max-width:none;margin:15px 0;border-color:#4b8e6d"><h2 style="margin-top:0">🌄 بانر واجهة المتجر</h2><p>ارفع صورة من معرض الموبايل لتظهر أعلى الصفحة الرئيسية. الأفضل صورة عريضة.</p><form method="post" action="{{url_for('admin_banner')}}" enctype="multipart/form-data" style="display:grid;gap:10px"><label class="field">اختيار صورة البانر<input type="file" name="banner_image" accept="image/png,image/jpeg,image/webp,image/gif" required></label>{% if banner %}<div><small>البانر الحالي:</small><br><img src="{{banner}}" alt="البانر الحالي" style="display:block;width:100%;max-height:220px;object-fit:cover;border-radius:14px;margin-top:8px"></div>{% endif %}<button class="btn primary" type="submit">حفظ وتحديث البانر</button></form></div>
     <div class="formcard" style="max-width:none;margin:15px 0"><h2 style="margin-top:0">📣 إعلان مؤقت للمستخدمين</h2><form method="post" action="{{url_for('admin_add_announcement')}}" style="display:grid;gap:8px"><label class="field">عنوان الإعلان<input name="title" maxlength="100" required></label><label class="field">النص<input name="body" maxlength="500" required></label><label class="field">المدة بالأيام<input type="number" name="days" min="1" max="365" value="3" required></label><button class="btn primary">نشر الإعلان</button></form><div style="margin-top:10px">{% for a in announcements %}<div style="padding:10px;border:1px solid #29463d;border-radius:12px;margin-top:8px">{{a.title}} — ينتهي {{a.expires_at}} <form method="post" action="{{url_for('admin_toggle_announcement',announcement_id=a.id)}}"><button class="btn small" style="margin-top:5px">{{'إيقاف' if a.active else 'تفعيل'}}</button></form></div>{% endfor %}</div></div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0"><a class="btn primary" href="{{url_for('lucky_wheel')}}">🎡 معاينة عجلة الحظ</a><a class="btn" href="{{url_for('nova_ai')}}">✦ صفحة مساعد NOVA AI</a></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0"><a class="btn primary" href="{{url_for('lucky_wheel')}}">🎡 معاينة عجلة الحظ</a><a class="btn" href="{{url_for('nova_ai')}}">✦ صفحة مساعد NOVA AI</a><a class="btn" href="{{url_for('digital_hub')}}">NOVA DIGITAL HUB</a><a class="btn" href="{{url_for('admin_service_orders')}}">📋 طلبات الخدمات المدفوعة</a></div>
     <div class="formcard" style="max-width:none;margin:15px 0"><h2 style="margin-top:0">إضافة منتج</h2>
     <form method="post" action="{{url_for('admin_add_product')}}" enctype="multipart/form-data" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
     <label class="field">اسم المنتج<input name="name" required maxlength="100"></label>
