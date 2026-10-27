@@ -16,31 +16,31 @@ from werkzeug.security import generate_password_hash, check_password_hash
 # MIDO NOVA | Digital Store
 # Run: python app.py
 # Optional environment variables:
-#   SECRET_KEY, ADMIN_EMAIL, ADMIN_PASSWORD, PORT
+#   SECRET_KEY, ADMIN_EMAIL, ADMIN_PASSWORD, PORT, SENDLIBERTY_API_KEY, SENDLIBERTY_FROM_EMAIL
 # Telegram OTP token is configured in TELEGRAM_BOT_TOKEN below.
 # =========================================================
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024  # image uploads and receipts up to 8 MB
 DB_PATH = os.environ.get("DATABASE_PATH", "mido_nova.db")
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@midonova.com").lower()
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeThis-Admin-123!")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com").lower()
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+SENDLIBERTY_API_KEY = os.environ.get("SENDLIBERTY_API_KEY", "").strip()
+SENDLIBERTY_FROM_EMAIL = os.environ.get("SENDLIBERTY_FROM_EMAIL", "P9496280@gmail.com").strip()
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash").strip()
-RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "onboarding@resend.dev")
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 # ضع توكن البوت الذي أنشأته من BotFather هنا بين علامتي الاقتباس.
 # لا تشارك هذا الملف علنًا بعد وضع التوكن الحقيقي بداخله.
-TELEGRAM_BOT_TOKEN = "PUT_YOUR_BOT_TOKEN_HERE"
+TELEGRAM_BOT_TOKEN = "8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4"
 # اسم القناة العامة أو رقم Chat ID، والبوت لازم يكون مشرفًا فيها.
 TELEGRAM_CHAT_ID = "@MidoWorld"
 TELEGRAM_BOT_URL = "https://t.me/midoassistantAIbot"
 PAYPAL_URL = os.environ.get("PAYPAL_URL", "https://www.paypal.com/")
-VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "ضع رقم فودافون كاش هنا")
+VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "01011541698")
 
 
 CATEGORIES = [
@@ -96,6 +96,10 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL, code_hash TEXT NOT NULL,
             purpose TEXT NOT NULL, payload TEXT DEFAULT '', expires_at TEXT NOT NULL,
             used INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        try:
+            con.execute("ALTER TABLE otp_codes ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
         con.execute("""CREATE TABLE IF NOT EXISTS announcements(
             id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT NOT NULL,
             expires_at TEXT NOT NULL, active INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
@@ -159,42 +163,59 @@ def admin_required(fn):
     return wrapper
 
 def send_otp_email(to_email, code, purpose="تأكيد الحساب"):
-    """Send OTP through Resend HTTP API (avoids outbound SMTP restrictions on hosting)."""
-    if not RESEND_API_KEY:
-        raise RuntimeError("إعداد RESEND_API_KEY غير موجود في Environment على Render.")
+    """Send a transactional OTP using SendLiberty's Gmail-backed REST API."""
+    if not SENDLIBERTY_API_KEY:
+        raise RuntimeError("إعداد SENDLIBERTY_API_KEY غير موجود في Environment على Render.")
+    if not SENDLIBERTY_FROM_EMAIL or "@" not in SENDLIBERTY_FROM_EMAIL:
+        raise RuntimeError("أضف SENDLIBERTY_FROM_EMAIL بعنوان Gmail الذي ربطته بالخدمة.")
 
+    text_body = (
+        f"مرحبًا بك في MIDO NOVA\n\n"
+        f"رمز التحقق الخاص بك هو: {code}\n\n"
+        "ينتهي الرمز خلال 10 دقائق. لا تشاركه مع أي شخص.\n"
+        "إذا لم تطلب هذا الرمز، يمكنك تجاهل الرسالة."
+    )
+    html_body = (
+        '<div dir="rtl" style="font-family:Arial,sans-serif;background:#07100f;color:#f1fbf7;'
+        'padding:28px;border-radius:18px;max-width:520px;margin:auto">'
+        '<h2 style="color:#39edbd;margin-top:0">MIDO NOVA</h2>'
+        f'<p>رمز التحقق الخاص بك لـ <b>{purpose}</b>:</p>'
+        f'<div style="font-size:34px;font-weight:bold;letter-spacing:8px;text-align:center;'
+        f'background:#10211e;border:1px solid #39edbd;border-radius:14px;padding:18px;margin:20px 0">{code}</div>'
+        '<p>ينتهي الرمز خلال <b>10 دقائق</b> ويُستخدم مرة واحدة. لا تشاركه مع أي شخص.</p>'
+        '<small style="color:#91aaa1">إذا لم تطلب هذا الرمز، يمكنك تجاهل الرسالة.</small></div>'
+    )
     payload = {
-        "from": f"MIDO NOVA <{RESEND_FROM_EMAIL}>",
-        "to": [to_email],
+        "from": f"MIDO NOVA <{SENDLIBERTY_FROM_EMAIL}>",
+        "to": to_email,
         "subject": f"MIDO NOVA | {purpose}",
-        "text": (
-            f"مرحبًا بك في MIDO NOVA\n\n"
-            f"رمز التحقق الخاص بك هو: {code}\n\n"
-            "ينتهي الرمز خلال 10 دقائق. لا تشاركه مع أي شخص.\n"
-            "إذا لم تطلب هذا الرمز، يمكنك تجاهل الرسالة."
-        ),
+        "text": text_body,
+        "html": html_body,
     }
-    request = urllib.request.Request(
-        "https://api.resend.com/emails",
+    req = urllib.request.Request(
+        "https://sendliberty.com/api/send",
         data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
         headers={
-            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Authorization": f"Bearer {SENDLIBERTY_API_KEY}",
             "Content-Type": "application/json",
+            "Accept": "application/json",
         },
         method="POST",
     )
     try:
-        with urllib.request.urlopen(request, timeout=20) as response:
+        with urllib.request.urlopen(req, timeout=20) as response:
+            response_body = response.read().decode("utf-8", errors="replace")
             if not 200 <= response.status < 300:
-                raise RuntimeError(f"Resend returned HTTP {response.status}")
-            response.read()
+                raise RuntimeError(f"SendLiberty returned HTTP {response.status}")
+            # A 2xx response indicates the service accepted the request, not guaranteed inbox delivery.
+            return json.loads(response_body) if response_body.strip().startswith("{") else {"accepted": True}
     except urllib.error.HTTPError as exc:
-        details = exc.read().decode("utf-8", errors="replace")[:500]
-        app.logger.error("Resend email API rejected request: HTTP %s: %s", exc.code, details)
-        raise RuntimeError(f"Resend رفض إرسال البريد (HTTP {exc.code}). راجع إعدادات المرسل والدومين.") from exc
+        details = exc.read().decode("utf-8", errors="replace")[:300]
+        app.logger.error("SendLiberty email API rejected request: HTTP %s: %s", exc.code, details)
+        raise RuntimeError(f"SendLiberty رفض إرسال البريد (HTTP {exc.code}). راجع المفتاح وحساب Gmail المربوط.") from exc
     except urllib.error.URLError as exc:
-        app.logger.error("Cannot reach Resend email API: %s", exc.reason)
-        raise RuntimeError("تعذر الاتصال بخدمة Resend API من الاستضافة.") from exc
+        app.logger.error("Cannot reach SendLiberty email API: %s", exc.reason)
+        raise RuntimeError("تعذر الاتصال بخدمة SendLiberty من الاستضافة.") from exc
 
 
 def send_telegram_message(message, chat_id=None):
@@ -286,6 +307,7 @@ a{color:inherit;text-decoration:none}button,input,select{font:inherit}.wrap{max-
 {{ body|safe }}
 </main>
 <a href="{{url_for('nova_ai')}}" style="position:fixed;bottom:20px;right:18px;z-index:9999;border:1px solid #caff72;border-radius:30px;padding:13px 18px;background:linear-gradient(135deg,#caff72,#49e5b4);color:#102018;font-weight:900;box-shadow:0 8px 28px #0008;text-decoration:none">✦ مساعد NOVA AI</a>
+<a href="{{url_for('lucky_wheel')}}" aria-label="افتح عجلة الحظ" style="position:fixed;right:18px;bottom:82px;z-index:9998;display:flex;align-items:center;gap:8px;border:1px solid #caff72;border-radius:30px;padding:11px 16px;background:linear-gradient(135deg,#173c2d,#0b1914);color:#eaffbd;font-weight:900;box-shadow:0 8px 28px #0009,0 0 18px #caff7222;text-decoration:none;backdrop-filter:blur(12px)">🎡 عجلة الحظ</a>
 <footer class="footer"><div class="wrap footerinner"><div>© {{ year }} MIDO NOVA — كل احتياجاتك الرقمية في مكان واحد.</div><div style="display:flex;gap:10px;flex-wrap:wrap"><a class="social-btn social-bot" href="https://t.me/midoassistantAIbot" target="_blank" rel="noopener">🤖 بوت التحقق</a><a class="social-btn social-dev" href="https://t.me/Mido_M9do" target="_blank" rel="noopener">👑 المطور</a><a class="social-btn social-channel" href="https://t.me/Midomsn" target="_blank" rel="noopener">📢 القناة الرسمية</a></div></div></footer>
 <script>
 (()=>{
@@ -510,7 +532,7 @@ def register():
                     with db() as con:
                         con.execute("DELETE FROM otp_codes WHERE email=? AND purpose=? AND used=0", (email, "تأكيد إنشاء الحساب"))
                         con.execute("DELETE FROM users WHERE id=?", (new_uid,))
-                flash("تعذر إرسال كود التحقق. تأكد من إعداد خدمة البريد RESEND_API_KEY في الاستضافة ثم حاول مجددًا.")
+                flash("تعذر إرسال كود التحقق. تأكد من إعداد SENDLIBERTY_API_KEY وSENDLIBERTY_FROM_EMAIL في الاستضافة ثم حاول مجددًا.")
     body = r"""
     <section class="formcard"><h1>انضم إلى <span class="gradient">MIDO NOVA</span></h1><p>أنشئ حسابك بأمان. سنرسل كود تحقق من 6 أرقام إلى بريدك.</p>
     <form method="post"><label class="field">الاسم<input name="name" maxlength="70" required autocomplete="name"></label>
@@ -541,11 +563,11 @@ def login():
                 return redirect(url_for("verify_otp"))
             except Exception:
                 app.logger.exception("Login OTP email failed")
-                flash("تعذر إرسال كود الأمان إلى بريدك. راجع سجل التشغيل وRESEND_API_KEY وبيانات المرسل في Render، ثم حاول مجددًا.")
+                flash("تعذر إرسال كود الأمان إلى بريدك. راجع إعدادات SENDLIBERTY_API_KEY وSENDLIBERTY_FROM_EMAIL في Render، ثم حاول مجددًا.")
         else:
             flash("بيانات الدخول غير صحيحة.")
     body = r"""
-    <section class="formcard"><h1>أهلًا بعودتك</h1><p>سجل دخولك إلى حسابك.</p>
+    <section class="formcard"><h1>أهلًا بعودتك</h1><p>بعد كلمة المرور، سنرسل كود تحقق إلى بريدك الإلكتروني.</p>
     <form method="post"><label class="field">البريد الإلكتروني<input type="email" name="email" required autocomplete="email"></label>
     <label class="field">كلمة المرور<input type="password" name="password" required autocomplete="current-password"></label>
     <button class="btn primary" type="submit">دخول</button></form><a class="btn" style="width:100%;margin-top:8px" href="{{url_for('google_login')}}">◉ المتابعة باستخدام Google</a><p>لسه جديد؟ <a style="color:var(--mint)" href="{{url_for('register')}}">اعمل حساب</a></p></section>"""
@@ -621,7 +643,7 @@ def send_otp():
             return redirect(url_for("verify_otp"))
         except Exception as exc:
             app.logger.warning("OTP email unavailable: %s", exc)
-            flash("تعذر إرسال البريد. راجع RESEND_API_KEY وبيانات المرسل في Render.")
+            flash("تعذر إرسال البريد. راجع SENDLIBERTY_API_KEY وSENDLIBERTY_FROM_EMAIL في Render.")
     body = r"""<section class="formcard"><h1>التحقق بالبريد</h1><p>أرسل كود أمان مكونًا من 6 أرقام إلى بريدك.</p><form method="post"><label class="field">البريد الإلكتروني<input name="email" type="email" required></label><label class="field">الغرض<input name="purpose" value="تأكيد الحساب" required></label><button class="btn primary">إرسال كود التحقق</button></form></section>"""
     return page("التحقق بالبريد", body)
 
@@ -633,14 +655,16 @@ def verify_otp():
         with db() as con:
             records = con.execute("SELECT * FROM otp_codes WHERE email=? AND used=0 ORDER BY id DESC LIMIT 5", (email,)).fetchall()
             match = None
+            now = datetime.utcnow()
             for row in records:
-                try:
-                    payload = json.loads(row["payload"] or "{}")
-                except (TypeError, json.JSONDecodeError):
-                    payload = {}
-                if datetime.fromisoformat(row["expires_at"]) > datetime.utcnow() and check_password_hash(row["code_hash"], code):
+                if int(row["attempts"] or 0) >= 5:
+                    continue
+                if datetime.fromisoformat(row["expires_at"]) <= now:
+                    continue
+                if check_password_hash(row["code_hash"], code):
                     match = row
                     break
+                con.execute("UPDATE otp_codes SET attempts=attempts+1 WHERE id=?", (row["id"],))
             if match:
                 con.execute("UPDATE otp_codes SET used=1 WHERE id=?", (match["id"],))
                 flash("تم التحقق من كود الأمان بنجاح.")
@@ -653,8 +677,8 @@ def verify_otp():
                     user = current_user()
                     return redirect(url_for("admin") if user and user["email"].lower() == ADMIN_EMAIL else url_for("home"))
                 return redirect(url_for("login"))
-        flash("الكود غير صحيح أو انتهت صلاحيته، راجع رسالة البوت وحاول تاني.")
-    body = r"""<section class="formcard"><h1>اكتب كود التحقق</h1><p>افتح محادثة بوت <a href="https://t.me/midoassistantAIbot" target="_blank" rel="noopener">Mido Assistant</a> وخد الكود اللي وصلك في الخاص.</p><form method="post"><label class="field">كود OTP<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="one-time-code"></label><button class="btn primary">تحقق</button></form></section>"""
+        flash("الكود غير صحيح أو انتهت صلاحيته أو تجاوزت عدد المحاولات المسموح بها.")
+    body = r"""<section class="formcard"><h1>اكتب كود التحقق</h1><p>افتح البريد الإلكتروني الذي سجلت به، واكتب كود التحقق المكوّن من 6 أرقام. الكود صالح لمدة 10 دقائق.</p><form method="post"><label class="field">كود OTP<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="one-time-code"></label><button class="btn primary">تحقق</button></form></section>"""
     return page("كود التحقق", body)
 
 @app.route("/profile", methods=["GET", "POST"])
