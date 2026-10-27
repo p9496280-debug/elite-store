@@ -248,7 +248,7 @@ BASE = r"""
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#07110f">
+<meta name="theme-color" content="#07110f"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="{{ url_for('pwa_manifest') }}"><link rel="icon" type="image/svg+xml" href="{{ url_for('pwa_icon') }}">
 <title>{{ title }} | MIDO NOVA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -257,7 +257,7 @@ BASE = r"""
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 85% -10%,#124b3b66,transparent 42%),radial-gradient(ellipse at 0% 40%,#0d2825,transparent 34%),var(--bg);color:var(--text);font-family:'Cairo',sans-serif;min-height:100vh}
 a{color:inherit;text-decoration:none}button,input,select{font:inherit}.wrap{max-width:1190px;margin:auto;padding:0 20px}
 .topbar{position:sticky;top:0;z-index:20;background:#07100feF;border-bottom:1px solid #1b302b;backdrop-filter:blur(18px)}
-.nav{height:78px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{display:flex;align-items:center;gap:11px;font-weight:900;font-size:23px;letter-spacing:-.5px}.mark{width:43px;height:43px;border:1px solid #46f5c5;border-radius:15px;display:grid;place-items:center;color:var(--mint);font-size:24px;font-weight:900;background:linear-gradient(145deg,#1b5545,#0a1513);box-shadow:0 0 24px #2be5b21c}.brand span{color:var(--mint)}.navlinks{display:flex;gap:22px;color:#b8cbc4;font-size:13px}.navlinks a:hover{color:var(--mint)}.navactions{display:flex;align-items:center;gap:9px}.btn{border:1px solid var(--line);background:#11221e;color:var(--text);border-radius:13px;padding:10px 15px;cursor:pointer;display:inline-flex;justify-content:center;align-items:center;gap:7px;font-weight:700;transition:.2s}.btn:hover{transform:translateY(-2px);border-color:#3ce3b3}.btn.primary{background:linear-gradient(120deg,#46f3c0,#12b78a);color:#042219;border:0;box-shadow:0 8px 25px #20c79522}.btn.small{font-size:12px;padding:8px 12px}.menu-toggle{display:none}
+.nav{height:78px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{display:flex;align-items:center;gap:11px;font-weight:900;font-size:23px;letter-spacing:-.5px}.mark{width:43px;height:43px;border:1px solid #46f5c5;border-radius:15px;display:grid;place-items:center;color:var(--mint);font-size:24px;font-weight:900;background:linear-gradient(145deg,#1b5545,#0a1513);box-shadow:0 0 24px #2be5b21c}.brand span{color:var(--mint)}.navlinks{display:flex;gap:22px;color:#b8cbc4;font-size:13px}.navlinks a:hover{color:var(--mint)}.navactions{display:flex;align-items:center;gap:9px}.btn{border:1px solid var(--line);background:#11221e;color:var(--text);border-radius:13px;padding:10px 15px;cursor:pointer;display:inline-flex;justify-content:center;align-items:center;gap:7px;font-weight:700;transition:.2s}.btn:hover{transform:translateY(-2px);border-color:#3ce3b3}.btn.primary{background:linear-gradient(120deg,#46f3c0,#12b78a);color:#042219;border:0;box-shadow:0 8px 25px #20c79522}.btn.small{font-size:12px;padding:8px 12px}.menu-toggle{display:none}.install-strip{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px auto 0;padding:10px 14px;border:1px solid #2c6b54;border-radius:15px;background:linear-gradient(100deg,#102b22,#0c1916);color:#eafff5}.install-strip strong{font-size:13px}.install-strip small{display:block;color:#94b6a8;font-size:11px}.install-strip button{white-space:nowrap}.install-strip[hidden]{display:none}@media(max-width:560px){.install-strip{margin:8px 12px 0}.install-strip strong{font-size:12px}.install-strip small{max-width:210px}}
 .hero{padding:53px 0 28px;display:grid;grid-template-columns:1.15fr .85fr;gap:28px;align-items:center}.eyebrow{display:inline-flex;gap:8px;align-items:center;color:var(--mint);border:1px solid #245748;background:#0b211b;border-radius:99px;padding:6px 13px;font-size:12px;font-weight:800}.dot{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 12px var(--mint)}h1{font-size:clamp(35px,5vw,58px);line-height:1.25;margin:17px 0 12px;font-weight:900;letter-spacing:-1.5px}.gradient{background:linear-gradient(90deg,#f5fff9,#4af2c0 75%);background-clip:text;color:transparent}.hero p{color:#9bb5ab;line-height:2;font-size:15px;max-width:590px}.hero-ctas{display:flex;gap:10px;flex-wrap:wrap;margin:24px 0}.trust{display:flex;gap:18px;flex-wrap:wrap;color:#8fa69d;font-size:12px}.trust b{color:#e5fff5}.showcase{position:relative;min-height:315px;border:1px solid #255347;border-radius:28px;padding:22px;background:linear-gradient(140deg,#102b24,#0b1514 68%);overflow:hidden;box-shadow:inset 0 1px #ffffff08,0 20px 70px #0005}.showcase:before{content:"";position:absolute;width:270px;height:270px;background:#20e2a422;filter:blur(70px);border-radius:50%;top:0;left:10%}.showtop{display:flex;justify-content:space-between;align-items:center;color:#92b8aa;font-size:12px;position:relative}.bigcoin{position:relative;margin:24px auto 20px;width:142px;height:142px;border-radius:42px;display:grid;place-items:center;font-size:74px;color:#caffee;border:1px solid #4af4c2;background:linear-gradient(145deg,#174c3e,#091512);box-shadow:0 0 65px #23dba52b;transform:rotate(-7deg)}.showfoot{position:relative;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #24443a;padding-top:16px}.showfoot strong{font-size:20px}.pill{background:#133a2e;color:#6df6c9;border:1px solid #24624d;border-radius:50px;padding:5px 10px;font-size:11px}
 .section{padding:28px 0}.section-head{display:flex;justify-content:space-between;align-items:end;gap:15px;margin-bottom:18px}.section-head h2{margin:0;font-size:25px}.section-head p{color:var(--muted);margin:3px 0 0;font-size:12px}.categories{display:grid;grid-template-columns:repeat(6,1fr);gap:11px}.cat{padding:17px 12px;background:linear-gradient(145deg,#10211d,#0a1513);border:1px solid var(--line);border-radius:18px;text-align:center;transition:.2s}.cat:hover{border-color:#3bdcae;transform:translateY(-3px)}.cat-icon{margin:0 auto 9px;width:47px;height:47px;display:grid;place-items:center;border-radius:15px;background:#17372d;color:var(--mint);font-size:24px}.cat strong{display:block;font-size:13px}.cat small{color:#7e9b90;font-size:10px}
 .toolbar{display:flex;gap:10px;margin:18px 0;flex-wrap:wrap}.search{flex:1;min-width:190px;background:#0d1b18;border:1px solid #234039;color:white;padding:12px 15px;border-radius:14px;outline:none}.search:focus{border-color:var(--mint)}.filter{background:#0d1b18;color:#bcd0c7;border:1px solid #234039;border-radius:13px;padding:10px 13px}
@@ -271,6 +271,7 @@ a{color:inherit;text-decoration:none}button,input,select{font:inherit}.wrap{max-
 </style>
 </head>
 <body>
+<div class="wrap install-strip" id="installStrip"><div><strong>📲 هل تريد تثبيت تطبيق MIDO NOVA؟</strong><small>ثبّته على هاتفك وافتحه مباشرة من الشاشة الرئيسية.</small></div><button class="btn primary small" id="installAppBtn" type="button">تثبيت التطبيق</button><button class="btn small" id="dismissInstallBtn" type="button" aria-label="إغلاق">×</button></div>
 <header class="topbar"><div class="wrap nav">
 <a class="brand" href="{{ url_for('home') }}"><div class="mark">M</div><div>MIDO <span>NOVA</span></div></a>
 <nav class="navlinks"><a href="{{ url_for('home') }}">الرئيسية</a><a href="{{ url_for('home') }}#categories">الأقسام</a><a href="{{ url_for('home') }}#products">المتجر</a><a href="{{url_for('lucky_wheel')}}">🎡 عجلة الحظ</a><a href="{{url_for('nova_ai')}}">✦ NOVA AI</a><a href="{{ url_for('my_orders') }}">طلباتي</a>{% if user %}<a href="{{ url_for('profile') }}">بروفايلي</a>{% endif %}</nav>
@@ -286,6 +287,25 @@ a{color:inherit;text-decoration:none}button,input,select{font:inherit}.wrap{max-
 </main>
 <a href="{{url_for('nova_ai')}}" style="position:fixed;bottom:20px;right:18px;z-index:9999;border:1px solid #caff72;border-radius:30px;padding:13px 18px;background:linear-gradient(135deg,#caff72,#49e5b4);color:#102018;font-weight:900;box-shadow:0 8px 28px #0008;text-decoration:none">✦ مساعد NOVA AI</a>
 <footer class="footer"><div class="wrap footerinner"><div>© {{ year }} MIDO NOVA — كل احتياجاتك الرقمية في مكان واحد.</div><div style="display:flex;gap:10px;flex-wrap:wrap"><a class="social-btn social-bot" href="https://t.me/midoassistantAIbot" target="_blank" rel="noopener">🤖 بوت التحقق</a><a class="social-btn social-dev" href="https://t.me/Mido_M9do" target="_blank" rel="noopener">👑 المطور</a><a class="social-btn social-channel" href="https://t.me/Midomsn" target="_blank" rel="noopener">📢 القناة الرسمية</a></div></div></footer>
+<script>
+(()=>{
+  const strip=document.getElementById('installStrip');
+  const installBtn=document.getElementById('installAppBtn');
+  const dismissBtn=document.getElementById('dismissInstallBtn');
+  let deferredPrompt=null;
+  const standalone=window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;
+  if(standalone || localStorage.getItem('midoInstallDismissed')==='1') strip.hidden=true;
+  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;strip.hidden=standalone;});
+  window.addEventListener('appinstalled',()=>{strip.hidden=true;deferredPrompt=null;});
+  installBtn.addEventListener('click',async()=>{
+    if(deferredPrompt){deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;return;}
+    const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+    alert(isIOS?'لتثبيت التطبيق: اضغط مشاركة في Safari ثم «إضافة إلى الشاشة الرئيسية».':'لو لم تظهر نافذة التثبيت، افتح قائمة المتصفح ⋮ ثم اختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».');
+  });
+  dismissBtn.addEventListener('click',()=>{strip.hidden=true;localStorage.setItem('midoInstallDismissed','1');});
+  if('serviceWorker' in navigator && location.protocol==='https:'){window.addEventListener('load',()=>navigator.serviceWorker.register('/service-worker.js').catch(()=>{}));}
+})();
+</script>
 </body></html>
 """
 
@@ -332,6 +352,48 @@ def page(title, body, **kwargs):
     return render_template_string(BASE, title=title, body=rendered_body, user=user, announcements=announcements,
                                  year=__import__("datetime").datetime.now().year,
                                  vodafone_number=VODAFONE_CASH_NUMBER)
+
+@app.route("/manifest.webmanifest")
+def pwa_manifest():
+    manifest = {
+        "id": "/", "name": "MIDO NOVA", "short_name": "MIDO NOVA",
+        "description": "متجرك الرقمي MIDO NOVA", "lang": "ar", "dir": "rtl",
+        "start_url": "/?source=pwa", "scope": "/", "display": "standalone",
+        "background_color": "#07100f", "theme_color": "#07110f",
+        "icons": [{"src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}]
+    }
+    response = make_response(json.dumps(manifest, ensure_ascii=False))
+    response.headers["Content-Type"] = "application/manifest+json; charset=utf-8"
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    return response
+
+@app.route("/pwa-icon.svg")
+def pwa_icon():
+    svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#163d30"/><stop offset="1" stop-color="#07100f"/></linearGradient></defs><rect width="512" height="512" rx="112" fill="url(#g)"/><rect x="28" y="28" width="456" height="456" rx="88" fill="none" stroke="#39edbd" stroke-width="8"/><path d="M132 368V144h54l140 142V144h54v224h-50L186 220v148z" fill="#eafff5"/><circle cx="390" cy="112" r="22" fill="#d9ff72"/></svg>'''
+    response = make_response(svg)
+    response.headers["Content-Type"] = "image/svg+xml; charset=utf-8"
+    response.headers["Cache-Control"] = "public, max-age=86400"
+    return response
+
+@app.route("/service-worker.js")
+def pwa_service_worker():
+    worker = '''const CACHE_NAME = "mido-nova-pwa-v1";
+self.addEventListener("install", event => { self.skipWaiting(); });
+self.addEventListener("activate", event => { event.waitUntil(self.clients.claim()); });
+self.addEventListener("fetch", event => {
+  const req = event.request;
+  if (req.method !== "GET" || new URL(req.url).origin !== self.location.origin) return;
+  const url = new URL(req.url);
+  if (url.pathname.startsWith("/admin") || url.pathname.includes("login") || url.pathname.includes("register") || url.pathname.includes("logout") || url.pathname.includes("checkout") || url.pathname.includes("wallet")) return;
+  if (req.mode === "navigate") {
+    event.respondWith(fetch(req).catch(() => new Response("<!doctype html><html lang=\"ar\" dir=\"rtl\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>MIDO NOVA</title><body style=\"font-family:sans-serif;background:#07100f;color:#eafff5;padding:32px;text-align:center\"><h2>أنت غير متصل بالإنترنت</h2><p>اتصل بالإنترنت ثم أعد تحميل MIDO NOVA.</p></body></html>", {headers:{"Content-Type":"text/html; charset=utf-8"}})));
+  }
+});'''
+    response = make_response(worker)
+    response.headers["Content-Type"] = "application/javascript; charset=utf-8"
+    response.headers["Service-Worker-Allowed"] = "/"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 @app.route("/")
 def home():
@@ -419,8 +481,8 @@ def register():
         email = request.form.get("email", "").strip().lower()[:160]
         password = request.form.get("password", "")
         telegram_id = request.form.get("telegram_id", "").strip()[:30]
-        if not name or "@" not in email or len(password) < 8 or not telegram_id.isdigit():
-            flash("اكتب بيانات صحيحة، وكلمة مرور 8 أحرف على الأقل.")
+        if not name or "@" not in email or len(password) < 8 or (telegram_id and not telegram_id.isdigit()):
+            flash("اكتب بيانات صحيحة، وكلمة مرور 8 أحرف على الأقل. رقم تيليجرام اختياري ويجب أن يكون أرقامًا فقط.")
         else:
             new_uid = None
             try:
@@ -428,36 +490,34 @@ def register():
                     cur = con.execute("INSERT INTO users(name,email,password_hash,telegram_id) VALUES(?,?,?,?)",
                                       (name, email, generate_password_hash(password), telegram_id))
                     new_uid = cur.lastrowid
-                # Generate the OTP here and publish it directly to Telegram from this app.py.
-                code, ttl = request_telegram_otp(name, email, telegram_id)
-                payload = json.dumps({"method": "telegram_dm"}, ensure_ascii=False)
+                code = f"{secrets.randbelow(1_000_000):06d}"
                 with db() as con:
                     con.execute("INSERT INTO otp_codes(email,code_hash,purpose,payload,expires_at) VALUES(?,?,?,?,?)",
-                        (email, generate_password_hash(code), "تأكيد إنشاء الحساب", payload,
-                         (datetime.utcnow()+timedelta(seconds=ttl)).isoformat()))
+                        (email, generate_password_hash(code), "تأكيد إنشاء الحساب", "{}",
+                         (datetime.utcnow()+timedelta(minutes=10)).isoformat()))
+                send_otp_email(email, code, "تأكيد إنشاء حساب MIDO NOVA")
                 session.clear()
                 session["otp_email"] = email
                 session["pending_auth_uid"] = new_uid
-                session["otp_method"] = "telegram"
-                flash("بعتنا كود التحقق في رسالة خاصة من البوت. افتح محادثة البوت واكتب الكود هنا.")
+                session["otp_method"] = "email"
+                flash("أرسلنا كود تحقق من 6 أرقام إلى بريدك الإلكتروني. صالح لمدة 10 دقائق.")
                 return redirect(url_for("verify_otp"))
             except sqlite3.IntegrityError:
                 flash("البريد الإلكتروني مستخدم بالفعل.")
-            except Exception as exc:
-                app.logger.exception("Registration Telegram OTP failed")
+            except Exception:
+                app.logger.exception("Registration email OTP failed")
                 if new_uid:
                     with db() as con:
-                        con.execute("DELETE FROM otp_codes WHERE email=? AND purpose=? AND used=0",
-                                    (email, "تأكيد إنشاء الحساب"))
+                        con.execute("DELETE FROM otp_codes WHERE email=? AND purpose=? AND used=0", (email, "تأكيد إنشاء الحساب"))
                         con.execute("DELETE FROM users WHERE id=?", (new_uid,))
-                flash(f"لم نقدرش نبعت كود التحقق عبر تيليجرام: {str(exc)[:180]}")
+                flash("تعذر إرسال كود التحقق. تأكد من إعداد خدمة البريد RESEND_API_KEY في الاستضافة ثم حاول مجددًا.")
     body = r"""
-    <section class="formcard"><h1>انضم إلى <span class="gradient">MIDO NOVA</span></h1><p>أنشئ حسابك وابدأ اكتشاف المتجر.</p>
+    <section class="formcard"><h1>انضم إلى <span class="gradient">MIDO NOVA</span></h1><p>أنشئ حسابك بأمان. سنرسل كود تحقق من 6 أرقام إلى بريدك.</p>
     <form method="post"><label class="field">الاسم<input name="name" maxlength="70" required autocomplete="name"></label>
     <label class="field">البريد الإلكتروني<input type="email" name="email" required autocomplete="email"></label>
     <label class="field">كلمة المرور<input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
-    <label class="field">Telegram ID<input name="telegram_id" inputmode="numeric" pattern="[0-9]+" required placeholder="افتح البوت واضغط Start ثم أدخل رقمك"></label><a class="btn" href="https://t.me/midoassistantAIbot" target="_blank" rel="noopener">🤖 افتح بوت التحقق أولًا</a>
-    <button class="btn primary" type="submit">إنشاء الحساب</button></form><a class="btn" style="width:100%;margin-top:8px" href="{{url_for('google_login')}}">◉ التسجيل باستخدام Google</a><p>كود التسجيل هيوصلك في رسالة خاصة من البوت. لازم تفتح البوت وتضغط Start الأول، وتجيب Telegram ID من البوت.</p><p>عندك حساب؟ <a style="color:var(--mint)" href="{{url_for('login')}}">سجل دخولك</a></p></section>"""
+    <label class="field">Telegram ID (اختياري للإشعارات)<input name="telegram_id" inputmode="numeric" pattern="[0-9]*" placeholder="يمكنك إضافته لاحقًا"></label>
+    <button class="btn primary" type="submit">إنشاء الحساب وإرسال OTP</button></form><a class="btn" style="width:100%;margin-top:8px" href="{{url_for('google_login')}}">◉ التسجيل باستخدام Google</a><p>كود التحقق صالح لمدة 10 دقائق ويُستخدم مرة واحدة.</p><p>عندك حساب؟ <a style="color:var(--mint)" href="{{url_for('login')}}">سجل دخولك</a></p></section>"""
     return page("حساب جديد", body)
 
 @app.route("/login", methods=["GET", "POST"])
@@ -468,12 +528,6 @@ def login():
         with db() as con:
             user = con.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
         if user and check_password_hash(user["password_hash"], password):
-            # Trusted developer account: skip OTP only for the configured admin email.
-            if email == ADMIN_EMAIL:
-                session.clear()
-                session["user_id"] = user["id"]
-                flash("أهلًا بالمطور، تم تسجيل دخولك مباشرة.")
-                return redirect(url_for("admin"))
             code = f"{random.randint(0, 999999):06d}"
             with db() as con:
                 con.execute("INSERT INTO otp_codes(email,code_hash,purpose,payload,expires_at) VALUES(?,?,?,?,?)",
