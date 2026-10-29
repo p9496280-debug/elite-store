@@ -69,6 +69,15 @@ def db():
     conn.row_factory = sqlite3.Row
     return conn
 
+def _ensure_column(con, table, column, declaration):
+    """Add a missing column to an older SQLite database without deleting data."""
+    try:
+        existing = {row[1] for row in con.execute(f"PRAGMA table_info({table})").fetchall()}
+        if existing and column not in existing:
+            con.execute(f"ALTER TABLE {table} ADD COLUMN {column} {declaration}")
+    except sqlite3.OperationalError:
+        pass
+
 def init_db():
     with db() as con:
         con.execute("""CREATE TABLE IF NOT EXISTS users(
@@ -130,8 +139,15 @@ def init_db():
         con.execute("CREATE TABLE IF NOT EXISTS app_reviews(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5), comment TEXT DEFAULT '', active INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id))")
         con.execute("CREATE TABLE IF NOT EXISTS social_tips(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT NOT NULL, image_url TEXT DEFAULT '', active INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
         con.execute("""CREATE TABLE IF NOT EXISTS announcements(
-            id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT NOT NULL,
-            expires_at TEXT NOT NULL, active INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+            id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '',
+            expires_at TEXT NOT NULL DEFAULT '2099-12-31T23:59', active INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        # Compatibility repair: older announcements tables may lack expires_at/active.
+        # page() queries announcements on every page, so one missing column can break all menus.
+        _ensure_column(con, "announcements", "title", "TEXT NOT NULL DEFAULT ''")
+        _ensure_column(con, "announcements", "body", "TEXT NOT NULL DEFAULT ''")
+        _ensure_column(con, "announcements", "expires_at", "TEXT NOT NULL DEFAULT '2099-12-31T23:59'")
+        _ensure_column(con, "announcements", "active", "INTEGER NOT NULL DEFAULT 1")
+        _ensure_column(con, "announcements", "created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
         con.execute("""CREATE TABLE IF NOT EXISTS site_settings(
             key TEXT PRIMARY KEY, value TEXT DEFAULT '')""")
         con.execute("""CREATE TABLE IF NOT EXISTS wallet_topups(
@@ -140,6 +156,16 @@ def init_db():
             receipt_filename TEXT DEFAULT '', status TEXT NOT NULL DEFAULT 'قيد المراجعة',
             admin_note TEXT DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             reviewed_at TIMESTAMP DEFAULT NULL)""")
+        # Additive repairs for service/coin tables from older app versions.
+        for table, column, declaration in [
+            ("coin_topups", "reference", "TEXT NOT NULL DEFAULT ''"),
+            ("coin_topups", "status", "TEXT NOT NULL DEFAULT 'قيد المراجعة'"),
+            ("coin_topups", "reviewed_at", "TIMESTAMP DEFAULT NULL"),
+            ("support_tickets", "status", "TEXT NOT NULL DEFAULT 'مفتوحة'"),
+            ("support_tickets", "admin_reply", "TEXT DEFAULT ''"),
+            ("support_tickets", "created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
+        ]:
+            _ensure_column(con, table, column, declaration)
         con.execute("""CREATE TABLE IF NOT EXISTS digital_service_orders(
             id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
             service_key TEXT NOT NULL, service_name TEXT NOT NULL,
@@ -433,7 +459,11 @@ function pickCategory(c){document.getElementById('categoryFilter').value=c;filte
 def page(title, body, **kwargs):
     user = current_user()
     with db() as con:
-        announcements = con.execute("SELECT * FROM announcements WHERE active=1 AND expires_at>? ORDER BY id DESC", (datetime.now().strftime("%Y-%m-%dT%H:%M"),)).fetchall()
+        try:
+            announcements = con.execute("SELECT * FROM announcements WHERE active=1 AND expires_at>? ORDER BY id DESC", (datetime.now().strftime("%Y-%m-%dT%H:%M"),)).fetchall()
+        except sqlite3.OperationalError:
+            # Last-resort fallback for a legacy database; keep public pages accessible.
+            announcements = []
     rendered_body = render_template_string(body, user=user, categories=CATEGORIES, vodafone_number=VODAFONE_CASH_NUMBER, **kwargs)
     return render_template_string(BASE, title=title, body=rendered_body, user=user, announcements=announcements,
                                  year=__import__("datetime").datetime.now().year,
