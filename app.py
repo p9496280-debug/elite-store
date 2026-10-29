@@ -40,7 +40,7 @@ TELEGRAM_BOT_TOKEN = os.environ.get("8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN526
 # اسم القناة العامة أو رقم Chat ID، والبوت لازم يكون مشرفًا فيها.
 TELEGRAM_CHAT_ID = os.environ.get("6110549529", "").strip()
 TELEGRAM_BOT_URL = "https://t.me/midoassistantAIbot"
-TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "").strip()
+TELEGRAM_WEBHOOK_SECRET = os.environ.get("MidoNova_7xP9_secure_2026_K8mQ", "").strip()
 PAYPAL_URL = os.environ.get("PAYPAL_URL", "https://www.paypal.com/")
 VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "01011541698")
 
