@@ -23,8 +23,8 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024  # image uploads and receipts up to 8 MB
 DB_PATH = os.environ.get("DATABASE_PATH", "mido_nova.db")
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@midonova.com").lower()
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeThis-Admin-123!")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com").lower()
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 SENDLIBERTY_API_KEY = os.environ.get("SENDLIBERTY_API_KEY", "").strip()
@@ -35,12 +35,12 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 # ضع توكن البوت الذي أنشأته من BotFather هنا بين علامتي الاقتباس.
 # لا تشارك هذا الملف علنًا بعد وضع التوكن الحقيقي بداخله.
-TELEGRAM_BOT_TOKEN = "PUT_YOUR_BOT_TOKEN_HERE"
+TELEGRAM_BOT_TOKEN = "8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4"
 # اسم القناة العامة أو رقم Chat ID، والبوت لازم يكون مشرفًا فيها.
 TELEGRAM_CHAT_ID = "@MidoWorld"
 TELEGRAM_BOT_URL = "https://t.me/midoassistantAIbot"
 PAYPAL_URL = os.environ.get("PAYPAL_URL", "https://www.paypal.com/")
-VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "ضع رقم فودافون كاش هنا")
+VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "01011541698")
 
 
 CATEGORIES = [
