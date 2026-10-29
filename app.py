@@ -894,7 +894,7 @@ def buy_nova_coins():
             flash("الباقة غير صالحة."); return redirect(url_for("nova_coins"))
         cur = con.execute("INSERT INTO coin_topups(user_id,package_coins,price_piasters,reference) VALUES(?,?,?,?)",(user["id"],coins,price,reference))
         coin_request_id = cur.lastrowid
-    notify_telegram_transaction(f"🪙 طلب عملات NOVA #{coin_request_id}\nاسم المستخدم: {user['name']}\nالبريد: {user['email']}\nرصيده الحالي قبل الشحن: {int(user.get('nova_coins', 0) or 0)} 🪙\nالباقة المطلوبة: {coins} عملة\nالقيمة: {price/100:.2f} جنيه\nالمرجع: {reference}\nعند الضغط على تأكيد في البوت ستضاف {coins} عملة فورًا إلى رصيد المستخدم.", "coins", coin_request_id)
+    notify_telegram_transaction(f"🪙 طلب عملات NOVA #{coin_request_id}\nاسم المستخدم: {user['name']}\nالبريد: {user['email']}\nرصيده الحالي قبل الشحن: {int(user['nova_coins'] or 0)} 🪙\nالباقة المطلوبة: {coins} عملة\nالقيمة: {price/100:.2f} جنيه\nالمرجع: {reference}\nعند الضغط على تأكيد في البوت ستضاف {coins} عملة فورًا إلى رصيد المستخدم.", "coins", coin_request_id)
     flash("تم إرسال طلب العملات للمراجعة؛ ستضاف بعد تأكيد التحويل.")
     return redirect(url_for("nova_coins"))
 
