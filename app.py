@@ -23,8 +23,8 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024  # image uploads and receipts up to 8 MB
 DB_PATH = os.environ.get("DATABASE_PATH", "mido_nova.db")
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com").lower()
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@midonova.com").lower()
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeThis-Admin-123!")
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 SENDLIBERTY_API_KEY = os.environ.get("SENDLIBERTY_API_KEY", "").strip()
@@ -35,12 +35,12 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 # ضع توكن البوت الذي أنشأته من BotFather هنا بين علامتي الاقتباس.
 # لا تشارك هذا الملف علنًا بعد وضع التوكن الحقيقي بداخله.
-TELEGRAM_BOT_TOKEN = "8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4"
+TELEGRAM_BOT_TOKEN = "PUT_YOUR_BOT_TOKEN_HERE"
 # اسم القناة العامة أو رقم Chat ID، والبوت لازم يكون مشرفًا فيها.
 TELEGRAM_CHAT_ID = "@MidoWorld"
 TELEGRAM_BOT_URL = "https://t.me/midoassistantAIbot"
 PAYPAL_URL = os.environ.get("PAYPAL_URL", "https://www.paypal.com/")
-VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "01011541698")
+VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "ضع رقم فودافون كاش هنا")
 
 
 CATEGORIES = [
@@ -308,7 +308,7 @@ a{color:inherit;text-decoration:none}button,input,select{font:inherit}.wrap{max-
 <div class="wrap install-strip" id="installStrip"><div><strong>📲 هل تريد تثبيت تطبيق MIDO NOVA؟</strong><small>ثبّته على هاتفك وافتحه مباشرة من الشاشة الرئيسية.</small></div><button class="btn primary small" id="installAppBtn" type="button">تثبيت التطبيق</button><button class="btn small" id="dismissInstallBtn" type="button" aria-label="إغلاق">×</button></div>
 <header class="topbar"><div class="wrap nav">
 <a class="brand" href="{{ url_for('home') }}"><div class="mark">M</div><div>MIDO <span>NOVA</span></div></a>
-<nav class="navlinks"><a href="{{ url_for('home') }}">الرئيسية</a><a href="{{ url_for('home') }}#categories">الأقسام</a><a href="{{ url_for('home') }}#products">المتجر</a><a href="{{url_for('lucky_wheel')}}">🎡 عجلة الحظ</a><a href="{{url_for('nova_ai')}}">✦ NOVA AI</a><a href="{{url_for('digital_hub')}}">NOVA HUB</a><a href="{{ url_for('my_orders') }}">طلباتي</a>{% if user %}<a href="{{ url_for('profile') }}">بروفايلي</a>{% endif %}</nav>
+<nav class="navlinks"><a href="{{ url_for('home') }}">الرئيسية</a><a href="{{ url_for('home') }}#categories">الأقسام</a><a href="{{ url_for('home') }}#products">المتجر</a><a href="{{url_for('lucky_wheel')}}">🎡 عجلة الحظ</a><a href="{{url_for('nova_ai')}}">✦ NOVA AI</a><a href="{{url_for('nova_super_hub')}}">✦ SUPER HUB</a><a href="{{url_for('digital_hub')}}">NOVA HUB</a><a href="{{ url_for('my_orders') }}">طلباتي</a>{% if user %}<a href="{{ url_for('profile') }}">بروفايلي</a>{% endif %}</nav>
 <div class="navactions">
 {% if user %}<a class="btn small" href="{{ url_for('profile') }}">👤 بروفايلي</a><a class="btn primary small" href="{{ url_for('logout') }}">خروج</a>
 {% else %}<a class="btn small" href="{{ url_for('login') }}">دخول</a><a class="btn primary small" href="{{ url_for('register') }}">حساب جديد</a>{% endif %}
@@ -357,6 +357,7 @@ HOME = r"""
 <div class="showcase"><div class="showtop"><span>✦ MIDO NOVA</span><span class="pill">متجرك الرقمي</span></div><div class="bigcoin">M</div><div class="showfoot"><div><small style="color:#8aa99b">EVERYTHING IN ONE PLACE</small><br><strong>ابدأ اكتشافك</strong></div><span class="pill">آمن • بسيط • أنيق</span></div></div>
 </section>
 <section class="section" style="margin-top:24px;padding:22px;border:1px solid #285344;border-radius:24px;background:linear-gradient(135deg,#10251d,#0b1512)">
+<div style="margin:22px 0;padding:20px;border:1px solid #4caa85;border-radius:22px;background:linear-gradient(110deg,#102c23,#101d32 58%,#231a36);display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap"><div><span style="color:#8fffd0;font-size:11px;font-weight:900">NOVA SUPER HUB</span><h2 style="margin:6px 0">كل عالم NOVA في مكان واحد ✦</h2><p style="margin:0;color:#a8c7bd;font-size:13px">AI • TOOLS • GAMING • WALLET • REWARDS • SECURITY • CLUB</p></div><a href="{{url_for('nova_super_hub')}}" style="background:linear-gradient(135deg,#9effce,#63aaff);color:#071711;text-decoration:none;padding:13px 20px;border-radius:14px;font-weight:900">استكشف كل القوائم ←</a></div>
 <div class="section-head"><div><span class="pill">NEW · NOVA DIGITAL HUB</span><h2>✨ جرّب خدمات NOVA الجديدة</h2><p>خمس خدمات رقمية — افتح القسم واختر الخدمة المناسبة لك.</p></div><a class="btn primary" href="{{url_for('digital_hub')}}" style="background:linear-gradient(135deg,#caff72,#39e6b1);color:#08140f;border:0;font-weight:900">افتح مركز الخدمات ←</a></div>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-top:16px">
 <a href="{{url_for('digital_hub')}}#link_guard" style="text-decoration:none;text-align:center;padding:15px 10px;border-radius:16px;background:linear-gradient(135deg,#123d34,#0c211b);border:1px solid #35d7ad;color:#c8ffef;font-weight:850">🛡️ فحص الروابط</a>
@@ -507,6 +508,19 @@ self.addEventListener("fetch", event => {
     response.headers["Service-Worker-Allowed"] = "/"
     response.headers["Cache-Control"] = "no-cache"
     return response
+
+@app.route("/super-hub")
+def nova_super_hub():
+    departments = [
+      ("🤖","NOVA AI","#65b7ff","#10253d","المساعد الذكي، Writer، Studio، الترجمة، التلخيص ومكتبة البرومبتات.","AI Chat: متاح","الميزات الأخرى تحتاج ربطًا واختبارًا"),
+      ("🛡️","NOVA SECURITY","#4ee0b0","#10362d","فحص الروابط، معلومات النطاقات، معاينة المختصرات، فحص الملفات ونصائح الأمان.","طلب فحص الروابط: عبر NOVA HUB","بقية الفحوص تحتاج مزودًا متخصصًا"),
+      ("🎮","NOVA GAMING","#ff9b62","#3b2119","بوابة Google Play وPlayStation وXbox وSteam والعروض.","تصفح المنتجات الموجودة","توافر المنتجات حسب المخزون"),
+      ("💳","NOVA WALLET","#73a8ff","#182747","الرصيد، الشحن، المعاملات، المشتريات، الخصومات ونقاط المستخدم.","المحفظة والطلبات: متاحان","راجع الرصيد وسجل العمليات من حسابك"),
+      ("🏆","NOVA REWARDS","#f4d35e","#393315","العجلة، المكافأة اليومية، المهام، الإحالات، المستويات ولوحة المتصدرين.","عجلة الحظ: متاحة","الباقي تطويرات مقترحة"),
+      ("🧰","NOVA TOOLS","#d5a3ff","#2a1b3e","PDF، صور إلى PDF، ضغط وتغيير مقاس الصور، مولد كلمات مرور، QR، عداد كلمات وتنسيق نصوص.","طلبات PDF عبر مركز الخدمات","أدوات التنفيذ الفوري قيد التطوير"),
+      ("👑","NOVA CLUB","#f2d66e","#3a3014","خطط Free وPlus وPro وخصومات ومزايا للأعضاء.","قسم تعريفي","الاشتراكات والمزايا غير مفعلة حتى الربط")]
+    body = r'''<section style="padding:25px 0 45px"><div style="padding:clamp(22px,4vw,42px);border:1px solid #2d5b4a;border-radius:28px;background:radial-gradient(ellipse at 5% 5%,#174c37,transparent 44%),radial-gradient(ellipse at 95% 0,#1a3155,transparent 40%),#09130f"><small style="color:#a5ffd4;font-weight:900">MIDO NOVA · ALL-IN-ONE PLATFORM</small><h1 style="font-size:clamp(34px,6vw,55px);margin:12px 0">NOVA <span style="color:#a5ffd4">SUPER HUB</span></h1><p style="color:#b2c9bf;line-height:2">كل قوائم NOVA بتصميم مستقل وألوان مميزة. ادخل على القسم المناسب ليك.</p><div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:17px"><a href="{{url_for('digital_hub')}}" style="text-decoration:none;padding:12px 17px;background:#a5ffd4;color:#082016;border-radius:13px;font-weight:900">مركز الخدمات</a><a href="{{url_for('home')}}#products" style="text-decoration:none;padding:12px 17px;background:#182d25;border:1px solid #355747;color:#eafff4;border-radius:13px;font-weight:850">المتجر</a><a href="{{url_for('wallet')}}" style="text-decoration:none;padding:12px 17px;background:#182b48;border:1px solid #4268a2;color:#eaf2ff;border-radius:13px;font-weight:850">المحفظة</a></div></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,285px),1fr));gap:16px;margin-top:20px">{% for d in departments %}<article style="border:1px solid {{d[2]}}77;border-radius:23px;padding:20px;background:linear-gradient(145deg,{{d[3]}},#0b1212 85%);box-shadow:0 15px 38px #0003"><div style="font-size:33px">{{d[0]}}</div><h2 style="margin:8px 0;color:{{d[2]}}">{{d[1]}}</h2><p style="color:#c0cec8;line-height:1.9;font-size:12px;min-height:58px">{{d[4]}}</p><div style="padding:11px;border-radius:12px;background:#050b0a88;color:#f1faf5;font-size:12px;margin:8px 0">✓ {{d[5]}}</div><div style="padding:11px;border-radius:12px;background:#050b0a88;color:#9eafa8;font-size:11px;line-height:1.8">ℹ {{d[6]}}</div>{% if d[1]=='NOVA AI' %}<a href="{{url_for('nova_ai')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[2]}};color:#07120e;text-decoration:none;font-weight:900">افتح المساعد ↗</a>{% elif d[1]=='NOVA SECURITY' or d[1]=='NOVA TOOLS' %}<a href="{{url_for('digital_hub')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[2]}};color:#07120e;text-decoration:none;font-weight:900">افتح مركز الخدمات ↗</a>{% elif d[1]=='NOVA GAMING' %}<a href="{{url_for('home')}}#products" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[2]}};color:#07120e;text-decoration:none;font-weight:900">تصفح المتجر ↗</a>{% elif d[1]=='NOVA WALLET' %}<a href="{{url_for('wallet')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[2]}};color:#07120e;text-decoration:none;font-weight:900">افتح المحفظة ↗</a>{% elif d[1]=='NOVA REWARDS' %}<a href="{{url_for('lucky_wheel')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[2]}};color:#07120e;text-decoration:none;font-weight:900">افتح العجلة ↗</a>{% endif %}</article>{% endfor %}</div><div style="margin-top:18px;padding:15px;border:1px solid #514522;border-radius:15px;background:#211d0d;color:#eadfa9;font-size:11px;line-height:2"><b>شفافية:</b> الصفحة بتجمع الأقسام وتوجهك للوظائف الحالية. المكتوب عليه تطوير أو يحتاج ربط مش ميزة مكتملة. بعض طلبات الخدمات يتم تسجيلها للمراجعة اليدوية فقط؛ لا تدفع مقابل تنفيذ تلقائي قبل الربط والاختبار. حافظنا على صفحات المتجر والمحفظة والطلبات ولوحة الإدارة الحالية.</div></section>'''
+    return page("NOVA SUPER HUB", body, departments=departments)
 
 @app.route("/")
 def home():
