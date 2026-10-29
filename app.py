@@ -3,6 +3,7 @@ import sqlite3
 import secrets
 import random
 import json
+import re
 import urllib.parse
 import urllib.request
 from email.message import EmailMessage
@@ -35,10 +36,11 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 # ضع توكن البوت الذي أنشأته من BotFather هنا بين علامتي الاقتباس.
 # لا تشارك هذا الملف علنًا بعد وضع التوكن الحقيقي بداخله.
-TELEGRAM_BOT_TOKEN = "8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4"
+TELEGRAM_BOT_TOKEN = os.environ.get("8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4", "").strip()
 # اسم القناة العامة أو رقم Chat ID، والبوت لازم يكون مشرفًا فيها.
-TELEGRAM_CHAT_ID = "@MidoWorld"
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
 TELEGRAM_BOT_URL = "https://t.me/midoassistantAIbot"
+TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "").strip()
 PAYPAL_URL = os.environ.get("PAYPAL_URL", "https://www.paypal.com/")
 VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "01011541698")
 
@@ -342,6 +344,137 @@ def notify_telegram(message):
         app.logger.exception("Telegram notification failed")
         return False
 
+
+def notify_telegram_transaction(message, kind, transaction_id):
+    """Send a transaction notification with secure, webhook-handled Confirm/Reject buttons."""
+    if not (TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID):
+        app.logger.warning("Telegram transaction notification skipped: TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID missing")
+        return False
+    if kind not in {"wallet", "coins", "order", "service", "gplay"}:
+        return notify_telegram(message)
+    keyboard = {"inline_keyboard": [[
+        {"text": "✅ تأكيد", "callback_data": f"tx:approve:{kind}:{int(transaction_id)}"},
+        {"text": "❌ رفض", "callback_data": f"tx:reject:{kind}:{int(transaction_id)}"}
+    ]]}
+    payload = json.dumps({"chat_id": TELEGRAM_CHAT_ID, "text": message,
+                          "reply_markup": keyboard, "disable_web_page_preview": True}, ensure_ascii=False).encode()
+    req = urllib.request.Request(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+                                 data=payload, headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=12) as response:
+            result = json.loads(response.read().decode("utf-8"))
+            if not result.get("ok"):
+                app.logger.error("Telegram transaction notification rejected: %s", result.get("description"))
+                return False
+            return True
+    except Exception:
+        app.logger.exception("Telegram transaction notification failed")
+        return False
+
+
+def _telegram_api(method, payload):
+    if not TELEGRAM_BOT_TOKEN:
+        raise RuntimeError("TELEGRAM_BOT_TOKEN غير مضبوط في إعدادات Render.")
+    data = json.dumps(payload, ensure_ascii=False).encode()
+    req = urllib.request.Request(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/{method}",
+                                 data=data, headers={"Content-Type": "application/json"}, method="POST")
+    with urllib.request.urlopen(req, timeout=15) as response:
+        result = json.loads(response.read().decode("utf-8"))
+    if not result.get("ok"):
+        raise RuntimeError(result.get("description", "Telegram API error"))
+    return result
+
+
+@app.route("/telegram/webhook", methods=["POST"])
+def telegram_webhook():
+    # Require Telegram's webhook secret header so strangers cannot approve transactions.
+    supplied = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+    if not TELEGRAM_WEBHOOK_SECRET or not secrets.compare_digest(supplied, TELEGRAM_WEBHOOK_SECRET):
+        abort(403)
+    update = request.get_json(silent=True) or {}
+    callback = update.get("callback_query")
+    if not callback:
+        return jsonify({"ok": True})
+    callback_id = callback.get("id", "")
+    data = str(callback.get("data", ""))
+    match = re.fullmatch(r"tx:(approve|reject):(wallet|coins|order|service|gplay):(\d+)", data)
+    if not match:
+        try: _telegram_api("answerCallbackQuery", {"callback_query_id": callback_id, "text": "زر غير صالح."})
+        except Exception: app.logger.exception("Could not answer Telegram callback")
+        return jsonify({"ok": True})
+    decision, kind, raw_id = match.groups()
+    tid = int(raw_id)
+    label = "تم التأكيد" if decision == "approve" else "مرفوض"
+    result_text = "تم تنفيذ القرار." 
+    try:
+        with db() as con:
+            con.execute("BEGIN IMMEDIATE")
+            if kind == "wallet":
+                row = con.execute("SELECT * FROM wallet_topups WHERE id=?", (tid,)).fetchone()
+                if not row or row["status"] != "قيد المراجعة": raise ValueError("تمت مراجعة الطلب بالفعل أو غير موجود.")
+                if decision == "approve":
+                    con.execute("UPDATE users SET wallet_balance=wallet_balance+? WHERE id=?", (row["amount"], row["user_id"]))
+                con.execute("UPDATE wallet_topups SET status=?,admin_note=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=? AND status='قيد المراجعة'", (label, "تمت المراجعة من تيليجرام", tid))
+            elif kind == "coins":
+                row = con.execute("SELECT * FROM coin_topups WHERE id=?", (tid,)).fetchone()
+                if not row or row["status"] != "قيد المراجعة": raise ValueError("تمت مراجعة الطلب بالفعل أو غير موجود.")
+                if decision == "approve": con.execute("UPDATE users SET nova_coins=nova_coins+? WHERE id=?", (row["package_coins"], row["user_id"]))
+                con.execute("UPDATE coin_topups SET status=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=? AND status='قيد المراجعة'", (label, tid))
+            elif kind == "order":
+                row = con.execute("SELECT * FROM orders WHERE id=?", (tid,)).fetchone()
+                if not row or row["status"] not in ("قيد المراجعة", "بانتظار مراجعة الدفع"): raise ValueError("تمت مراجعة الطلب بالفعل أو غير موجود.")
+                con.execute("UPDATE orders SET status=? WHERE id=?", ("تم التأكيد" if decision == "approve" else "ملغي", tid))
+            elif kind == "service":
+                row = con.execute("SELECT * FROM digital_service_orders WHERE id=?", (tid,)).fetchone()
+                if not row or row["status"] not in ("قيد التنفيذ", "يحتاج معلومات"): raise ValueError("تمت مراجعة الطلب بالفعل أو غير موجود.")
+                if decision == "approve":
+                    con.execute("UPDATE digital_service_orders SET status='قيد التنفيذ',admin_note='تم التأكيد من تيليجرام',updated_at=CURRENT_TIMESTAMP WHERE id=?", (tid,))
+                else:
+                    con.execute("UPDATE users SET wallet_balance=wallet_balance+? WHERE id=?", (row["price"], row["user_id"]))
+                    con.execute("UPDATE digital_service_orders SET status='ملغي/استرداد مطلوب',admin_note='تم الرفض ورد المبلغ للمحفظة من تيليجرام',updated_at=CURRENT_TIMESTAMP WHERE id=?", (tid,))
+            elif kind == "gplay":
+                row = con.execute("SELECT * FROM google_play_orders WHERE id=?", (tid,)).fetchone()
+                if not row or row["status"] != "قيد التجهيز": raise ValueError("تمت مراجعة الطلب بالفعل أو غير موجود.")
+                if decision == "approve":
+                    con.execute("UPDATE google_play_orders SET status='تم التسليم',admin_note='تم التأكيد من تيليجرام' WHERE id=?", (tid,))
+                else:
+                    con.execute("UPDATE users SET nova_coins=nova_coins+? WHERE id=?", (row["price_coins"], row["user_id"]))
+                    con.execute("UPDATE google_play_orders SET status='مرفوض',admin_note='تم الرفض وإرجاع العملات من تيليجرام' WHERE id=?", (tid,))
+                    con.execute("UPDATE google_play_inventory SET active=1 WHERE id=?", (row["inventory_id"],))
+        result_text = "✅ تم التأكيد." if decision == "approve" else "❌ تم الرفض."
+    except ValueError as exc:
+        result_text = "ℹ️ " + str(exc)
+    except Exception:
+        app.logger.exception("Telegram transaction callback failed")
+        result_text = "حدث خطأ؛ راجع سجلات Render."
+    try:
+        _telegram_api("answerCallbackQuery", {"callback_query_id": callback_id, "text": result_text[:180], "show_alert": True})
+        msg = callback.get("message") or {}
+        chat_id = (msg.get("chat") or {}).get("id")
+        message_id = msg.get("message_id")
+        if chat_id and message_id:
+            _telegram_api("editMessageReplyMarkup", {"chat_id": chat_id, "message_id": message_id, "reply_markup": {"inline_keyboard": []}})
+    except Exception:
+        app.logger.exception("Telegram callback response failed")
+    return jsonify({"ok": True})
+
+
+@app.route("/admin/telegram/setup", methods=["GET"])
+@admin_required
+def admin_telegram_setup():
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_WEBHOOK_SECRET:
+        flash("اضبط TELEGRAM_BOT_TOKEN و TELEGRAM_WEBHOOK_SECRET في Render Environment أولًا.", "error")
+        return redirect(url_for("admin"))
+    try:
+        result = _telegram_api("setWebhook", {"url": request.url_root.rstrip("/") + url_for("telegram_webhook"),
+                                                "secret_token": TELEGRAM_WEBHOOK_SECRET,
+                                                "allowed_updates": ["callback_query"]})
+        flash("تم ربط أزرار تأكيد ورفض تيليجرام بنجاح.", "success")
+    except Exception as exc:
+        app.logger.exception("Telegram webhook setup failed")
+        flash("تعذر ربط تيليجرام: " + str(exc)[:180], "error")
+    return redirect(url_for("admin"))
+
 BASE = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -522,8 +655,9 @@ def digital_service_buy():
             flash("رصيدك غير كافٍ. اشحن المحفظة ثم حاول مجددًا.", "error")
             return redirect(url_for("wallet"))
         con.execute("UPDATE users SET wallet_balance=wallet_balance-? WHERE id=?", (service["price"], user["id"]))
-        con.execute("INSERT INTO digital_service_orders(user_id,service_key,service_name,details,price) VALUES(?,?,?,?,?)", (user["id"], service["key"], service["name"], details, service["price"]))
-    notify_telegram(f"🧩 طلب خدمة NOVA HUB جديد\nالخدمة: {service['name']}\nالمستخدم: {user['email']}\nالسعر: {service['price']/100:.2f} ج.م\nالتفاصيل: {details[:500]}\nراجع /admin/service-orders")
+        cur = con.execute("INSERT INTO digital_service_orders(user_id,service_key,service_name,details,price) VALUES(?,?,?,?,?)", (user["id"], service["key"], service["name"], details, service["price"]))
+        service_order_id = cur.lastrowid
+    notify_telegram_transaction(f"🧩 طلب خدمة NOVA HUB جديد #{service_order_id}\nالخدمة: {service['name']}\nالمستخدم: {user['name']} ({user['email']})\nالسعر: {service['price']/100:.2f} ج.م\nالتفاصيل: {details[:500]}", "service", service_order_id)
     flash("تم تسجيل الطلب وخصم قيمته من المحفظة. تابع حالته من صفحة NOVA HUB.", "success")
     return redirect(url_for("digital_hub"))
 
@@ -606,7 +740,7 @@ def nova_super_hub():
     with db() as con:
         pics={r["key"]:r["value"] for r in con.execute("SELECT key,value FROM site_settings WHERE key LIKE 'hub_img_%'").fetchall()}
     departments=[(slug,icon,name,color,bg,desc,stat,note,pics.get("hub_img_"+slug) or fallback) for slug,icon,name,color,bg,desc,stat,note,fallback in departments]
-    body = r"""<section style="padding:25px 0 45px"><div style="padding:clamp(22px,4vw,42px);border:1px solid #2d5b4a;border-radius:28px;background:radial-gradient(ellipse at 5% 5%,#174c37,transparent 44%),radial-gradient(ellipse at 95% 0,#1a3155,transparent 40%),#09130f"><small style="color:#a5ffd4;font-weight:900">MIDO NOVA · ALL-IN-ONE PLATFORM</small><h1 style="font-size:clamp(34px,6vw,55px);margin:12px 0">NOVA <span style="color:#a5ffd4">SUPER HUB</span></h1><p style="color:#b2c9bf;line-height:2">كل قوائم NOVA بتصميم مستقل وألوان مميزة. ادخل على القسم المناسب ليك.</p><div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:17px"><a href="{{url_for('digital_hub')}}" style="text-decoration:none;padding:12px 17px;background:#a5ffd4;color:#082016;border-radius:13px;font-weight:900">مركز الخدمات</a><a href="{{url_for('home')}}#products" style="text-decoration:none;padding:12px 17px;background:#182d25;border:1px solid #355747;color:#eafff4;border-radius:13px;font-weight:850">المتجر</a><a href="{{url_for('wallet')}}" style="text-decoration:none;padding:12px 17px;background:#182b48;border:1px solid #4268a2;color:#eaf2ff;border-radius:13px;font-weight:850">المحفظة</a><a href="{{url_for('nova_coins')}}" style="text-decoration:none;padding:12px 17px;background:#493b13;border:1px solid #9c802b;color:#fff0a8;border-radius:13px;font-weight:900">🪙 شراء عملات NOVA</a></div></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,285px),1fr));gap:16px;margin-top:20px">{% for d in departments %}<article style="overflow:hidden;border:1px solid {{d[3]}}77;border-radius:23px;background:linear-gradient(145deg,{{d[4]}},#0b1212 85%);box-shadow:0 15px 38px #0003"><div style="height:170px;position:relative"><img src="{{d[8]}}" alt="صورة {{d[2]}}" loading="lazy" style="width:100%;height:100%;object-fit:cover"><div style="position:absolute;inset:0;background:linear-gradient(0deg,{{d[4]}},transparent 75%)"></div><span style="position:absolute;top:12px;right:14px;font-size:32px;filter:drop-shadow(0 2px 5px #000)">{{d[1]}}</span></div><div style="padding:19px"><h2 style="margin:0 0 8px;color:{{d[3]}}">{{d[2]}}</h2><p style="color:#c0cec8;line-height:1.9;font-size:12px;min-height:58px">{{d[5]}}</p><div style="padding:11px;border-radius:12px;background:#050b0a88;color:#f1faf5;font-size:12px;margin:8px 0">✓ {{d[6]}}</div><div style="padding:11px;border-radius:12px;background:#050b0a88;color:#9eafa8;font-size:11px;line-height:1.8">ℹ {{d[7]}}</div>{% if d[2]=='NOVA AI' %}<a href="{{url_for('nova_ai')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[3]}};color:#07120e;text-decoration:none;font-weight:900">افتح المساعد ↗</a>{% elif d[2]=='NOVA SECURITY' or d[2]=='NOVA TOOLS' %}<a href="{{url_for('digital_hub')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[3]}};color:#07120e;text-decoration:none;font-weight:900">افتح مركز الخدمات ↗</a>{% elif d[2]=='NOVA GAMING' %}<a href="{{url_for('home')}}#products" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[3]}};color:#07120e;text-decoration:none;font-weight:900">تصفح المتجر ↗</a>{% elif d[2]=='NOVA WALLET' %}<a href="{{url_for('wallet')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[3]}};color:#07120e;text-decoration:none;font-weight:900">افتح المحفظة ↗</a>{% elif d[2]=='NOVA REWARDS' %}<a href="{{url_for('lucky_wheel')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[3]}};color:#07120e;text-decoration:none;font-weight:900">افتح العجلة ↗</a>{% elif d[0]=='social' %}<a href="{{url_for('social_tips_list')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[3]}};color:#07120e;text-decoration:none;font-weight:900">كل النصائح والمقالات ↗</a>{% elif d[0]=='google_services' %}<a href="{{url_for('google_play_services')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[3]}};color:#07120e;text-decoration:none;font-weight:900">افتح الخدمات ↗</a>{% elif d[0]=='google_play' %}<a href="{{url_for('google_play_store')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[3]}};color:#07120e;text-decoration:none;font-weight:900">تصفح العروض ↗</a><a href="{{url_for('nova_coins')}}" style="display:block;text-align:center;margin-top:8px;padding:10px;border-radius:11px;background:#493b13;color:#fff0a8;text-decoration:none;font-weight:900">🪙 شراء عملات التطبيق</a>{% elif d[0]=='coins' %}<a href="{{url_for('nova_coins')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[3]}};color:#07120e;text-decoration:none;font-weight:900">🪙 اشترِ العملات ↗</a>{% elif d[0]=='cards' %}<a href="{{url_for('payment_cards_maintenance')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[3]}};color:#07120e;text-decoration:none;font-weight:900">عرض الحالة ↗</a>{% endif %}</div></article>{% endfor %}</div><div style="margin-top:18px;padding:15px;border:1px solid #514522;border-radius:15px;background:#211d0d;color:#eadfa9;font-size:11px;line-height:2"><b>شفافية:</b> الصور افتراضية من مكتبة صور عبر الإنترنت ويمكنك استبدالها من لوحة المطور. الصفحة تجمع الأقسام وتوجهك للوظائف الحالية؛ الميزات المعلمة بالتطوير ليست مكتملة التنفيذ بعد.</div></section>"""
+    body = r"""<section style="padding:25px 0 45px"><div style="padding:clamp(22px,4vw,42px);border:1px solid #2d5b4a;border-radius:28px;background:radial-gradient(ellipse at 5% 5%,#174c37,transparent 44%),radial-gradient(ellipse at 95% 0,#1a3155,transparent 40%),#09130f"><small style="color:#a5ffd4;font-weight:900">MIDO NOVA · ALL-IN-ONE PLATFORM</small><h1 style="font-size:clamp(34px,6vw,55px);margin:12px 0">NOVA <span style="color:#a5ffd4">SUPER HUB</span></h1><p style="color:#b2c9bf;line-height:2">كل قوائم NOVA بتصميم مستقل وألوان مميزة. ادخل على القسم المناسب ليك.</p><div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:17px"><a href="{{url_for('digital_hub')}}" style="text-decoration:none;padding:12px 17px;background:#a5ffd4;color:#082016;border-radius:13px;font-weight:900">مركز الخدمات</a><a href="{{url_for('home')}}#products" style="text-decoration:none;padding:12px 17px;background:#182d25;border:1px solid #355747;color:#eafff4;border-radius:13px;font-weight:850">المتجر</a><a href="{{url_for('wallet')}}" style="text-decoration:none;padding:12px 17px;background:#182b48;border:1px solid #4268a2;color:#eaf2ff;border-radius:13px;font-weight:850">المحفظة</a><a href="{{url_for('nova_coins')}}" style="text-decoration:none;padding:12px 17px;background:#493b13;border:1px solid #9c802b;color:#fff0a8;border-radius:13px;font-weight:900">🪙 شراء عملات NOVA</a></div></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,285px),1fr));gap:16px;margin-top:20px">{% for d in departments %}<article style="overflow:hidden;border:1px solid {{d[3]}}77;border-radius:23px;background:linear-gradient(145deg,{{d[4]}},#0b1212 85%);box-shadow:0 15px 38px #0003"><div style="height:170px;position:relative"><img src="{{d[8]}}" alt="صورة {{d[2]}}" loading="lazy" style="width:100%;height:100%;object-fit:cover"><div style="position:absolute;inset:0;background:linear-gradient(0deg,{{d[4]}},transparent 75%)"></div><span style="position:absolute;top:12px;right:14px;font-size:32px;filter:drop-shadow(0 2px 5px #000)">{{d[1]}}</span></div><div style="padding:19px"><h2 style="margin:0 0 8px;color:{{d[3]}}">{{d[2]}}</h2><p style="color:#c0cec8;line-height:1.9;font-size:12px;min-height:58px">{{d[5]}}</p><div style="padding:11px;border-radius:12px;background:#050b0a88;color:#f1faf5;font-size:12px;margin:8px 0">✓ {{d[6]}}</div><div style="padding:11px;border-radius:12px;background:#050b0a88;color:#9eafa8;font-size:11px;line-height:1.8">ℹ {{d[7]}}</div>{% if d[2]=='NOVA AI' %}<a href="{{url_for('nova_ai')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[3]}};color:#07120e;text-decoration:none;font-weight:900">افتح المساعد ↗</a>{% elif d[2]=='NOVA SECURITY' or d[2]=='NOVA TOOLS' %}<a href="{{url_for('digital_hub')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[3]}};color:#07120e;text-decoration:none;font-weight:900">افتح مركز الخدمات ↗</a>{% elif d[2]=='NOVA GAMING' %}<a href="{{url_for('home')}}#products" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[3]}};color:#07120e;text-decoration:none;font-weight:900">تصفح المتجر ↗</a>{% elif d[2]=='NOVA WALLET' %}<a href="{{url_for('wallet')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[3]}};color:#07120e;text-decoration:none;font-weight:900">افتح المحفظة ↗</a>{% elif d[2]=='NOVA REWARDS' %}<a href="{{url_for('lucky_wheel')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[3]}};color:#07120e;text-decoration:none;font-weight:900">افتح العجلة ↗</a>{% elif d[0]=='social' %}<a href="{{url_for('social_tips_list')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[3]}};color:#07120e;text-decoration:none;font-weight:900">كل النصائح والمقالات ↗</a>{% elif d[0]=='google_services' %}<a href="{{url_for('google_play_services')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[3]}};color:#07120e;text-decoration:none;font-weight:900">افتح الخدمات ↗</a>{% elif d[0]=='google_play' %}<a href="{{url_for('google_play_store')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[3]}};color:#07120e;text-decoration:none;font-weight:900">تصفح العروض ↗</a><a href="{{url_for('nova_coins')}}" style="display:block;text-align:center;margin-top:8px;padding:10px;border-radius:11px;background:#493b13;color:#fff0a8;text-decoration:none;font-weight:900">🪙 شراء عملات التطبيق</a>{% elif d[0]=='coins' %}<a href="{{url_for('nova_coins')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[3]}};color:#07120e;text-decoration:none;font-weight:900">🪙 اشترِ العملات ↗</a>{% elif d[0]=='cards' %}<a href="{{url_for('payment_cards_maintenance')}}" style="display:block;text-align:center;margin-top:12px;padding:11px;border-radius:11px;background:{{d[3]}};color:#07120e;text-decoration:none;font-weight:900">عرض الحالة ↗</a>{% endif %}</div></article>{% endfor %}</div><div style="margin-top:18px;padding:15px;border:1px solid #514522;border-radius:15px;background:#211d0d;color:#eadfa9;font-size:11px;line-height:2"><b>شفافية:</b> الصور افتراضية من مكتبة صور عبر الإنترنت ويمكنك استبدالها من لوحة المطور. الصفحة تجمع الأقسام وتوجهك للوظائف الحالية؛ الميزات المعلمة بالتطوير ليست مكتملة التنفيذ بعد.</div><section style="margin-top:22px;overflow:hidden;border:1px solid #3e8067;border-radius:24px;background:linear-gradient(120deg,#0c2119,#112b3a 65%,#0b1512);box-shadow:0 18px 48px #0005"><div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;padding:clamp(18px,4vw,30px)"><img src="{{url_for('static',filename='contact-developer.svg')}}" alt="تواصل مع المطور" loading="lazy" style="width:min(100%,280px);height:auto;flex:0 1 280px;border-radius:20px;box-shadow:0 0 35px #5fffc322"><div style="flex:1;min-width:200px"><span style="font-size:11px;letter-spacing:2px;color:#a5ffd4;font-weight:900">MIDO NOVA · SUPPORT</span><h2 style="font-size:clamp(22px,4vw,30px);margin:6px 0">محتاج مساعدة؟ تواصل مع المطور</h2><p style="color:#c0d6ce;line-height:1.9;margin:0">لو عندك مشكلة في طلب أو دفع أو حساب، ابعتلنا على تيليجرام. هنراجع طلبك ونساعدك.</p><a href="https://t.me/Mido_M9do" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:12px 18px;border-radius:13px;background:#a5ffd4;color:#07150f;text-decoration:none;font-weight:900">✈ تواصل مع المطور @Mido_M9do</a></div></div></section></section>"""
     return page("NOVA SUPER HUB", body, departments=departments)
 
 @app.route("/admin/super-hub/image", methods=["POST"])
@@ -727,9 +861,10 @@ def google_play_store():
                     flash("تم شراء هذا الحساب بالفعل؛ اختر حسابًا آخر.")
                 else:
                     con.execute("UPDATE users SET nova_coins=nova_coins-? WHERE id=?",(item["price_coins"],user["id"]))
-                    con.execute("INSERT INTO google_play_orders(user_id,inventory_id,title,price_coins,status,account_email,account_password) VALUES(?,?,?,?,?,?,?)",(user["id"],iid,item["title"],item["price_coins"],"تم التسليم",item["account_email"],item["account_password"]))
-                    flash("تم الشراء وتسليم بيانات الحساب في قسم مشترياتي أسفل الصفحة. راجع شروط Google قبل استخدام الحساب.")
-                    notify_telegram(f"▶ شراء حساب Google Play\nالمستخدم: {user['name']}\nالعرض: {item['title']}\nالبلد: {item['country']}\nالعملات: {item['price_coins']}")
+                    cur = con.execute("INSERT INTO google_play_orders(user_id,inventory_id,title,price_coins,status,account_email,account_password) VALUES(?,?,?,?,?,?,?)",(user["id"],iid,item["title"],item["price_coins"],"قيد التجهيز",item["account_email"],item["account_password"]))
+                    gplay_order_id = cur.lastrowid
+                    flash("تم تسجيل طلب الحساب. ستظهر بياناته بعد تأكيد المطور.")
+                    notify_telegram_transaction(f"▶ طلب حساب Google Play #{gplay_order_id}\nالمستخدم: {user['name']} ({user['email']})\nالعرض: {item['title']}\nالبلد: {item['country']}\nالعملات: {item['price_coins']} 🪙", "gplay", gplay_order_id)
                     return redirect(url_for("google_play_store"))
     with db() as con:
         items=con.execute("SELECT * FROM google_play_inventory WHERE active=1 AND account_email!='' AND account_password!='' ORDER BY id DESC").fetchall()
@@ -756,8 +891,9 @@ def buy_nova_coins():
             flash("الباقة غير صالحة."); return redirect(url_for("nova_coins"))
         if coins<=0 or price<=0:
             flash("الباقة غير صالحة."); return redirect(url_for("nova_coins"))
-        con.execute("INSERT INTO coin_topups(user_id,package_coins,price_piasters,reference) VALUES(?,?,?,?)",(user["id"],coins,price,reference))
-    notify_telegram(f"🪙 طلب عملات NOVA\nالمستخدم: {user['name']}\nالباقة: {coins} عملة\nالقيمة: {price/100:.2f} جنيه\nالمرجع: {reference}\nراجع الطلب في لوحة الإدارة.")
+        cur = con.execute("INSERT INTO coin_topups(user_id,package_coins,price_piasters,reference) VALUES(?,?,?,?)",(user["id"],coins,price,reference))
+        coin_request_id = cur.lastrowid
+    notify_telegram_transaction(f"🪙 طلب عملات NOVA #{coin_request_id}\nالمستخدم: {user['name']} ({user['email']})\nالباقة: {coins} عملة\nالقيمة: {price/100:.2f} جنيه\nالمرجع: {reference}", "coins", coin_request_id)
     flash("تم إرسال طلب العملات للمراجعة؛ ستضاف بعد تأكيد التحويل.")
     return redirect(url_for("nova_coins"))
 
@@ -1256,9 +1392,10 @@ def wallet():
         filename = f"wallet_{user['id']}_{secrets.token_hex(8)}{ext}"
         receipt.save(os.path.join(UPLOAD_FOLDER, filename))
         with db() as con:
-            con.execute("INSERT INTO wallet_topups(user_id,amount,method,reference,receipt_filename) VALUES(?,?,?,?,?)",
-                        (user["id"], amount, methods[method], reference, filename))
-        notify_telegram(f"💳 طلب شحن محفظة جديد\nالمستخدم: {user['name']}\nالبريد: {user['email']}\nالمبلغ: {amount/100:.2f} ج.م\nالطريقة: {methods[method]}\nالمرجع: {reference or 'غير مرفق'}\nراجع لوحة الإدارة /admin/wallet-topups قبل اعتماد الرصيد.")
+            cur = con.execute("INSERT INTO wallet_topups(user_id,amount,method,reference,receipt_filename) VALUES(?,?,?,?,?)",
+                              (user["id"], amount, methods[method], reference, filename))
+            wallet_request_id = cur.lastrowid
+        notify_telegram_transaction(f"💳 طلب شحن محفظة #{wallet_request_id}\nالمستخدم: {user['name']} ({user['email']})\nالمبلغ: {amount/100:.2f} ج.م\nالطريقة: {methods[method]}\nالمرجع: {reference or 'غير مرفق'}\nالإيصال: افتح لوحة المطور عند الحاجة لمراجعته.", "wallet", wallet_request_id)
         flash("تم إرسال طلب الشحن للمراجعة. احتفظ بلقطة شاشة للإيصال؛ سيُضاف الرصيد بعد مراجعة التحويل فعليًا.")
         return redirect(url_for("wallet"))
     with db() as con:
