@@ -40,7 +40,7 @@ TELEGRAM_BOT_TOKEN = os.environ.get("8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN526
 # اسم القناة العامة أو رقم Chat ID، والبوت لازم يكون مشرفًا فيها.
 TELEGRAM_CHAT_ID = os.environ.get("6110549529", "").strip()
 TELEGRAM_BOT_URL = "https://t.me/midoassistantAIbot"
-TELEGRAM_WEBHOOK_SECRET = os.environ.get("MidoNova_7xP9_secure_2026_K8mQ", "").strip()
+TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "").strip()
 PAYPAL_URL = os.environ.get("PAYPAL_URL", "https://www.paypal.com/")
 VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "01011541698")
 
@@ -1486,7 +1486,7 @@ def order_product(product_id):
             VALUES(?,?,1,?,'بانتظار مراجعة الدفع',?,?,?,?)""",
             (user["id"], product_id, total, payment_method, reference, code, discount))
         order_id = cur.lastrowid
-    notify_telegram(f"🛒 طلب جديد في MIDO NOVA\\nرقم الطلب: #{order_id}\\nالعميل: {user['name']} ({user['email']})\\nالمنتج: {product['name']}\\nالإجمالي: {total/100:.2f} ج.م\\nطريقة الدفع: {payment_method}\\nرقم مرجع التحويل: {reference or 'لم يرسل'}")
+    notify_telegram_transaction(f"🛒 طلب شراء جديد في MIDO NOVA #{order_id}\nالعميل: {user['name']} ({user['email']})\nالمنتج: {product['name']}\nالإجمالي: {total/100:.2f} ج.م\nطريقة الدفع: {payment_method}\nرقم مرجع التحويل: {reference or 'لم يرسل'}\nراجع إثبات الدفع قبل التأكيد.", "order", order_id)
     flash(f"تم تسجيل الطلب #{order_id}. طريقة الدفع المختارة: {payment_method}. الطلب ينتظر مراجعة الإدارة. لو اخترت بطاقة أو PayPal، يلزم إتمام الدفع عبر بوابة رسمية قبل اعتماد الطلب.")
     return redirect(url_for("my_orders"))
 
