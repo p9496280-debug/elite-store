@@ -1438,6 +1438,78 @@ def admin_wallet_topups():
     {% for r in rows %}<tr><td>{{r.user_name}}<br><small>{{r.user_email}}</small></td><td>{{'{:,.2f}'.format(r.amount/100)}} ج.م</td><td>{{r.method}}</td><td>{{r.reference or '—'}}</td><td>{% if r.receipt_filename %}<a class="btn small" href="{{url_for('uploaded_file', filename=r.receipt_filename)}}" target="_blank">فتح الإيصال</a>{% endif %}</td><td>{{r.status}}</td><td>{% if r.status=='قيد المراجعة' %}<form method="post"><input type="hidden" name="topup_id" value="{{r.id}}"><input name="admin_note" placeholder="ملاحظة (اختياري)" style="width:130px"><button class="btn small primary" name="action" value="approve">تأكيد وإضافة الرصيد</button><button class="btn small" name="action" value="reject">رفض</button></form>{% else %}{{r.admin_note or '—'}}{% endif %}</td></tr>{% else %}<tr><td colspan="7">لا توجد طلبات شحن.</td></tr>{% endfor %}</tbody></table></div></section>"""
     return page("مراجعة شحن المحافظ", body, rows=rows)
 
+@app.route("/admin/review", methods=["GET", "POST"])
+@admin_required
+def admin_review_center():
+    """Unified in-app payment/order review. Conditional updates make decisions one-time only."""
+    if request.method == "POST":
+        kind = str(request.form.get("kind", ""))
+        action = str(request.form.get("action", ""))
+        try:
+            item_id = int(request.form.get("item_id", "0"))
+        except (TypeError, ValueError):
+            abort(400)
+        if item_id <= 0 or action not in {"approve", "reject"} or kind not in {"wallet", "coins", "order", "service", "gplay"}:
+            abort(400)
+        note = str(request.form.get("admin_note", "")).strip()[:250]
+        changed = False
+        with db() as con:
+            if kind == "wallet":
+                row = con.execute("SELECT * FROM wallet_topups WHERE id=?", (item_id,)).fetchone()
+                if row and row["status"] == "قيد المراجعة":
+                    if action == "approve":
+                        changed = con.execute("UPDATE wallet_topups SET status='تم التأكيد',admin_note=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=? AND status='قيد المراجعة'", (note,item_id)).rowcount == 1
+                        if changed: con.execute("UPDATE users SET wallet_balance=wallet_balance+? WHERE id=?", (row["amount"],row["user_id"]))
+                    else:
+                        changed = con.execute("UPDATE wallet_topups SET status='مرفوض',admin_note=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=? AND status='قيد المراجعة'", (note,item_id)).rowcount == 1
+            elif kind == "coins":
+                row = con.execute("SELECT * FROM coin_topups WHERE id=?", (item_id,)).fetchone()
+                if row and row["status"] == "قيد المراجعة":
+                    new_status = "تم التأكيد" if action == "approve" else "مرفوض"
+                    changed = con.execute("UPDATE coin_topups SET status=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=? AND status='قيد المراجعة'", (new_status,item_id)).rowcount == 1
+                    if changed and action == "approve":
+                        con.execute("UPDATE users SET nova_coins=COALESCE(nova_coins,0)+? WHERE id=?", (row["package_coins"],row["user_id"]))
+            elif kind == "order":
+                row = con.execute("SELECT * FROM orders WHERE id=?", (item_id,)).fetchone()
+                if row and row["status"] == "قيد المراجعة":
+                    new_status = "تم التأكيد" if action == "approve" else "ملغي"
+                    changed = con.execute("UPDATE orders SET status=? WHERE id=? AND status='قيد المراجعة'", (new_status,item_id)).rowcount == 1
+            elif kind == "service":
+                row = con.execute("SELECT * FROM digital_service_orders WHERE id=?", (item_id,)).fetchone()
+                if row and row["status"] in {"قيد التنفيذ", "قيد المراجعة"}:
+                    if action == "approve":
+                        changed = con.execute("UPDATE digital_service_orders SET status='قيد التنفيذ',admin_note=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status=?", (note,item_id,row["status"])).rowcount == 1
+                    else:
+                        changed = con.execute("UPDATE digital_service_orders SET status='ملغي/استرداد مطلوب',admin_note=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status=?", (note or "تم رفض الطلب وإعادة المبلغ للمحفظة",item_id,row["status"])).rowcount == 1
+                        if changed: con.execute("UPDATE users SET wallet_balance=wallet_balance+? WHERE id=?", (row["price"],row["user_id"]))
+            elif kind == "gplay":
+                row = con.execute("SELECT * FROM google_play_orders WHERE id=?", (item_id,)).fetchone()
+                if row and row["status"] == "قيد التجهيز":
+                    if action == "approve":
+                        changed = con.execute("UPDATE google_play_orders SET status='تم التسليم',admin_note=? WHERE id=? AND status='قيد التجهيز'", (note,item_id)).rowcount == 1
+                    else:
+                        changed = con.execute("UPDATE google_play_orders SET status='مرفوض',admin_note=? WHERE id=? AND status='قيد التجهيز'", (note or "تم رفض الطلب وإرجاع العملات",item_id)).rowcount == 1
+                        if changed:
+                            con.execute("UPDATE users SET nova_coins=COALESCE(nova_coins,0)+? WHERE id=?", (row["price_coins"],row["user_id"]))
+                            con.execute("UPDATE google_play_inventory SET active=1 WHERE id=? AND account_email=? AND account_password=?", (row["inventory_id"],row["account_email"],row["account_password"]))
+        flash(("تم تنفيذ القرار بنجاح." if changed else "لم يتم تغيير الطلب؛ ربما تمت مراجعته بالفعل."), "success" if changed else "error")
+        return redirect(url_for("admin_review_center"))
+
+    with db() as con:
+        wallet = con.execute("SELECT x.*,u.name user_name,u.email user_email FROM wallet_topups x JOIN users u ON u.id=x.user_id ORDER BY (x.status='قيد المراجعة') DESC,x.id DESC LIMIT 150").fetchall()
+        coins = con.execute("SELECT x.*,u.name user_name,u.email user_email FROM coin_topups x JOIN users u ON u.id=x.user_id ORDER BY (x.status='قيد المراجعة') DESC,x.id DESC LIMIT 150").fetchall()
+        orders = con.execute("SELECT x.*,u.name user_name,u.email user_email,p.name product_name FROM orders x JOIN users u ON u.id=x.user_id JOIN products p ON p.id=x.product_id ORDER BY (x.status='قيد المراجعة') DESC,x.id DESC LIMIT 150").fetchall()
+        services = con.execute("SELECT x.*,u.name user_name,u.email user_email FROM digital_service_orders x JOIN users u ON u.id=x.user_id ORDER BY (x.status IN ('قيد المراجعة','قيد التنفيذ')) DESC,x.id DESC LIMIT 150").fetchall()
+        gplay = con.execute("SELECT x.*,u.name user_name,u.email user_email FROM google_play_orders x JOIN users u ON u.id=x.user_id ORDER BY (x.status='قيد التجهيز') DESC,x.id DESC LIMIT 150").fetchall()
+    body = r"""<section class="section"><div class="section-head"><div><span class="pill">ADMIN • REVIEW CENTER</span><h1>إدارة الطلبات والمدفوعات</h1><p>راجع التحويل قبل التأكيد. كل قرار يُنفذ مرة واحدة فقط.</p></div><a class="btn" href="{{url_for('admin')}}">العودة للوحة المطور</a></div>
+    {% macro decision(kind,id,status) %}{% if status in ['قيد المراجعة','قيد التجهيز','قيد التنفيذ'] %}<form method="post" action="{{url_for('admin_review_center')}}" style="display:grid;gap:6px;min-width:190px"><input type="hidden" name="kind" value="{{kind}}"><input type="hidden" name="item_id" value="{{id}}"><input name="admin_note" maxlength="250" placeholder="ملاحظة اختيارية"><div style="display:flex;gap:6px"><button class="btn small primary" name="action" value="approve" onclick="return confirm('تأكيد العملية؟')">✅ تأكيد</button><button class="btn small" name="action" value="reject" onclick="return confirm('رفض العملية؟')">❌ رفض</button></div></form>{% else %}<span class="pill">{{status}}</span>{% endif %}{% endmacro %}
+    <h2>💳 شحن المحفظة</h2><div class="tablewrap"><table><tr><th>العميل</th><th>المبلغ</th><th>الطريقة / المرجع</th><th>الإيصال</th><th>القرار</th></tr>{% for x in wallet %}<tr><td>{{x.user_name}}<br><small>{{x.user_email}}</small></td><td>{{'%.2f'|format(x.amount/100)}} ج.م</td><td>{{x.method}}<br>{{x.reference or '—'}}</td><td>{% if x.receipt_filename %}<a class="btn small" target="_blank" href="{{url_for('uploaded_file',filename=x.receipt_filename)}}">عرض الإيصال</a>{% else %}—{% endif %}</td><td>{{decision('wallet',x.id,x.status)}}</td></tr>{% else %}<tr><td colspan="5">لا توجد طلبات.</td></tr>{% endfor %}</table></div>
+    <h2>🪙 شراء عملات NOVA</h2><div class="tablewrap"><table><tr><th>العميل</th><th>الباقة</th><th>السعر</th><th>المرجع</th><th>القرار</th></tr>{% for x in coins %}<tr><td>{{x.user_name}}<br>{{x.user_email}}</td><td>{{x.package_coins}} عملة</td><td>{{'%.2f'|format(x.price_piasters/100)}} ج.م</td><td>{{x.reference or '—'}}</td><td>{{decision('coins',x.id,x.status)}}</td></tr>{% else %}<tr><td colspan="5">لا توجد طلبات.</td></tr>{% endfor %}</table></div>
+    <h2>🛍️ طلبات المنتجات</h2><div class="tablewrap"><table><tr><th>العميل</th><th>المنتج</th><th>الإجمالي</th><th>الحالة</th><th>القرار</th></tr>{% for x in orders %}<tr><td>{{x.user_name}}<br>{{x.user_email}}</td><td>{{x.product_name}} × {{x.quantity}}</td><td>{{'%.2f'|format(x.total/100)}} ج.م</td><td>{{x.status}}</td><td>{{decision('order',x.id,x.status)}}</td></tr>{% else %}<tr><td colspan="5">لا توجد طلبات.</td></tr>{% endfor %}</table></div>
+    <h2>🧩 طلبات الخدمات</h2><div class="tablewrap"><table><tr><th>العميل</th><th>الخدمة والتفاصيل</th><th>السعر</th><th>الحالة / القرار</th></tr>{% for x in services %}<tr><td>{{x.user_name}}<br>{{x.user_email}}</td><td>{{x.service_name}}<br>{{x.details}}</td><td>{{'%.2f'|format(x.price/100)}} ج.م</td><td>{{decision('service',x.id,x.status)}}</td></tr>{% else %}<tr><td colspan="4">لا توجد طلبات.</td></tr>{% endfor %}</table></div>
+    <h2>▶ طلبات Google Play</h2><div class="tablewrap"><table><tr><th>العميل</th><th>العرض</th><th>العملات</th><th>الحالة / القرار</th></tr>{% for x in gplay %}<tr><td>{{x.user_name}}<br>{{x.user_email}}</td><td>{{x.title}}</td><td>{{x.price_coins}} 🪙</td><td>{{decision('gplay',x.id,x.status)}}</td></tr>{% else %}<tr><td colspan="4">لا توجد طلبات.</td></tr>{% endfor %}</table></div></section>"""
+    return page("إدارة الطلبات والمدفوعات", body, wallet=wallet, coins=coins, orders=orders, services=services, gplay=gplay)
+
 @app.route("/logout")
 def logout():
     session.clear()
@@ -1558,7 +1630,7 @@ def admin():
     <div class="formcard" style="max-width:none;margin:15px 0;border-color:#d4ae3d"><h2 style="margin-top:0;color:#f4d35e">🪙 إدارة باقات عملات NOVA</h2><p>عدّل عدد العملات والسعر بالجنيه واسم كل باقة. اترك صف الباقة فارغًا لحذفه من قائمة الشراء. السعر يقبل الكسور مثل 12.50.</p><form method="post" action="{{url_for('admin_nova_coins_settings')}}" style="display:grid;gap:10px">{% for i in range(1,9) %}<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;padding:10px;border:1px solid #514522;border-radius:12px"><label class="field">عدد العملات<input type="number" min="1" name="coins_{{i}}" value="{{coin_packages[i-1][0] if coin_packages|length >= i else ''}}"></label><label class="field">السعر بالجنيه<input type="number" min="0.01" step="0.01" name="price_{{i}}" value="{{'%.2f'|format(coin_packages[i-1][1]/100) if coin_packages|length >= i else ''}}"></label><label class="field">اسم الباقة<input name="label_{{i}}" maxlength="40" value="{{coin_packages[i-1][2] if coin_packages|length >= i else ''}}"></label></div>{% endfor %}<button class="btn primary" type="submit">حفظ باقات العملات</button></form><p style="font-size:12px;color:#aebeb4">صورة قائمة شراء العملات يتم تغييرها من قسم صور SUPER HUB أعلاه ← شراء عملات NOVA.</p></div>
     <div class="formcard" style="max-width:none;margin:15px 0;border-color:#4b8e6d"><h2 style="margin-top:0">🌄 بانر واجهة المتجر</h2><p>ارفع صورة من معرض الموبايل لتظهر أعلى الصفحة الرئيسية. الأفضل صورة عريضة.</p><form method="post" action="{{url_for('admin_banner')}}" enctype="multipart/form-data" style="display:grid;gap:10px"><label class="field">اختيار صورة البانر<input type="file" name="banner_image" accept="image/png,image/jpeg,image/webp,image/gif" required></label>{% if banner %}<div><small>البانر الحالي:</small><br><img src="{{banner}}" alt="البانر الحالي" style="display:block;width:100%;max-height:220px;object-fit:cover;border-radius:14px;margin-top:8px"></div>{% endif %}<button class="btn primary" type="submit">حفظ وتحديث البانر</button></form></div>
     <div class="formcard" style="max-width:none;margin:15px 0"><h2 style="margin-top:0">📣 إعلان مؤقت للمستخدمين</h2><form method="post" action="{{url_for('admin_add_announcement')}}" style="display:grid;gap:8px"><label class="field">عنوان الإعلان<input name="title" maxlength="100" required></label><label class="field">النص<input name="body" maxlength="500" required></label><label class="field">المدة بالأيام<input type="number" name="days" min="1" max="365" value="3" required></label><button class="btn primary">نشر الإعلان</button></form><div style="margin-top:10px">{% for a in announcements %}<div style="padding:10px;border:1px solid #29463d;border-radius:12px;margin-top:8px">{{a.title}} — ينتهي {{a.expires_at}} <form method="post" action="{{url_for('admin_toggle_announcement',announcement_id=a.id)}}"><button class="btn small" style="margin-top:5px">{{'إيقاف' if a.active else 'تفعيل'}}</button></form></div>{% endfor %}</div></div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0"><a class="btn primary" href="{{url_for('lucky_wheel')}}">🎡 معاينة عجلة الحظ</a><a class="btn" href="{{url_for('nova_ai')}}">✦ صفحة مساعد NOVA AI</a><a class="btn" href="{{url_for('digital_hub')}}">NOVA DIGITAL HUB</a><a class="btn" href="{{url_for('admin_google_play_manage')}}">▶ إدارة Google Play والعملات</a><a class="btn" href="{{url_for('social_tips_list')}}">📱 معاينة مقالات السوشيال</a><a class="btn" href="{{url_for('admin_service_orders')}}">📋 طلبات الخدمات المدفوعة</a></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0"><a class="btn primary" href="{{url_for('lucky_wheel')}}">🎡 معاينة عجلة الحظ</a><a class="btn" href="{{url_for('nova_ai')}}">✦ صفحة مساعد NOVA AI</a><a class="btn" href="{{url_for('digital_hub')}}">NOVA DIGITAL HUB</a><a class="btn" href="{{url_for('admin_google_play_manage')}}">▶ إدارة Google Play والعملات</a><a class="btn" href="{{url_for('social_tips_list')}}">📱 معاينة مقالات السوشيال</a><a class="btn" href="{{url_for('admin_service_orders')}}">📋 طلبات الخدمات المدفوعة</a><a class="btn primary" href="{{url_for('admin_review_center')}}">✅ إدارة الطلبات والمدفوعات</a></div>
     <div class="formcard" style="max-width:none;margin:15px 0"><h2 style="margin-top:0">إضافة منتج</h2>
     <form method="post" action="{{url_for('admin_add_product')}}" enctype="multipart/form-data" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
     <label class="field">اسم المنتج<input name="name" required maxlength="100"></label>
