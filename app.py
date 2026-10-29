@@ -49,6 +49,7 @@ CATEGORIES = [
     ("games", "الألعاب", "🎮"),
     ("digital", "الخدمات الرقمية", "☁"),
     ("products", "المنتجات", "▣"),
+    ("books", "الكتب الرقمية", "📚"),
     ("crypto", "العملات الرقمية", "₿"),
 ]
 
@@ -106,6 +107,13 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
         con.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_wheel_user_day ON wheel_spins(user_id, spin_date) WHERE user_id IS NOT NULL")
         con.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_wheel_guest_day ON wheel_spins(session_key, spin_date) WHERE user_id IS NULL")
+        # Additive tables/columns for reviews, editable home images and profile avatars.
+        try:
+            con.execute("ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass
+        con.execute("CREATE TABLE IF NOT EXISTS app_reviews(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5), comment TEXT DEFAULT '', active INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id))")
+        con.execute("CREATE TABLE IF NOT EXISTS social_tips(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT NOT NULL, image_url TEXT DEFAULT '', active INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
         con.execute("""CREATE TABLE IF NOT EXISTS announcements(
             id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT NOT NULL,
             expires_at TEXT NOT NULL, active INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
@@ -151,6 +159,22 @@ def init_db():
         if count == 0:
             con.executemany("""INSERT INTO products(name,category,kind,price,icon,badge,description)
                 VALUES(?,?,?,?,?,?,?)""", SEED_PRODUCTS)
+        # Add a small starter collection of digital books without touching existing products.
+        book_seeds = [
+            ("دليل صناعة المحتوى على السوشيال ميديا", "books", "كتاب رقمي PDF", 9900, "📘", "دليل عملي", "دليل تعليمي رقمي عن التخطيط للمحتوى وبناء الجمهور. التسليم بعد مراجعة الطلب.", "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=900&q=80"),
+            ("كتاب أساسيات التسويق الرقمي", "books", "كتاب رقمي PDF", 12900, "📗", "الأكثر فائدة", "مبادئ التسويق الرقمي وقياس النتائج وإعداد الحملات. التسليم بعد مراجعة الطلب.", "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=80"),
+            ("دليل العمل الحر للمبتدئين", "books", "كتاب رقمي PDF", 7900, "📙", "جديد", "خطوات تنظيم الخدمات وبناء معرض أعمال والتواصل المهني مع العملاء.", "https://images.unsplash.com/photo-1519682337058-a94d519337bc?auto=format&fit=crop&w=900&q=80"),
+        ]
+        for book in book_seeds:
+            exists = con.execute("SELECT id FROM products WHERE name=?", (book[0],)).fetchone()
+            if not exists:
+                con.execute("INSERT INTO products(name,category,kind,price,icon,badge,description,image_url) VALUES(?,?,?,?,?,?,?,?)", book)
+        if con.execute("SELECT COUNT(*) n FROM social_tips").fetchone()["n"] == 0:
+            con.executemany("INSERT INTO social_tips(title,body) VALUES(?,?)", [
+                ("خطط للمحتوى قبل النشر", "حدد هدف كل منشور والجمهور المستهدف، واستخدم جدولًا بسيطًا للنشر بدل العشوائية."),
+                ("اجعل أول ثانيتين واضحتين", "ابدأ الفيديو بفكرة مفيدة أو سؤال واضح، وتجنب العناوين المضللة والوعود غير الواقعية."),
+                ("تابع النتائج بذكاء", "راقب الحفظ والمشاركة والتعليقات ومعدل إكمال الفيديو، ثم كرر أنواع المحتوى التي تفيد جمهورك."),
+            ])
         # Admin account is created from environment settings; change defaults in production.
         admin = con.execute("SELECT id FROM users WHERE email=?", (ADMIN_EMAIL,)).fetchone()
         if not admin:
@@ -366,6 +390,9 @@ HOME = r"""
 <a href="{{url_for('digital_hub')}}#pdf_tools" style="text-decoration:none;text-align:center;padding:15px 10px;border-radius:16px;background:linear-gradient(135deg,#3e245f,#1a102b);border:1px solid #c29aff;color:#f0e3ff;font-weight:850">📄 أدوات PDF</a>
 <a href="{{url_for('digital_hub')}}#pro_membership" style="text-decoration:none;text-align:center;padding:15px 10px;border-radius:16px;background:linear-gradient(135deg,#4c4113,#211d0a);border:1px solid #f5d65b;color:#fff3a8;font-weight:850">👑 عضوية PRO</a>
 </div></section>
+<section class="section" style="margin-top:25px"><div class="section-head"><div><span class="pill">NOVA INSIGHTS</span><h2>إحصائيات MIDO NOVA</h2><p>أرقام مباشرة من قاعدة بيانات الموقع.</p></div></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px"><div style="position:relative;overflow:hidden;border:1px solid #2d6e58;border-radius:20px;min-height:130px;padding:20px;background:linear-gradient(135deg,#0e3026,#081411)">{% if home_images.get('home_stats_image') %}<img src="{{home_images.get('home_stats_image')}}" alt="إحصائيات التطبيق" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.18">{% endif %}<small>👥 المستخدمون</small><h2 style="font-size:32px;color:#7df4c7;margin:12px 0">{{user_count}}</h2></div><div style="border:1px solid #315c91;border-radius:20px;padding:20px;background:linear-gradient(135deg,#132947,#09131e)"><small>🛍️ المنتجات المتاحة</small><h2 style="font-size:32px;color:#8dc7ff;margin:12px 0">{{product_count}}</h2></div><div style="border:1px solid #75612a;border-radius:20px;padding:20px;background:linear-gradient(135deg,#302710,#121006)"><small>📦 الطلبات المسجلة</small><h2 style="font-size:32px;color:#ffe18b;margin:12px 0">{{order_count}}</h2></div><div style="border:1px solid #5a4679;border-radius:20px;padding:20px;background:linear-gradient(135deg,#271b39,#100c17)"><small>⭐ متوسط التقييم</small><h2 style="font-size:32px;color:#e2c1ff;margin:12px 0">{{'%.1f'|format(review_stats.avg)}}/5</h2><small>{{review_stats.n}} تقييم</small></div></div></section>
+<section class="section" id="social-tips"><div class="section-head"><div><span class="pill">NOVA SOCIAL</span><h2>نصائح السوشيال ميديا 📱</h2><p>أفكار عملية لصناعة محتوى أفضل.</p></div></div>{% if home_images.get('home_tips_image') %}<img src="{{home_images.get('home_tips_image')}}" alt="نصائح السوشيال ميديا" style="width:100%;max-height:220px;object-fit:cover;border-radius:20px;margin-bottom:14px">{% endif %}<div class="products">{% for tip in tips %}<article class="product">{% if tip.image_url %}<img src="{{tip.image_url}}" alt="{{tip.title}}" style="width:100%;height:140px;object-fit:cover;border-radius:13px">{% endif %}<div class="prodtype">نصيحة اجتماعية</div><h3>{{tip.title}}</h3><p style="white-space:pre-line">{{tip.body}}</p></article>{% else %}<article class="product"><h3>انشر باستمرار، مش بعشوائية</h3><p>حدد جمهورك، قدم فائدة واضحة، استخدم صورة أصلية، وراقب التفاعل بدل التركيز على عدد المشاهدات فقط.</p></article><article class="product"><h3>أول ثانيتين مهمين</h3><p>ابدأ الفيديو بفكرة واضحة أو سؤال جذاب، واكتب عنوانًا مفهومًا وتجنب الوعود المضللة.</p></article><article class="product"><h3>حوّل المتابع لعميل بثقة</h3><p>اعرض السعر والشروط بوضوح، ورد على الأسئلة، ولا تستخدم متابعين وهميين أو رسائل مزعجة.</p></article>{% endfor %}</div></section>
+<section class="section" id="app-reviews"><div class="section-head"><div><span class="pill">COMMUNITY VOICE</span><h2>تقييمات التطبيق ⭐</h2><p>شارك رأيك وساعدنا نحسّن MIDO NOVA.</p></div></div>{% if home_images.get('home_reviews_image') %}<img src="{{home_images.get('home_reviews_image')}}" alt="تقييمات التطبيق" style="width:100%;max-height:220px;object-fit:cover;border-radius:20px;margin-bottom:14px">{% endif %}<div class="products">{% for review in reviews %}<article class="product"><div style="color:#ffd76a;font-size:20px">{{'★' * review.rating}}{{'☆' * (5-review.rating)}}</div><h3>{{review.name}}</h3><p>{{review.comment or 'تقييم تجربة التطبيق'}}</p></article>{% else %}<article class="product"><h3>كن أول من يقيّم التطبيق</h3><p>تقييمات المستخدمين ستظهر هنا بعد إرسالها.</p></article>{% endfor %}</div>{% if user %}<form method="post" action="{{url_for('submit_review')}}" class="formcard" style="max-width:650px;margin:18px 0"><h3>اكتب تقييمك</h3><label class="field">التقييم<select name="rating" required><option value="5">★★★★★ — ممتاز</option><option value="4">★★★★☆ — جيد جدًا</option><option value="3">★★★☆☆ — جيد</option><option value="2">★★☆☆☆ — يحتاج تحسين</option><option value="1">★☆☆☆☆ — ضعيف</option></select></label><label class="field">تعليقك (اختياري)<input name="comment" maxlength="500" placeholder="شاركنا رأيك باحترام"></label><button class="btn primary">إرسال التقييم</button></form>{% else %}<p><a class="btn primary" href="{{url_for('login')}}">سجّل الدخول لتقييم التطبيق</a></p>{% endif %}</section>
 <section class="section" id="categories"><div class="section-head"><div><h2>تصفح الأقسام</h2><p>اختار القسم اللي يناسبك</p></div></div>
 <div class="categories">{% for key,name,icon in categories %}{% if key != 'all' %}<a class="cat" href="#products" onclick="pickCategory('{{key}}')"><div class="cat-icon">{{icon}}</div><strong>{{name}}</strong><small>اكتشف المزيد ←</small></a>{% endif %}{% endfor %}</div></section>
 {% if posts %}<section class="section" id="news"><div class="section-head"><div><h2>الأخبار والتحديثات <span style="color:var(--mint)">✦</span></h2><p>آخر أخبار MIDO NOVA</p></div></div><div class="products">{% for post in posts %}<article class="product">{% if post.image %}<img src="{{post.image}}" alt="" style="width:100%;height:120px;object-fit:cover;border-radius:12px">{% else %}<div class="prodvisual">✧</div>{% endif %}<div class="prodtype">{{post.kind}}</div><h3>{{post.title}}</h3><p style="white-space:pre-line">{{post.body}}</p></article>{% endfor %}</div></section>{% endif %}
@@ -529,7 +556,7 @@ def nova_super_hub():
 @admin_required
 def admin_super_hub_image():
     section = request.form.get("section", "").strip().lower()
-    valid_sections = {"ai", "security", "gaming", "wallet", "rewards", "tools", "club"}
+    valid_sections = {"ai", "security", "gaming", "wallet", "rewards", "tools", "club", "home_reviews", "home_stats", "home_tips"}
     image = request.files.get("section_image")
     if section not in valid_sections or not image or not image.filename:
         flash("اختار القائمة والصورة أولًا.")
@@ -545,8 +572,9 @@ def admin_super_hub_image():
     image.save(os.path.join(UPLOAD_FOLDER, filename))
     image_path = "/static/uploads/" + filename
     with db() as con:
-        con.execute("INSERT INTO site_settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", ("hub_img_" + section, image_path))
-    flash("تم تحديث صورة القائمة بنجاح.")
+        setting_key = (section if section.startswith("home_") else "hub_img_" + section) + ("_image" if section.startswith("home_") else "")
+        con.execute("INSERT INTO site_settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (setting_key, image_path))
+    flash("تم تحديث الصورة بنجاح.")
     return redirect(url_for("admin"))
 
 @app.route("/")
@@ -556,8 +584,16 @@ def home():
         products = con.execute("SELECT * FROM products WHERE active=1 ORDER BY id DESC").fetchall()
         posts = con.execute("SELECT * FROM posts WHERE active=1 ORDER BY id DESC LIMIT 6").fetchall()
         setting = con.execute("SELECT value FROM site_settings WHERE key='banner'").fetchone()
+        reviews = con.execute("SELECT r.*,u.name FROM app_reviews r JOIN users u ON u.id=r.user_id WHERE r.active=1 ORDER BY r.id DESC LIMIT 6").fetchall()
+        review_stats = con.execute("SELECT COUNT(*) n, COALESCE(AVG(rating),0) avg FROM app_reviews WHERE active=1").fetchone()
+        user_count = con.execute("SELECT COUNT(*) n FROM users").fetchone()["n"]
+        product_count = con.execute("SELECT COUNT(*) n FROM products WHERE active=1").fetchone()["n"]
+        order_count = con.execute("SELECT COUNT(*) n FROM orders WHERE status NOT IN ('ملغي','مرفوض')").fetchone()["n"]
+        tips = con.execute("SELECT * FROM social_tips WHERE active=1 ORDER BY id DESC LIMIT 6").fetchall()
+        with_image = con.execute("SELECT key,value FROM site_settings WHERE key IN ('home_reviews_image','home_stats_image','home_tips_image')").fetchall()
+        home_images = {r['key']:r['value'] for r in with_image}
     banner = setting["value"] if setting else ""
-    return page("الرئيسية", HOME, products=products, posts=posts, banner=banner)
+    return page("الرئيسية", HOME, products=products, posts=posts, banner=banner, reviews=reviews, review_stats=review_stats, user_count=user_count, product_count=product_count, order_count=order_count, tips=tips, home_images=home_images)
 
 @app.route("/nova-ai")
 def nova_ai():
@@ -847,6 +883,48 @@ def verify_otp():
     body = r"""<section class="formcard"><h1>اكتب كود التحقق</h1><p>افتح البريد الإلكتروني الذي سجلت به، واكتب كود التحقق المكوّن من 6 أرقام. الكود صالح لمدة 10 دقائق.</p><form method="post"><label class="field">كود OTP<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="one-time-code"></label><button class="btn primary">تحقق</button></form></section>"""
     return page("كود التحقق", body)
 
+@app.route("/reviews/submit", methods=["POST"])
+def submit_review():
+    user = current_user()
+    if not user:
+        flash("سجّل الدخول أولًا لإرسال تقييم.")
+        return redirect(url_for("login"))
+    try:
+        rating = int(request.form.get("rating", "5"))
+    except ValueError:
+        rating = 0
+    comment = request.form.get("comment", "").strip()[:500]
+    if rating not in range(1, 6):
+        flash("اختار تقييمًا من نجمة إلى خمس نجوم.")
+        return redirect(url_for("home") + "#app-reviews")
+    with db() as con:
+        con.execute("INSERT INTO app_reviews(user_id,rating,comment) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET rating=excluded.rating,comment=excluded.comment,active=1", (user["id"], rating, comment))
+    flash("شكرًا! تم حفظ تقييمك ويمكنك تحديثه لاحقًا.")
+    return redirect(url_for("home") + "#app-reviews")
+
+@app.route("/admin/social-tip/add", methods=["POST"])
+@admin_required
+def admin_add_social_tip():
+    title = request.form.get("title", "").strip()[:120]
+    body = request.form.get("body", "").strip()[:2000]
+    image = request.files.get("tip_image")
+    image_url = ""
+    if image and image.filename:
+        ext = os.path.splitext(secure_filename(image.filename))[1].lower()
+        if image.mimetype not in {"image/png", "image/jpeg", "image/webp"} or ext not in {".png", ".jpg", ".jpeg", ".webp"}:
+            flash("صورة النصيحة لازم تكون JPG أو PNG أو WEBP.")
+            return redirect(url_for("admin"))
+        filename = "social_tip_" + secrets.token_hex(10) + ext
+        image.save(os.path.join(UPLOAD_FOLDER, filename))
+        image_url = "/static/uploads/" + filename
+    if not title or not body:
+        flash("اكتب عنوان النصيحة ومحتواها.")
+        return redirect(url_for("admin"))
+    with db() as con:
+        con.execute("INSERT INTO social_tips(title,body,image_url) VALUES(?,?,?)", (title, body, image_url))
+    flash("تم نشر نصيحة السوشيال ميديا.")
+    return redirect(url_for("admin"))
+
 @app.route("/profile", methods=["GET", "POST"])
 def profile():
     user = current_user()
@@ -855,17 +933,29 @@ def profile():
         return redirect(url_for("login"))
     if request.method == "POST":
         name = request.form.get("name", "").strip()[:70]
-        if name:
-            with db() as con:
+        avatar = request.files.get("avatar")
+        avatar_path = None
+        if avatar and avatar.filename:
+            ext = os.path.splitext(secure_filename(avatar.filename))[1].lower()
+            if avatar.mimetype not in {"image/png", "image/jpeg", "image/webp"} or ext not in {".png", ".jpg", ".jpeg", ".webp"}:
+                flash("صورة البروفايل لازم تكون JPG أو PNG أو WEBP.")
+                return redirect(url_for("profile"))
+            filename = "avatar_" + str(user["id"]) + "_" + secrets.token_hex(8) + ext
+            avatar.save(os.path.join(UPLOAD_FOLDER, filename))
+            avatar_path = "/static/uploads/" + filename
+        with db() as con:
+            if name:
                 con.execute("UPDATE users SET name=? WHERE id=?", (name, user["id"]))
-            flash("تم تحديث اسم البروفايل.")
-            return redirect(url_for("profile"))
+            if avatar_path:
+                con.execute("UPDATE users SET avatar_url=? WHERE id=?", (avatar_path, user["id"]))
+        flash("تم تحديث البروفايل بنجاح.")
+        return redirect(url_for("profile"))
     with db() as con:
         full = con.execute("SELECT * FROM users WHERE id=?", (user["id"],)).fetchone()
         count = con.execute("SELECT COUNT(*) n FROM orders WHERE user_id=?", (user["id"],)).fetchone()["n"]
         spent = con.execute("SELECT COALESCE(SUM(total),0) n FROM orders WHERE user_id=?", (user["id"],)).fetchone()["n"]
     is_admin = full["email"].lower() == ADMIN_EMAIL
-    body = r"""<section class="profile-card"><div style="display:flex;align-items:center;gap:17px;flex-wrap:wrap"><div class="avatar">{% if is_admin %}👑{% else %}{{full.name[:1]|upper}}{% endif %}</div><div><span class="pill">{% if is_admin %}مطور المتجر{% else %}عضو MIDO NOVA{% endif %}</span><h1 style="font-size:27px;margin:8px 0 0">{{full.name}}</h1><p style="color:var(--muted);margin:3px 0">{{full.email}}</p></div></div><div class="profile-grid"><div class="profile-stat"><small>رصيد المحفظة</small><b style="color:var(--mint)">{{'{:,.2f}'.format((full.wallet_balance or 0)/100)}} ج.م</b></div><div class="profile-stat"><small>الطلبات</small><b>{{count}}</b></div><div class="profile-stat"><small>إجمالي الطلبات</small><b>{{'{:,.2f}'.format(spent/100)}} ج.م</b></div><div class="profile-stat"><small>نوع الحساب</small><b>{% if is_admin %}المطور / الإدارة{% else %}مستخدم{% endif %}</b></div><div class="profile-stat"><small>Telegram ID</small><b>{{full.telegram_id or 'غير محدد'}}</b></div></div><form method="post" style="margin-top:20px"><label class="field">اسم العرض<input name="name" value="{{full.name}}" maxlength="70" required></label><button class="btn primary" type="submit">حفظ التغييرات</button></form><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:15px"><a class="btn" href="{{url_for('my_orders')}}">📦 طلباتي</a><a class="btn primary" href="{{url_for('wallet')}}">💳 محفظتي وشحن الرصيد</a>{% if is_admin %}<a class="btn" href="{{url_for('admin_wallet_topups')}}">🧾 مراجعة الشحنات</a>{% endif %}{% if is_admin %}<a class="btn primary" href="{{url_for('admin')}}">⚙ لوحة المطور</a>{% endif %}</div></section>"""
+    body = r"""<section class="profile-card" style="max-width:820px;background:radial-gradient(circle at 100% 0,#21463c,#0b1512 60%);padding:clamp(18px,4vw,34px);overflow:hidden"><div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap"><div style="width:112px;height:112px;border-radius:50%;padding:4px;background:linear-gradient(135deg,#7df4c7,#5da7ff,#d4a6ff);box-shadow:0 0 28px #57e8bf33"><div style="width:100%;height:100%;border-radius:50%;overflow:hidden;background:#11251e;display:grid;place-items:center;color:#9dffd9;font-size:40px;font-weight:900">{% if full.avatar_url %}<img src="{{full.avatar_url}}" alt="صورة البروفايل" style="width:100%;height:100%;object-fit:cover">{% elif is_admin %}👑{% else %}{{full.name[:1]|upper}}{% endif %}</div></div><div style="flex:1;min-width:180px"><span class="pill">{% if is_admin %}مطور المتجر{% else %}عضو MIDO NOVA{% endif %}</span><h1 style="font-size:clamp(25px,5vw,34px);margin:8px 0 4px">{{full.name}}</h1><p style="color:var(--muted);margin:0;overflow-wrap:anywhere">{{full.email}}</p><p style="color:#8fe9c7;font-size:12px">ملفك الشخصي · MIDO NOVA</p></div></div><div class="profile-grid"><div class="profile-stat"><small>رصيد المحفظة</small><b style="color:var(--mint)">{{'{:,.2f}'.format((full.wallet_balance or 0)/100)}} ج.م</b></div><div class="profile-stat"><small>الطلبات</small><b>{{count}}</b></div><div class="profile-stat"><small>إجمالي الطلبات</small><b>{{'{:,.2f}'.format(spent/100)}} ج.م</b></div><div class="profile-stat"><small>نوع الحساب</small><b>{% if is_admin %}المطور / الإدارة{% else %}مستخدم{% endif %}</b></div><div class="profile-stat"><small>Telegram ID</small><b>{{full.telegram_id or 'غير محدد'}}</b></div></div><form method="post" enctype="multipart/form-data" style="margin-top:20px;padding:18px;border:1px solid #29483c;border-radius:18px;background:#07110e"><label class="field">اسم العرض<input name="name" value="{{full.name}}" maxlength="70" required></label><label class="field">تغيير صورة البروفايل<input name="avatar" type="file" accept="image/png,image/jpeg,image/webp"></label><button class="btn primary" type="submit">حفظ تعديلات البروفايل</button></form><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:15px"><a class="btn" href="{{url_for('my_orders')}}">📦 طلباتي</a><a class="btn primary" href="{{url_for('wallet')}}">💳 محفظتي وشحن الرصيد</a>{% if is_admin %}<a class="btn" href="{{url_for('admin_wallet_topups')}}">🧾 مراجعة الشحنات</a><a class="btn primary" href="{{url_for('admin')}}">⚙ لوحة المطور</a>{% endif %}</div></section>"""
     return page("بروفايلي", body, full=full, count=count, spent=spent, is_admin=is_admin)
 
 
@@ -1080,6 +1170,7 @@ def admin():
     body = r"""
     <section class="section"><div class="section-head"><div><h2>لوحة الإدارة</h2><p>إدارة المنتجات ومراجعة الطلبات</p></div><a class="btn small" href="{{url_for('home')}}">عرض المتجر</a></div>
     <div class="formcard" style="max-width:none;margin:15px 0;border-color:#65b7ff"><h2 style="margin-top:0">🖼️ صور قوائم NOVA SUPER HUB</h2><p>اختار أي قائمة وارفع صورة من الموبايل لتغيير صورتها. الصيغ المدعومة: JPG / PNG / WEBP / GIF (حتى 8MB).</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">{% for slug,label in [('ai','NOVA AI'),('security','NOVA SECURITY'),('gaming','NOVA GAMING'),('wallet','NOVA WALLET'),('rewards','NOVA REWARDS'),('tools','NOVA TOOLS'),('club','NOVA CLUB')] %}<form method="post" action="{{url_for('admin_super_hub_image')}}" enctype="multipart/form-data" style="display:grid;gap:8px;padding:12px;border:1px solid #29463d;border-radius:13px"><b>{{label}}</b><input type="hidden" name="section" value="{{slug}}"><input type="file" name="section_image" accept="image/png,image/jpeg,image/webp,image/gif" required><button class="btn small" type="submit">تحديث صورة القائمة</button></form>{% endfor %}</div><p style="font-size:12px;color:#9eb7ab">الصور الافتراضية عبر الإنترنت؛ بعد رفع صورة من هنا سيستخدم القسم صورتك بدل الافتراضية.</p></div>
+    <div class="formcard" style="max-width:none;margin:15px 0;border-color:#a58aff"><h2>🖼️ صور أقسام الصفحة الرئيسية</h2><p>ارفع صورة مستقلة للتقييمات والإحصائيات ونصائح السوشيال ميديا.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px">{% for slug,label in [('home_reviews','صورة تقييمات التطبيق'),('home_stats','صورة الإحصائيات'),('home_tips','صورة نصائح السوشيال ميديا')] %}<form method="post" action="{{url_for('admin_super_hub_image')}}" enctype="multipart/form-data" style="display:grid;gap:8px;padding:12px;border:1px solid #29463d;border-radius:13px"><b>{{label}}</b><input type="hidden" name="section" value="{{slug}}"><input type="file" name="section_image" accept="image/png,image/jpeg,image/webp,image/gif" required><button class="btn small" type="submit">تحديث الصورة</button></form>{% endfor %}</div></div>
     <div class="formcard" style="max-width:none;margin:15px 0;border-color:#4b8e6d"><h2 style="margin-top:0">🌄 بانر واجهة المتجر</h2><p>ارفع صورة من معرض الموبايل لتظهر أعلى الصفحة الرئيسية. الأفضل صورة عريضة.</p><form method="post" action="{{url_for('admin_banner')}}" enctype="multipart/form-data" style="display:grid;gap:10px"><label class="field">اختيار صورة البانر<input type="file" name="banner_image" accept="image/png,image/jpeg,image/webp,image/gif" required></label>{% if banner %}<div><small>البانر الحالي:</small><br><img src="{{banner}}" alt="البانر الحالي" style="display:block;width:100%;max-height:220px;object-fit:cover;border-radius:14px;margin-top:8px"></div>{% endif %}<button class="btn primary" type="submit">حفظ وتحديث البانر</button></form></div>
     <div class="formcard" style="max-width:none;margin:15px 0"><h2 style="margin-top:0">📣 إعلان مؤقت للمستخدمين</h2><form method="post" action="{{url_for('admin_add_announcement')}}" style="display:grid;gap:8px"><label class="field">عنوان الإعلان<input name="title" maxlength="100" required></label><label class="field">النص<input name="body" maxlength="500" required></label><label class="field">المدة بالأيام<input type="number" name="days" min="1" max="365" value="3" required></label><button class="btn primary">نشر الإعلان</button></form><div style="margin-top:10px">{% for a in announcements %}<div style="padding:10px;border:1px solid #29463d;border-radius:12px;margin-top:8px">{{a.title}} — ينتهي {{a.expires_at}} <form method="post" action="{{url_for('admin_toggle_announcement',announcement_id=a.id)}}"><button class="btn small" style="margin-top:5px">{{'إيقاف' if a.active else 'تفعيل'}}</button></form></div>{% endfor %}</div></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0"><a class="btn primary" href="{{url_for('lucky_wheel')}}">🎡 معاينة عجلة الحظ</a><a class="btn" href="{{url_for('nova_ai')}}">✦ صفحة مساعد NOVA AI</a><a class="btn" href="{{url_for('digital_hub')}}">NOVA DIGITAL HUB</a><a class="btn" href="{{url_for('admin_service_orders')}}">📋 طلبات الخدمات المدفوعة</a></div>
@@ -1100,6 +1191,7 @@ def admin():
     <h2 style="margin-top:30px">آخر الطلبات</h2><div class="tablewrap"><table><thead><tr><th>رقم</th><th>العميل</th><th>المنتج</th><th>الإجمالي</th><th>الحالة</th><th>تحديث</th></tr></thead><tbody>
     {% for o in orders %}<tr><td>#{{o.id}}</td><td>{{o.user_name}}<br>{{o.email}}</td><td>{{o.product_name}}</td><td>{{'{:,.2f}'.format(o.total/100)}} ج.م</td><td>{{o.status}}</td><td><form method="post" action="{{url_for('admin_order_status',order_id=o.id)}}" style="display:flex;gap:5px"><select name="status"><option>قيد المراجعة</option><option>تم التأكيد</option><option>تم التسليم</option><option>ملغي</option></select><button class="btn small" type="submit">حفظ</button></form></td></tr>{% else %}<tr><td colspan="6">لا توجد طلبات بعد.</td></tr>{% endfor %}
     </tbody></table></div>
+    <h2 style="margin-top:30px">📱 نصائح السوشيال ميديا</h2><div class="formcard" style="max-width:none;margin:12px 0"><form method="post" action="{{url_for('admin_add_social_tip')}}" enctype="multipart/form-data" style="display:grid;gap:8px"><label class="field">عنوان النصيحة<input name="title" maxlength="120" required></label><label class="field">النصيحة<input name="body" maxlength="2000" required></label><label class="field">صورة فوتوغرافية (اختياري)<input type="file" name="tip_image" accept="image/png,image/jpeg,image/webp"></label><button class="btn primary">نشر النصيحة</button></form></div>
     <h2 style="margin-top:30px">المنشورات والأخبار والتحديثات</h2>
     <div class="formcard" style="max-width:none;margin:12px 0"><form method="post" action="{{url_for('admin_add_post')}}" enctype="multipart/form-data" style="display:grid;gap:8px">
     <label class="field">العنوان<input name="title" required maxlength="140"></label>
