@@ -464,7 +464,15 @@ def page(title, body, **kwargs):
         except sqlite3.OperationalError:
             # Last-resort fallback for a legacy database; keep public pages accessible.
             announcements = []
-    rendered_body = render_template_string(body, user=user, categories=CATEGORIES, vodafone_number=VODAFONE_CASH_NUMBER, **kwargs)
+    # Build one context dictionary so route-specific kwargs cannot duplicate
+    # user/categories/vodafone_number and trigger TypeError in Flask.
+    template_context = {
+        "user": user,
+        "categories": CATEGORIES,
+        "vodafone_number": VODAFONE_CASH_NUMBER,
+    }
+    template_context.update(kwargs)
+    rendered_body = render_template_string(body, **template_context)
     return render_template_string(BASE, title=title, body=rendered_body, user=user, announcements=announcements,
                                  year=__import__("datetime").datetime.now().year,
                                  vodafone_number=VODAFONE_CASH_NUMBER)
