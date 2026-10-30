@@ -24,8 +24,8 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024  # image uploads and receipts up to 8 MB
 DB_PATH = os.environ.get("DATABASE_PATH", "mido_nova.db")
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com").lower()
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@midonova.com").lower()
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeThis-Admin-123!")
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 SENDLIBERTY_API_KEY = os.environ.get("SENDLIBERTY_API_KEY", "").strip()
@@ -36,13 +36,13 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 # ضع توكن البوت الذي أنشأته من BotFather هنا بين علامتي الاقتباس.
 # لا تشارك هذا الملف علنًا بعد وضع التوكن الحقيقي بداخله.
-TELEGRAM_BOT_TOKEN = os.environ.get("8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4", "").strip()
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
 # اسم القناة العامة أو رقم Chat ID، والبوت لازم يكون مشرفًا فيها.
-TELEGRAM_CHAT_ID = os.environ.get("6110549529", "").strip()
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
 TELEGRAM_BOT_URL = "https://t.me/midoassistantAIbot"
 TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "").strip()
 PAYPAL_URL = os.environ.get("PAYPAL_URL", "https://www.paypal.com/")
-VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "01011541698")
+VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "ضع رقم فودافون كاش هنا")
 
 
 CATEGORIES = [
@@ -156,6 +156,9 @@ def init_db():
         con.execute("INSERT OR IGNORE INTO site_settings(key,value) VALUES('developer_earnings_usd','500')")
         con.execute("INSERT OR IGNORE INTO site_settings(key,value) VALUES('developer_username','@Mido_M9do')")
         con.execute("INSERT OR IGNORE INTO site_settings(key,value) VALUES('developer_earnings_image','')")
+        con.execute("INSERT OR IGNORE INTO site_settings(key,value) VALUES('profile_bg_image','')")
+        con.execute("INSERT OR IGNORE INTO site_settings(key,value) VALUES('profile_neon_a','#ff35ce')")
+        con.execute("INSERT OR IGNORE INTO site_settings(key,value) VALUES('profile_neon_b','#6557ff')")
         con.execute("""CREATE TABLE IF NOT EXISTS wallet_topups(
             id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
             amount INTEGER NOT NULL, method TEXT NOT NULL, reference TEXT DEFAULT '',
@@ -1361,8 +1364,13 @@ def profile():
         count = con.execute("SELECT COUNT(*) n FROM orders WHERE user_id=?", (user["id"],)).fetchone()["n"]
         spent = con.execute("SELECT COALESCE(SUM(total),0) n FROM orders WHERE user_id=?", (user["id"],)).fetchone()["n"]
     is_admin = full["email"].lower() == ADMIN_EMAIL
-    body = r"""<section class="profile-card" style="max-width:820px;background:radial-gradient(circle at 100% 0,#21463c,#0b1512 60%);padding:clamp(18px,4vw,34px);overflow:hidden"><div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap"><div style="width:112px;height:112px;border-radius:50%;padding:4px;background:linear-gradient(135deg,#7df4c7,#5da7ff,#d4a6ff);box-shadow:0 0 28px #57e8bf33"><div style="width:100%;height:100%;border-radius:50%;overflow:hidden;background:#11251e;display:grid;place-items:center;color:#9dffd9;font-size:40px;font-weight:900">{% if full.avatar_url %}<img src="{{full.avatar_url}}" alt="صورة البروفايل" style="width:100%;height:100%;object-fit:cover">{% elif is_admin %}👑{% else %}{{full.name[:1]|upper}}{% endif %}</div></div><div style="flex:1;min-width:180px"><span class="pill">{% if is_admin %}مطور المتجر{% else %}عضو MIDO NOVA{% endif %}</span><h1 style="font-size:clamp(25px,5vw,34px);margin:8px 0 4px">{{full.name}}</h1><p style="color:var(--muted);margin:0;overflow-wrap:anywhere">{{full.email}}</p><p style="color:#8fe9c7;font-size:12px">ملفك الشخصي · MIDO NOVA</p></div></div><div class="profile-grid"><div class="profile-stat"><small>رصيد المحفظة</small><b style="color:var(--mint)">{{'{:,.2f}'.format((full.wallet_balance or 0)/100)}} ج.م</b></div><div class="profile-stat"><small>عملة NOVA</small><b style="color:#f4d35e">{{full.nova_coins or 0}} 🪙</b></div><div class="profile-stat"><small>الطلبات</small><b>{{count}}</b></div><div class="profile-stat"><small>إجمالي الطلبات</small><b>{{'{:,.2f}'.format(spent/100)}} ج.م</b></div><div class="profile-stat"><small>نوع الحساب</small><b>{% if is_admin %}المطور / الإدارة{% else %}مستخدم{% endif %}</b></div><div class="profile-stat"><small>Telegram ID</small><b>{{full.telegram_id or 'غير محدد'}}</b></div></div><form method="post" enctype="multipart/form-data" style="margin-top:20px;padding:18px;border:1px solid #29483c;border-radius:18px;background:#07110e"><label class="field">اسم العرض<input name="name" value="{{full.name}}" maxlength="70" required></label><label class="field">تغيير صورة البروفايل<input name="avatar" type="file" accept="image/png,image/jpeg,image/webp"></label><button class="btn primary" type="submit">حفظ تعديلات البروفايل</button></form><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:15px"><a class="btn" href="{{url_for('my_orders')}}">📦 طلباتي</a><a class="btn primary" href="{{url_for('wallet')}}">💳 محفظتي وشحن الرصيد</a>{% if is_admin %}<a class="btn" href="{{url_for('admin_wallet_topups')}}">🧾 مراجعة الشحنات</a><a class="btn primary" href="{{url_for('admin')}}">⚙ لوحة المطور</a>{% endif %}</div></section>"""
-    return page("بروفايلي", body, full=full, count=count, spent=spent, is_admin=is_admin)
+    with db() as con:
+        appearance = {r["key"]: r["value"] for r in con.execute("SELECT key,value FROM site_settings WHERE key IN ('profile_bg_image','profile_neon_a','profile_neon_b')").fetchall()}
+    profile_bg = appearance.get("profile_bg_image", "")
+    neon_a = appearance.get("profile_neon_a", "#ff35ce")
+    neon_b = appearance.get("profile_neon_b", "#6557ff")
+    body = r"""<section class="profile-card" style="max-width:820px;position:relative;background:linear-gradient(#0a0a18d9,#170b20e8),{% if profile_bg %}url('{{profile_bg}}') center/cover{% else %}radial-gradient(circle at 100% 0,#30133c,#090d1b 65%){% endif %};padding:clamp(18px,4vw,34px);overflow:hidden;border:1px solid {{neon_a}}88;box-shadow:0 0 28px {{neon_a}}22,inset 0 0 35px {{neon_b}}18"><div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap"><div style="width:112px;height:112px;border-radius:50%;padding:4px;background:linear-gradient(135deg,{{neon_a}},{{neon_b}});box-shadow:0 0 28px {{neon_a}}88,0 0 42px {{neon_b}}55"><div style="width:100%;height:100%;border-radius:50%;overflow:hidden;background:#11251e;display:grid;place-items:center;color:#9dffd9;font-size:40px;font-weight:900">{% if full.avatar_url %}<img src="{{full.avatar_url}}" alt="صورة البروفايل" style="width:100%;height:100%;object-fit:cover">{% elif is_admin %}👑{% else %}{{full.name[:1]|upper}}{% endif %}</div></div><div style="flex:1;min-width:180px"><span class="pill">{% if is_admin %}مطور المتجر{% else %}عضو MIDO NOVA{% endif %}</span><h1 style="font-size:clamp(25px,5vw,34px);margin:8px 0 4px">{{full.name}}</h1><p style="color:var(--muted);margin:0;overflow-wrap:anywhere">{{full.email}}</p><p style="color:#8fe9c7;font-size:12px">ملفك الشخصي · MIDO NOVA</p></div></div><div class="profile-grid"><div class="profile-stat"><small>رصيد المحفظة</small><b style="color:var(--mint)">{{'{:,.2f}'.format((full.wallet_balance or 0)/100)}} ج.م</b></div><div class="profile-stat"><small>عملة NOVA</small><b style="color:#f4d35e">{{full.nova_coins or 0}} 🪙</b></div><div class="profile-stat"><small>الطلبات</small><b>{{count}}</b></div><div class="profile-stat"><small>إجمالي الطلبات</small><b>{{'{:,.2f}'.format(spent/100)}} ج.م</b></div><div class="profile-stat"><small>نوع الحساب</small><b>{% if is_admin %}المطور / الإدارة{% else %}مستخدم{% endif %}</b></div><div class="profile-stat"><small>Telegram ID</small><b>{{full.telegram_id or 'غير محدد'}}</b></div></div><form method="post" enctype="multipart/form-data" style="margin-top:20px;padding:18px;border:1px solid {{neon_a}}77;border-radius:18px;background:#080815dd;backdrop-filter:blur(14px)"><label class="field">اسم العرض<input name="name" value="{{full.name}}" maxlength="70" required></label><label class="field">تغيير صورة البروفايل<input name="avatar" type="file" accept="image/png,image/jpeg,image/webp"></label><button class="btn primary" type="submit">حفظ تعديلات البروفايل</button></form><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:15px"><a class="btn" href="{{url_for('my_orders')}}">📦 طلباتي</a><a class="btn primary" href="{{url_for('wallet')}}">💳 محفظتي وشحن الرصيد</a>{% if is_admin %}<a class="btn" href="{{url_for('admin_wallet_topups')}}">🧾 مراجعة الشحنات</a><a class="btn primary" href="{{url_for('admin')}}">⚙ لوحة المطور</a>{% endif %}</div></section>"""
+    return page("بروفايلي", body, full=full, count=count, spent=spent, is_admin=is_admin, profile_bg=profile_bg, neon_a=neon_a, neon_b=neon_b)
 
 
 @app.route("/wallet/receipt/<path:filename>")
@@ -1684,6 +1692,11 @@ def admin():
     dev_amount = dev_settings.get("developer_earnings_usd", "500")
     dev_username = dev_settings.get("developer_username", "@Mido_M9do")
     dev_image = dev_settings.get("developer_earnings_image", "")
+    with db() as con:
+        profile_settings = {r["key"]: r["value"] for r in con.execute("SELECT key,value FROM site_settings WHERE key IN ('profile_bg_image','profile_neon_a','profile_neon_b')").fetchall()}
+    profile_bg_image = profile_settings.get("profile_bg_image", "")
+    profile_neon_a = profile_settings.get("profile_neon_a", "#ff35ce")
+    profile_neon_b = profile_settings.get("profile_neon_b", "#6557ff")
     coin_packages=[(100,1000,"بداية"),(250,2200,"أكثر طلبًا"),(600,5000,"قيمة أفضل")]
     with db() as con:
         saved_coin_packages=con.execute("SELECT value FROM site_settings WHERE key='nova_coin_packages'").fetchone()
@@ -1694,6 +1707,7 @@ def admin():
     body = r"""
     <section class="section"><div class="section-head"><div><h2>لوحة الإدارة</h2><p>إدارة المنتجات ومراجعة الطلبات</p></div><a class="btn small" href="{{url_for('home')}}">عرض المتجر</a></div>
     <div class="formcard" style="max-width:none;margin:15px 0;border:1px solid #b89545;background:linear-gradient(130deg,#211d13,#111a16)"><h2 style="margin-top:0;color:#f4d579">💎 إدارة صفحة مكاسب المطور</h2><p style="color:#bdc6bd">عدّل اسم المستخدم والمبلغ والصورة التي تظهر للزوار في قائمة مكاسب المطور.</p><form method="post" action="{{url_for('admin_developer_earnings')}}" enctype="multipart/form-data" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:end"><label class="field">اسم المستخدم<input name="username" maxlength="60" value="{{dev_username}}" required></label><label class="field">المكاسب بالدولار<input name="amount" type="number" min="0" max="100000000" step="0.01" value="{{dev_amount}}" required></label><label class="field">صورة المطور<input name="developer_image" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label><button class="btn primary" type="submit">حفظ بيانات صفحة المكاسب</button></form>{% if dev_image %}<img src="{{dev_image}}" alt="صورة المطور الحالية" style="width:100px;height:100px;object-fit:cover;border-radius:50%;margin-top:12px;border:3px solid #d7b65f">{% endif %}<p style="font-size:11px;color:#9eaa9f">القيمة الافتراضية $500. غيّرها من هنا عند الحاجة.</p></div>
+    <div class="formcard" style="max-width:none;margin:15px 0;border:1px solid #d74dff;background:linear-gradient(130deg,#1a1024,#101326)"><h2 style="margin-top:0;color:#ff9aef">✨ تخصيص شكل البروفايل لكل المستخدمين</h2><p>غيّر خلفية البروفايل ولوني الإضاءة؛ التغييرات تظهر للمستخدمين عند فتح بروفايلاتهم.</p><form method="post" action="{{url_for('admin_profile_appearance')}}" enctype="multipart/form-data" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:end"><label class="field">صورة الخلفية<input type="file" name="profile_background" accept="image/png,image/jpeg,image/webp"></label><label class="field">لون الإضاءة الأول<input type="color" name="neon_a" value="{{profile_neon_a}}" style="width:100%;height:45px"></label><label class="field">لون الإضاءة الثاني<input type="color" name="neon_b" value="{{profile_neon_b}}" style="width:100%;height:45px"></label><button class="btn primary" type="submit">حفظ شكل البروفايل</button></form>{% if profile_bg_image %}<img src="{{profile_bg_image}}" alt="الخلفية الحالية" style="width:150px;height:90px;object-fit:cover;border-radius:12px;margin-top:10px">{% endif %}<p style="font-size:11px;color:#aab3c8">الصورة اختيارية. ارفع صورة جديدة لتغيير الخلفية، واتركها بدون اختيار للاحتفاظ بالحالية.</p></div>
     <div class="formcard" style="max-width:none;margin:15px 0;border-color:#65b7ff"><h2 style="margin-top:0">🖼️ صور قوائم NOVA SUPER HUB</h2><p>اختار أي قائمة وارفع صورة من الموبايل لتغيير صورتها. الصيغ المدعومة: JPG / PNG / WEBP / GIF (حتى 8MB).</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">{% for slug,label in [('ai','NOVA AI'),('security','NOVA SECURITY'),('gaming','NOVA GAMING'),('wallet','NOVA WALLET'),('rewards','NOVA REWARDS'),('tools','NOVA TOOLS'),('club','NOVA CLUB'),('social','NOVA SOCIAL'),('google_services','خدمات Google Play'),('google_play','Google Play'),('coins','شراء عملات NOVA'),('cards','بطاقات الدفع'),('developer','صورة المطور')] %}<form method="post" action="{{url_for('admin_super_hub_image')}}" enctype="multipart/form-data" style="display:grid;gap:8px;padding:12px;border:1px solid #29463d;border-radius:13px"><b>{{label}}</b><input type="hidden" name="section" value="{{slug}}"><input type="file" name="section_image" accept="image/png,image/jpeg,image/webp,image/gif" required><button class="btn small" type="submit">تحديث صورة القائمة</button></form>{% endfor %}</div><p style="font-size:12px;color:#9eb7ab">الصور الافتراضية عبر الإنترنت؛ بعد رفع صورة من هنا سيستخدم القسم صورتك بدل الافتراضية.</p></div>
     <div class="formcard" style="max-width:none;margin:15px 0;border-color:#a58aff"><h2>🖼️ صور أقسام الصفحة الرئيسية</h2><p>ارفع صورة مستقلة للتقييمات والإحصائيات ونصائح السوشيال ميديا.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px">{% for slug,label in [('home_reviews','صورة تقييمات التطبيق'),('home_stats','صورة الإحصائيات'),('home_tips','صورة نصائح السوشيال ميديا')] %}<form method="post" action="{{url_for('admin_super_hub_image')}}" enctype="multipart/form-data" style="display:grid;gap:8px;padding:12px;border:1px solid #29463d;border-radius:13px"><b>{{label}}</b><input type="hidden" name="section" value="{{slug}}"><input type="file" name="section_image" accept="image/png,image/jpeg,image/webp,image/gif" required><button class="btn small" type="submit">تحديث الصورة</button></form>{% endfor %}</div></div>
     <div class="formcard" style="max-width:none;margin:15px 0;border-color:#d4ae3d"><h2 style="margin-top:0;color:#f4d35e">🪙 إدارة باقات عملات NOVA</h2><p>عدّل عدد العملات والسعر بالجنيه واسم كل باقة. اترك صف الباقة فارغًا لحذفه من قائمة الشراء. السعر يقبل الكسور مثل 12.50.</p><form method="post" action="{{url_for('admin_nova_coins_settings')}}" style="display:grid;gap:10px">{% for i in range(1,9) %}<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;padding:10px;border:1px solid #514522;border-radius:12px"><label class="field">عدد العملات<input type="number" min="1" name="coins_{{i}}" value="{{coin_packages[i-1][0] if coin_packages|length >= i else ''}}"></label><label class="field">السعر بالجنيه<input type="number" min="0.01" step="0.01" name="price_{{i}}" value="{{'%.2f'|format(coin_packages[i-1][1]/100) if coin_packages|length >= i else ''}}"></label><label class="field">اسم الباقة<input name="label_{{i}}" maxlength="40" value="{{coin_packages[i-1][2] if coin_packages|length >= i else ''}}"></label></div>{% endfor %}<button class="btn primary" type="submit">حفظ باقات العملات</button></form><p style="font-size:12px;color:#aebeb4">صورة قائمة شراء العملات يتم تغييرها من قسم صور SUPER HUB أعلاه ← شراء عملات NOVA.</p></div>
@@ -1734,7 +1748,35 @@ def admin():
     <button class="btn primary" type="submit">إنشاء الكود</button></form>
     <div class="tablewrap"><table><thead><tr><th>الكود</th><th>الخصم</th><th>المتبقي</th><th>الحالة</th></tr></thead><tbody>{% for c in coupons %}<tr><td>{{c.code}}</td><td>{{c.percent}}%</td><td>{{c.uses_left}}</td><td>{{'فعال' if c.active else 'موقوف'}}</td></tr>{% endfor %}</tbody></table></div></div>
     <div class="notice">تنبيه أمني: غيّر كلمة مرور الإدارة الافتراضية وإعداد SECRET_KEY قبل النشر. أضف حماية CSRF وتحديد معدل المحاولات وربط بوابة دفع موثوقة قبل استقبال مدفوعات حقيقية.</div></section>"""
-    return page("لوحة الإدارة", body, orders=orders, products=products, posts=posts, coupons=coupons, announcements=announcements, banner=banner, coin_packages=coin_packages, dev_amount=dev_amount, dev_username=dev_username, dev_image=dev_image)
+    return page("لوحة الإدارة", body, orders=orders, products=products, posts=posts, coupons=coupons, announcements=announcements, banner=banner, coin_packages=coin_packages, dev_amount=dev_amount, dev_username=dev_username, dev_image=dev_image, profile_bg_image=profile_bg_image, profile_neon_a=profile_neon_a, profile_neon_b=profile_neon_b)
+
+@app.route("/admin/profile-appearance", methods=["POST"])
+@admin_required
+def admin_profile_appearance():
+    color_a = request.form.get("neon_a", "#ff35ce")
+    color_b = request.form.get("neon_b", "#6557ff")
+    import re
+    if not re.fullmatch(r"#[0-9a-fA-F]{6}", color_a) or not re.fullmatch(r"#[0-9a-fA-F]{6}", color_b):
+        flash("اختار ألوان صحيحة.")
+        return redirect(url_for("admin"))
+    image = request.files.get("profile_background")
+    image_path = None
+    if image and image.filename:
+        ext = os.path.splitext(secure_filename(image.filename))[1].lower()
+        if image.mimetype not in {"image/png", "image/jpeg", "image/webp"} or ext not in {".png", ".jpg", ".jpeg", ".webp"}:
+            flash("صورة الخلفية لازم تكون PNG أو JPG أو WEBP.")
+            return redirect(url_for("admin"))
+        filename = "profile_bg_" + secrets.token_hex(8) + ext
+        image.save(os.path.join(UPLOAD_FOLDER, filename))
+        image_path = "/static/uploads/" + filename
+    with db() as con:
+        for key, value in (("profile_neon_a", color_a), ("profile_neon_b", color_b)):
+            con.execute("INSERT INTO site_settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
+        if image_path:
+            con.execute("INSERT INTO site_settings(key,value) VALUES('profile_bg_image',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (image_path,))
+    flash("تم حفظ شكل البروفايل، وسيظهر لكل المستخدمين.")
+    return redirect(url_for("admin"))
+
 
 @app.route("/admin/developer-earnings", methods=["POST"])
 @admin_required
