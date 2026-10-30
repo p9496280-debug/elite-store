@@ -24,14 +24,14 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024  # image uploads and receipts up to 8 MB
 DB_PATH = os.environ.get("DATABASE_PATH", "mido_nova.db")
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@midonova.com").lower()
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeThis-Admin-123!")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com").lower()
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 SENDLIBERTY_API_KEY = os.environ.get("SENDLIBERTY_API_KEY", "").strip()
 SENDLIBERTY_FROM_EMAIL = os.environ.get("SENDLIBERTY_FROM_EMAIL", "P9496280@gmail.com").strip()
-TEXTBEE_API_KEY = os.environ.get("TEXTBEE_API_KEY", "").strip()
-TEXTBEE_DEVICE_ID = os.environ.get("TEXTBEE_DEVICE_ID", "").strip()
+TEXTBEE_API_KEY = os.environ.get("TEXTBEE_API_KEY", "txb_ZqPwWoi7UdJ3IGhWguhU9PQQPdiswkzN").strip()
+TEXTBEE_DEVICE_ID = os.environ.get("TEXTBEE_DEVICE_ID", "6ae4ea1259a24e053fd5be18").strip()
 TEXTBEE_BASE_URL = os.environ.get("TEXTBEE_BASE_URL", "https://api.textbee.dev/api/v1").rstrip("/")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash").strip()
@@ -39,13 +39,13 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 # ضع توكن البوت الذي أنشأته من BotFather هنا بين علامتي الاقتباس.
 # لا تشارك هذا الملف علنًا بعد وضع التوكن الحقيقي بداخله.
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+TELEGRAM_BOT_TOKEN = os.environ.get("8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4", "").strip()
 # اسم القناة العامة أو رقم Chat ID، والبوت لازم يكون مشرفًا فيها.
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
 TELEGRAM_BOT_URL = "https://t.me/midoassistantAIbot"
 TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "").strip()
 PAYPAL_URL = os.environ.get("PAYPAL_URL", "https://www.paypal.com/")
-VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "ضع رقم فودافون كاش هنا")
+VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "01011541698")
 
 
 CATEGORIES = [
@@ -1443,7 +1443,45 @@ def profile():
     profile_bg = appearance.get("profile_bg_image", "")
     neon_a = appearance.get("profile_neon_a", "#ff35ce")
     neon_b = appearance.get("profile_neon_b", "#6557ff")
-    body = r"""<section class="profile-card" style="max-width:820px;position:relative;background:linear-gradient(#0a0a18d9,#170b20e8),{% if profile_bg %}url('{{profile_bg}}') center/cover{% else %}radial-gradient(circle at 100% 0,#30133c,#090d1b 65%){% endif %};padding:clamp(18px,4vw,34px);overflow:hidden;border:1px solid {{neon_a}}88;box-shadow:0 0 28px {{neon_a}}22,inset 0 0 35px {{neon_b}}18"><div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap"><div style="width:112px;height:112px;border-radius:50%;padding:4px;background:linear-gradient(135deg,{{neon_a}},{{neon_b}});box-shadow:0 0 28px {{neon_a}}88,0 0 42px {{neon_b}}55"><div style="width:100%;height:100%;border-radius:50%;overflow:hidden;background:#11251e;display:grid;place-items:center;color:#9dffd9;font-size:40px;font-weight:900">{% if full.avatar_url %}<img src="{{full.avatar_url}}" alt="صورة البروفايل" style="width:100%;height:100%;object-fit:cover">{% elif is_admin %}👑{% else %}{{full.name[:1]|upper}}{% endif %}</div></div><div style="flex:1;min-width:180px"><span class="pill">{% if is_admin %}مطور المتجر{% else %}عضو MIDO NOVA{% endif %}</span><h1 style="font-size:clamp(25px,5vw,34px);margin:8px 0 4px">{{full.name}}</h1><p style="color:var(--muted);margin:0;overflow-wrap:anywhere">{{full.email}}</p><p style="color:#8fe9c7;font-size:12px">ملفك الشخصي · MIDO NOVA</p></div></div><div class="profile-grid"><div class="profile-stat"><small>رصيد المحفظة</small><b style="color:var(--mint)">{{'{:,.2f}'.format((full.wallet_balance or 0)/100)}} ج.م</b></div><div class="profile-stat"><small>عملة NOVA</small><b style="color:#f4d35e">{{full.nova_coins or 0}} 🪙</b></div><div class="profile-stat"><small>الطلبات</small><b>{{count}}</b></div><div class="profile-stat"><small>إجمالي الطلبات</small><b>{{'{:,.2f}'.format(spent/100)}} ج.م</b></div><div class="profile-stat"><small>نوع الحساب</small><b>{% if is_admin %}المطور / الإدارة{% else %}مستخدم{% endif %}</b></div><div class="profile-stat"><small>Telegram ID</small><b>{{full.telegram_id or 'غير محدد'}}</b></div></div><form method="post" enctype="multipart/form-data" style="margin-top:20px;padding:18px;border:1px solid {{neon_a}}77;border-radius:18px;background:#080815dd;backdrop-filter:blur(14px)"><label class="field">اسم العرض<input name="name" value="{{full.name}}" maxlength="70" required></label><label class="field">تغيير صورة البروفايل<input name="avatar" type="file" accept="image/png,image/jpeg,image/webp"></label><button class="btn primary" type="submit">حفظ تعديلات البروفايل</button></form><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:15px"><a class="btn" href="{{url_for('my_orders')}}">📦 طلباتي</a><a class="btn primary" href="{{url_for('wallet')}}">💳 محفظتي وشحن الرصيد</a>{% if is_admin %}<a class="btn" href="{{url_for('admin_wallet_topups')}}">🧾 مراجعة الشحنات</a><a class="btn primary" href="{{url_for('admin')}}">⚙ لوحة المطور</a>{% endif %}</div></section>"""
+    body = r"""<section style="max-width:760px;margin:34px auto;padding:clamp(12px,3vw,24px)">
+<style>
+.nova-id-card{position:relative;isolation:isolate;overflow:hidden;min-height:660px;padding:28px clamp(18px,5vw,42px) 30px;border-radius:34px;border:1px solid {{neon_a}};background:linear-gradient(180deg,rgba(7,8,24,.82),rgba(13,7,28,.91)),{% if profile_bg %}url('{{profile_bg}}') center/cover{% else %}radial-gradient(ellipse at 50% 10%,#311044,#090b1d 68%){% endif %};box-shadow:0 0 24px {{neon_a}}55,0 0 55px {{neon_b}}33,inset 0 0 45px {{neon_b}}22;color:#fff;text-align:center}
+.nova-id-card:before{content:"";position:absolute;inset:0;border-radius:inherit;padding:2px;background:linear-gradient(135deg,{{neon_a}},{{neon_b}},{{neon_a}});-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;z-index:-1}
+.nova-id-logo{width:76px;height:76px;border-radius:23px;display:grid;place-items:center;margin:0 auto 20px;font-size:43px;font-weight:1000;color:#fff;background:linear-gradient(145deg,#17102c,#090d25);border:2px solid {{neon_a}};box-shadow:0 0 18px {{neon_a}},0 0 34px {{neon_b}}55;text-shadow:0 0 14px {{neon_b}}}
+.nova-id-avatar{width:205px;height:205px;max-width:58vw;max-height:58vw;margin:0 auto 22px;border-radius:50%;padding:5px;background:linear-gradient(135deg,{{neon_a}},{{neon_b}},{{neon_a}});box-shadow:0 0 22px {{neon_a}},0 0 40px {{neon_b}}66}
+.nova-id-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;border:3px solid #160d28}
+.nova-id-name{font-size:clamp(27px,6vw,42px);font-weight:950;margin:8px 0;background:linear-gradient(90deg,#fff,{{neon_a}},{{neon_b}});background-clip:text;-webkit-background-clip:text;color:transparent;overflow-wrap:anywhere}
+.nova-id-role{font-size:18px;color:#f3eaff;margin:0 0 18px}
+.nova-id-badge{display:inline-flex;align-items:center;gap:9px;border:1px solid {{neon_b}};border-radius:30px;padding:10px 20px;background:#11102cbb;box-shadow:0 0 17px {{neon_b}}55;font-weight:900;letter-spacing:.5px}
+.nova-id-stats{display:grid;grid-template-columns:repeat(3,1fr);margin:32px 0 27px}
+.nova-id-stat{padding:8px 5px;border-left:1px solid #ffffff44}.nova-id-stat:last-child{border-left:0}
+.nova-id-stat b{display:block;font-size:clamp(22px,5vw,32px);text-shadow:0 0 12px {{neon_b}}}.nova-id-stat small{font-size:12px;color:#e3d8f1}
+.nova-id-email{display:flex;justify-content:center;align-items:center;gap:10px;font-size:clamp(14px,3vw,19px);overflow-wrap:anywhere;margin:18px 0 25px;color:#fff}
+.nova-id-footer{font-size:13px;letter-spacing:3px;color:#c7b9ff;text-shadow:0 0 12px {{neon_b}}}
+.nova-id-edit{margin-top:18px;padding:18px;border:1px solid {{neon_a}}88;border-radius:20px;background:#080815dd;backdrop-filter:blur(14px)}
+@media(max-width:480px){.nova-id-card{min-height:590px;padding-top:22px}.nova-id-avatar{width:165px;height:165px}.nova-id-stats{margin:24px 0 20px}}
+</style>
+<article class="nova-id-card">
+<div class="nova-id-logo" aria-label="NOVA SUPER HUB">N</div>
+<div class="nova-id-avatar">{% if full.avatar_url %}<img src="{{full.avatar_url}}" alt="صورة {{full.name}}">{% else %}<div style="width:100%;height:100%;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#21103b,#0b1636);font-size:76px;font-weight:900;color:#fff">{{full.name[:1]|upper}}</div>{% endif %}</div>
+<h1 class="nova-id-name">{{full.name}}</h1>
+<p class="nova-id-role">{% if is_admin %}👑 مطور NOVA SUPER HUB{% else %}عضو NOVA SUPER HUB{% endif %}</p>
+<div class="nova-id-badge"><span style="font-size:23px">N</span> MIDO NOVA <span style="color:#35c9ff">✦</span></div>
+<div class="nova-id-stats">
+<div class="nova-id-stat"><b>{{count}}</b><small>الطلبات</small></div>
+<div class="nova-id-stat"><b>{{full.nova_coins or 0}}</b><small>NOVA COINS</small></div>
+<div class="nova-id-stat"><b>{{'{:,.2f}'.format((full.wallet_balance or 0)/100)}}</b><small>رصيد المحفظة ج.م</small></div>
+</div>
+<div class="nova-id-email"><span style="color:{{neon_a}};font-size:24px">✉</span><span>{{full.email}}</span></div>
+<div class="nova-id-footer">✦ NOVA SUPER HUB ✦</div>
+</article>
+<form method="post" enctype="multipart/form-data" class="nova-id-edit">
+<label class="field">اسم العرض<input name="name" value="{{full.name}}" maxlength="70" required></label>
+<label class="field">تغيير صورة البروفايل<input name="avatar" type="file" accept="image/png,image/jpeg,image/webp"></label>
+<button class="btn primary" type="submit">حفظ تعديلات البروفايل</button>
+</form>
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:15px"><a class="btn" href="{{url_for('my_orders')}}">📦 طلباتي</a><a class="btn primary" href="{{url_for('wallet')}}">💳 محفظتي وشحن الرصيد</a>{% if is_admin %}<a class="btn" href="{{url_for('admin_wallet_topups')}}">🧾 مراجعة الشحنات</a><a class="btn primary" href="{{url_for('admin')}}">⚙ لوحة المطور</a>{% endif %}</div>
+</section>"""
     return page("بروفايلي", body, full=full, count=count, spent=spent, is_admin=is_admin, profile_bg=profile_bg, neon_a=neon_a, neon_b=neon_b)
 
 
