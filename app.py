@@ -24,8 +24,8 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024  # image uploads and receipts up to 8 MB
 DB_PATH = os.environ.get("DATABASE_PATH", "mido_nova.db")
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com").lower()
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@midonova.com").lower()
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeThis-Admin-123!")
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 SENDLIBERTY_API_KEY = os.environ.get("SENDLIBERTY_API_KEY", "").strip()
@@ -36,13 +36,13 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 # ضع توكن البوت الذي أنشأته من BotFather هنا بين علامتي الاقتباس.
 # لا تشارك هذا الملف علنًا بعد وضع التوكن الحقيقي بداخله.
-TELEGRAM_BOT_TOKEN = os.environ.get("8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4", "").strip()
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
 # اسم القناة العامة أو رقم Chat ID، والبوت لازم يكون مشرفًا فيها.
-TELEGRAM_CHAT_ID = os.environ.get("6110549529", "").strip()
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
 TELEGRAM_BOT_URL = "https://t.me/midoassistantAIbot"
 TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "").strip()
 PAYPAL_URL = os.environ.get("PAYPAL_URL", "https://www.paypal.com/")
-VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "01011541698")
+VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "ضع رقم فودافون كاش هنا")
 
 
 CATEGORIES = [
@@ -1639,12 +1639,30 @@ def developer_earnings():
     amount = rows.get("developer_earnings_usd", "500")
     username = rows.get("developer_username", "@Mido_M9do")
     photo = rows.get("developer_earnings_image", "") or url_for("static", filename="contact-developer.svg")
-    body = r'''<section style="max-width:920px;margin:28px auto 45px;padding:clamp(16px,4vw,30px);border:1px solid #8b7440;border-radius:28px;background:radial-gradient(circle at 12% 0,#51401d88,transparent 42%),linear-gradient(145deg,#171a19,#0b1110 72%);box-shadow:0 22px 65px #0008;color:#f8f4e8;overflow:hidden">
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="padding:7px 12px;border-radius:30px;background:#332b18;color:#f7d987;font-size:11px;font-weight:900;letter-spacing:1px">MIDO NOVA · CREATOR PROFILE</span><span style="color:#9eb4a8;font-size:11px">لوحة إنجازات المطور</span></div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:24px;align-items:center;margin-top:25px">
-      <div style="text-align:center"><div style="width:min(68vw,230px);height:min(68vw,230px);margin:auto;padding:5px;border-radius:50%;background:linear-gradient(135deg,#f5d982,#b18b3e,#fff0b4);box-shadow:0 0 45px #d9ae4a33"><img src="{{photo}}" alt="صورة المطور" style="width:100%;height:100%;border-radius:50%;object-fit:cover;background:#18211d"></div><h2 style="font-size:clamp(23px,4vw,32px);margin:16px 0 5px">{{username}}</h2><span style="color:#d7c18c;font-size:12px">مطور وصانع MIDO NOVA</span></div>
-      <div style="padding:clamp(18px,4vw,30px);border:1px solid #77602f;border-radius:23px;background:linear-gradient(145deg,#2a2417,#171a18 80%);text-align:center"><div style="font-size:12px;color:#e2cb91;font-weight:900;letter-spacing:2px">إجمالي مكاسب المطور حتى الآن</div><div style="font-size:clamp(48px,10vw,76px);line-height:1.2;font-weight:1000;color:#f7d978;text-shadow:0 5px 25px #e2b94c33;margin:15px 0">${{amount}}</div><div style="color:#b8b5a7;font-size:12px;line-height:1.9">قيمة معروضة حسب الرقم الذي حدده المطور في لوحة الإدارة.</div><div style="height:1px;background:#75613a;margin:18px 0"></div><a href="https://t.me/Mido_M9do" target="_blank" rel="noopener" style="display:inline-flex;justify-content:center;text-decoration:none;padding:12px 20px;border-radius:13px;background:linear-gradient(135deg,#f6dc91,#c69a3e);color:#21190a;font-weight:900">✈ تواصل مع المطور</a></div>
-    </div><p style="margin:22px 0 0;color:#8f9d94;font-size:11px;text-align:center">هذه صفحة تعريفية لعرض إنجازات المطور، وليست كشفًا ماليًا موثقًا أو إثباتًا لأرباح محققة.</p></section>'''
+    body = r'''<style>
+    .earn-wrap{max-width:980px;margin:28px auto 48px;padding:clamp(14px,3vw,26px);color:#f5f7f5}
+    .earn-hero{position:relative;overflow:hidden;border:1px solid #b89545;border-radius:28px;padding:clamp(20px,4vw,36px);background:radial-gradient(circle at 10% 0,#d7ad4a25,transparent 38%),linear-gradient(145deg,#17211d,#0a100e 75%);box-shadow:0 22px 65px #0007}
+    .earn-tag{display:inline-flex;padding:8px 13px;border-radius:30px;background:#d8b45a18;border:1px solid #d8b45a55;color:#f3d783;font-size:11px;font-weight:900;letter-spacing:1px}
+    .earn-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,235px),1fr));gap:16px;margin-top:22px;align-items:stretch}
+    .earn-card{border:1px solid #ffffff16;border-radius:21px;padding:20px;background:linear-gradient(145deg,#ffffff0b,#ffffff04);min-width:0}
+    .earn-avatar{width:132px;height:132px;margin:0 auto 14px;padding:4px;border-radius:50%;background:linear-gradient(135deg,#f8e6a0,#b68b37,#fff2bf);box-shadow:0 0 38px #d5aa4933}
+    .earn-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;background:#15201b}
+    .earn-amount{font-size:clamp(46px,9vw,70px);font-weight:1000;line-height:1.1;color:#f5d77e;text-shadow:0 5px 25px #e2b94c33;margin:14px 0}
+    .earn-list{display:grid;gap:10px;margin-top:18px}
+    .earn-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px;border-radius:14px;background:#ffffff08;border:1px solid #ffffff10;font-size:13px}
+    .earn-row strong{color:#f3d783;white-space:nowrap}
+    .earn-contact{display:flex;justify-content:center;text-decoration:none;padding:13px 20px;border-radius:14px;background:linear-gradient(135deg,#f6dc91,#c69a3e);color:#21190a;font-weight:900;margin-top:18px}
+    @media(max-width:420px){.earn-row{font-size:12px;padding:11px}.earn-amount{font-size:48px}}
+    </style>
+    <main class="earn-wrap"><section class="earn-hero">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><span class="earn-tag">✦ MIDO NOVA · DEVELOPER</span><span style="color:#a9b9b0;font-size:12px">إنجازات المطور</span></div>
+      <div class="earn-grid">
+        <div class="earn-card" style="text-align:center"><div class="earn-avatar"><img src="{{photo}}" alt="صورة المطور"></div><h2 style="font-size:clamp(22px,4vw,29px);margin:8px 0">{{username}}</h2><div style="color:#c5d0c9;font-size:12px">مطور وصانع MIDO NOVA</div><a class="earn-contact" href="https://t.me/Mido_M9do" target="_blank" rel="noopener">✈ تواصل مع المطور</a></div>
+        <div class="earn-card" style="text-align:center;display:flex;flex-direction:column;justify-content:center"><div style="font-size:12px;color:#d9c58f;font-weight:900;letter-spacing:1.5px">إجمالي المكاسب المعروضة</div><div class="earn-amount">${{amount}}</div><div style="font-size:12px;color:#aebbb3;line-height:1.8">إجمالي القيمة التي أدخلها المطور من لوحة الإدارة حتى الآن.</div><div style="height:1px;background:#ffffff18;margin:17px 0"></div><div style="color:#f3d783;font-size:13px;font-weight:800">🏆 رحلة نجاح MIDO NOVA مستمرة</div></div>
+      </div>
+      <section class="earn-card" style="margin-top:16px"><h3 style="margin:0 0 12px;color:#f3d783;font-size:16px">📊 ملخص الإنجازات</h3><div class="earn-list"><div class="earn-row"><span>💰 إجمالي المكاسب</span><strong>${{amount}}</strong></div><div class="earn-row"><span>👨‍💻 حساب المطور</span><strong>{{username}}</strong></div><div class="earn-row"><span>🚀 المشروع</span><strong>MIDO NOVA</strong></div><div class="earn-row"><span>✨ حالة الصفحة</span><strong>نشطة</strong></div></div></section>
+      <p style="margin:18px 0 0;color:#87968d;font-size:11px;text-align:center;line-height:1.8">الأرقام المعروضة يحددها المطور من لوحة الإدارة، وهي للعرض التعريفي وليست كشفًا ماليًا موثقًا أو إثباتًا لأرباح محققة.</p>
+    </section></main>'''
     return page("مكاسب المطور", body, amount=amount, username=username, photo=photo)
 
 @app.route("/admin")
