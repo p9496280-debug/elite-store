@@ -30,6 +30,9 @@ UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 SENDLIBERTY_API_KEY = os.environ.get("SENDLIBERTY_API_KEY", "").strip()
 SENDLIBERTY_FROM_EMAIL = os.environ.get("SENDLIBERTY_FROM_EMAIL", "P9496280@gmail.com").strip()
+TEXTBEE_API_KEY = os.environ.get("TEXTBEE_API_KEY", "").strip()
+TEXTBEE_DEVICE_ID = os.environ.get("TEXTBEE_DEVICE_ID", "").strip()
+TEXTBEE_BASE_URL = os.environ.get("TEXTBEE_BASE_URL", "https://api.textbee.dev/api/v1").rstrip("/")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash").strip()
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
@@ -138,6 +141,9 @@ def init_db():
             con.execute("ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT ''")
         except sqlite3.OperationalError:
             pass
+        # Phone login is additive: existing email accounts and rows are preserved.
+        _ensure_column(con, "users", "phone", "TEXT")
+        con.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_users_phone ON users(phone) WHERE phone IS NOT NULL AND phone != ''")
         con.execute("CREATE TABLE IF NOT EXISTS app_reviews(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5), comment TEXT DEFAULT '', active INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id))")
         con.execute("CREATE TABLE IF NOT EXISTS social_tips(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT NOT NULL, image_url TEXT DEFAULT '', active INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
         con.execute("""CREATE TABLE IF NOT EXISTS announcements(
@@ -1101,86 +1107,154 @@ def lucky_wheel():
 <script>(()=>{const c=document.getElementById('wheel'),ctx=c.getContext('2d'),names=['حظ سعيد','حاول تاني','نجم NOVA','لفة إضافية','بطل اليوم','مفاجأة','طاقة إيجابية','أنت مميز'];const colors=['#16533d','#28774e','#1d4e70','#43845c','#305a43','#27667c','#4c783d','#1e493d'];let angle=0,busy=false,audioOn=true,audio=null,lastTick=-1;const arm=document.getElementById('arm'),spin=document.getElementById('spin'),result=document.getElementById('result'),status=document.getElementById('status');function tone(freq=650,dur=.07,vol=.035,type='sine'){if(!audioOn)return;try{audio=audio||new(window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();let o=audio.createOscillator(),g=audio.createGain();o.type=type;o.frequency.setValueAtTime(freq,audio.currentTime);g.gain.setValueAtTime(vol,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+dur);o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+dur)}catch(e){}}function draw(){ctx.clearRect(0,0,700,700);let cx=350,cy=350,r=326,step=2*Math.PI/names.length;names.forEach((name,i)=>{let a=angle+i*step;ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,a,a+step);ctx.closePath();let grd=ctx.createRadialGradient(cx,cy,35,cx,cy,r);grd.addColorStop(0,colors[i]);grd.addColorStop(1,i%2?'#123b2b':'#102d36');ctx.fillStyle=grd;ctx.fill();ctx.lineWidth=5;ctx.strokeStyle='#d9ff9b';ctx.stroke();let mid=a+step/2;ctx.save();ctx.translate(cx,cy);ctx.rotate(mid);ctx.textAlign='right';ctx.fillStyle='#f5fff7';ctx.shadowColor='#001a0c';ctx.shadowBlur=5;ctx.font='bold 24px system-ui';ctx.fillText(name,292,8);ctx.restore();let dot=a+.08;ctx.beginPath();ctx.arc(cx+Math.cos(dot)*(r-9),cy+Math.sin(dot)*(r-9),5,0,Math.PI*2);ctx.fillStyle='#f3ffca';ctx.fill()});ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.lineWidth=14;ctx.strokeStyle='#caff72';ctx.stroke()}draw();document.getElementById('sound').onclick=()=>{audioOn=!audioOn;document.getElementById('sound').textContent=audioOn?'🔊 الصوت: يعمل':'🔇 الصوت: متوقف';if(audioOn)tone(740,.13,.04)};spin.onclick=async()=>{if(busy)return;busy=true;spin.disabled=true;spin.textContent='جارٍ التحقق…';status.textContent='نتأكد إن لسه عندك لفة اليوم';let dailyResult='';try{const resp=await fetch('/lucky-wheel/spin',{method:'POST',headers:{'Content-Type':'application/json'}});const data=await resp.json();if(!resp.ok||!data.ok){busy=false;spin.disabled=true;spin.textContent='ارجع بكرة 🎡';result.textContent=data.result?'✨ نتيجة لفتك اليوم: '+data.result:'🎡 لفة اليوم مستخدمة بالفعل';status.textContent=data.message||'يمكنك اللف مرة واحدة يوميًا.';return;}dailyResult=data.result;}catch(e){busy=false;spin.disabled=false;spin.textContent='حاول مرة أخرى';status.textContent='تعذر التحقق من اللفة. تأكد من اتصالك ثم حاول مجددًا.';return;}lastTick=-1;spin.textContent='العجلة بتلف…';status.textContent='🦾 الذراع الروبوتي بيتفاعل مع الحركة';result.textContent='استعد للنتيجة…';tone(240,.22,.06,'triangle');let start=performance.now(),from=angle,turns=7+Math.random()*3,to=from+Math.PI*2*turns+Math.random()*Math.PI*2,dur=6900;function tick(t){let p=Math.min(1,(t-start)/dur),ease=1-Math.pow(1-p,5);angle=from+(to-from)*ease;draw();let speed=(to-from)*5*Math.pow(1-p,4)/dur;arm.style.transform='rotate('+(12+Math.sin(t/47)*Math.min(24,Math.max(3,speed*11)))+'deg)';let tickNo=Math.floor(angle/(Math.PI*2/names.length));if(tickNo!==lastTick){lastTick=tickNo;tone(520+Math.min(350,speed*18),.045,.022,'square')}if(p<1)requestAnimationFrame(tick);else{busy=false;spin.disabled=false;spin.textContent='لف مرة تانية 🎡';arm.style.transform='rotate(12deg)';let normalized=(((-angle%(2*Math.PI))+2*Math.PI)%(2*Math.PI));let index=Math.floor(normalized/(Math.PI*2/names.length));let chosen=dailyResult||names[(names.length-index)%names.length];result.textContent='✨ النتيجة: '+chosen;status.textContent='اكتملت لفة اليوم بنجاح — لفة واحدة كل يوم';tone(784,.16,.05);setTimeout(()=>tone(988,.22,.045),110);setTimeout(()=>tone(1175,.32,.04),250);try{if(navigator.vibrate)navigator.vibrate([50,40,90])}catch(e){}}}requestAnimationFrame(tick)};})();</script>'''
     return page("عجلة حظ NOVA", body)
 
+def normalize_phone(raw):
+    """Normalize phone numbers to E.164. Egyptian local numbers are supported."""
+    value = re.sub(r"[\s()\-]", "", (raw or "").strip())
+    if value.startswith("00"):
+        value = "+" + value[2:]
+    if value.startswith("01") and len(value) == 11 and value.isdigit():
+        value = "+20" + value[1:]
+    elif value.startswith("20") and value.isdigit():
+        value = "+" + value
+    elif value.startswith("+") and value[1:].isdigit():
+        pass
+    else:
+        return ""
+    digits = value[1:]
+    if not (8 <= len(digits) <= 15):
+        return ""
+    return value
+
+def send_otp_sms(phone, code, purpose="تأكيد الحساب"):
+    """Send OTP through the user's paired TextBee Android gateway."""
+    if not TEXTBEE_API_KEY:
+        raise RuntimeError("إعداد TEXTBEE_API_KEY غير موجود في Render.")
+    payload = {"recipients": [phone], "message": f"MIDO NOVA - كود {purpose}: {code}. صالح لمدة 10 دقائق ولا تشاركه مع أي شخص."}
+    if TEXTBEE_DEVICE_ID:
+        payload["deviceId"] = TEXTBEE_DEVICE_ID
+    req = urllib.request.Request(
+        TEXTBEE_BASE_URL + "/gateway/send-sms",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"x-api-key": TEXTBEE_API_KEY, "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as response:
+            result = json.loads(response.read().decode("utf-8") or "{}")
+            if response.status not in (200, 201) or result.get("success") is False:
+                raise RuntimeError("TextBee لم يقبل طلب إرسال الرسالة.")
+            return result
+    except Exception as exc:
+        app.logger.exception("TextBee SMS send failed")
+        raise RuntimeError("تعذر إرسال SMS عبر TextBee. تأكد من اتصال الهاتف وصلاحية SMS وحدود الخطة.") from exc
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
         name = request.form.get("name", "").strip()[:70]
+        method = request.form.get("method", "email").strip().lower()
         email = request.form.get("email", "").strip().lower()[:160]
+        phone = normalize_phone(request.form.get("phone", "")) if method == "phone" else ""
         password = request.form.get("password", "")
         telegram_id = request.form.get("telegram_id", "").strip()[:30]
-        if not name or "@" not in email or len(password) < 8 or (telegram_id and not telegram_id.isdigit()):
-            flash("اكتب بيانات صحيحة، وكلمة مرور 8 أحرف على الأقل. رقم تيليجرام اختياري ويجب أن يكون أرقامًا فقط.")
+        valid_email = bool(email and re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email))
+        if not name or len(password) < 8 or (telegram_id and not telegram_id.isdigit()) or (method == "email" and not valid_email) or (method == "phone" and not phone):
+            flash("اكتب بيانات صحيحة، وكلمة مرور 8 أحرف على الأقل. رقم الهاتف يجب أن يكون بصيغة صحيحة.")
         else:
             new_uid = None
+            otp_target = email if method == "email" else phone
+            # The legacy users.email column is NOT NULL; phone-only accounts get a non-routable internal alias.
+            account_email = email if method == "email" else phone.replace("+", "") + "@phone.midonova.invalid"
             try:
                 with db() as con:
-                    cur = con.execute("INSERT INTO users(name,email,password_hash,telegram_id) VALUES(?,?,?,?)",
-                                      (name, email, generate_password_hash(password), telegram_id))
+                    if method == "phone" and con.execute("SELECT id FROM users WHERE phone=?", (phone,)).fetchone():
+                        flash("رقم الهاتف مستخدم بالفعل.")
+                        raise ValueError("duplicate phone")
+                    cur = con.execute("INSERT INTO users(name,email,password_hash,telegram_id,phone) VALUES(?,?,?,?,?)",
+                                      (name, account_email, generate_password_hash(password), telegram_id, phone or None))
                     new_uid = cur.lastrowid
                 code = f"{secrets.randbelow(1_000_000):06d}"
+                purpose = "تأكيد إنشاء الحساب"
                 with db() as con:
                     con.execute("INSERT INTO otp_codes(email,code_hash,purpose,payload,expires_at) VALUES(?,?,?,?,?)",
-                        (email, generate_password_hash(code), "تأكيد إنشاء الحساب", "{}",
+                        (otp_target, generate_password_hash(code), purpose, json.dumps({"method": method}),
                          (datetime.utcnow()+timedelta(minutes=10)).isoformat()))
-                send_otp_email(email, code, "تأكيد إنشاء حساب MIDO NOVA")
+                if method == "phone":
+                    send_otp_sms(phone, code, purpose)
+                else:
+                    send_otp_email(email, code, "تأكيد إنشاء حساب MIDO NOVA")
                 session.clear()
-                session["otp_email"] = email
+                session["otp_email"] = otp_target
                 session["pending_auth_uid"] = new_uid
-                session["otp_method"] = "email"
-                flash("أرسلنا كود تحقق من 6 أرقام إلى بريدك الإلكتروني. صالح لمدة 10 دقائق.")
+                session["otp_method"] = method
+                flash("أرسلنا كود تحقق إلى رقم هاتفك عبر SMS." if method == "phone" else "أرسلنا كود تحقق إلى بريدك الإلكتروني. صالح لمدة 10 دقائق.")
                 return redirect(url_for("verify_otp"))
             except sqlite3.IntegrityError:
-                flash("البريد الإلكتروني مستخدم بالفعل.")
+                flash("البريد الإلكتروني أو رقم الهاتف مستخدم بالفعل.")
+            except ValueError:
+                pass
             except Exception:
-                app.logger.exception("Registration email OTP failed")
+                app.logger.exception("Registration OTP failed")
                 if new_uid:
                     with db() as con:
-                        con.execute("DELETE FROM otp_codes WHERE email=? AND purpose=? AND used=0", (email, "تأكيد إنشاء الحساب"))
+                        con.execute("DELETE FROM otp_codes WHERE email=? AND purpose=? AND used=0", (otp_target, "تأكيد إنشاء الحساب"))
                         con.execute("DELETE FROM users WHERE id=?", (new_uid,))
-                flash("تعذر إرسال كود التحقق. تأكد من إعداد SENDLIBERTY_API_KEY وSENDLIBERTY_FROM_EMAIL في الاستضافة ثم حاول مجددًا.")
+                flash("تعذر إرسال كود التحقق. راجع إعدادات TextBee أو البريد الإلكتروني وحالة الهاتف ثم حاول مجددًا.")
     body = r"""
-    <section class="formcard"><h1>انضم إلى <span class="gradient">MIDO NOVA</span></h1><p>أنشئ حسابك بأمان. سنرسل كود تحقق من 6 أرقام إلى بريدك.</p>
+    <section class="formcard"><h1>انضم إلى <span class="gradient">MIDO NOVA</span></h1><p>أنشئ حسابك بأمان واختر استقبال كود التحقق بالبريد أو SMS.</p>
     <form method="post"><label class="field">الاسم<input name="name" maxlength="70" required autocomplete="name"></label>
-    <label class="field">البريد الإلكتروني<input type="email" name="email" required autocomplete="email"></label>
+    <label class="field">طريقة التسجيل<select name="method" id="regMethod" onchange="toggleRegMethod()"><option value="email">البريد الإلكتروني</option><option value="phone">رقم الهاتف (SMS)</option></select></label>
+    <label class="field" id="regEmail">البريد الإلكتروني<input type="email" name="email" autocomplete="email"></label>
+    <label class="field" id="regPhone" style="display:none">رقم الهاتف<input type="tel" name="phone" inputmode="tel" placeholder="01012345678 أو +201012345678" autocomplete="tel"></label>
     <label class="field">كلمة المرور<input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
     <label class="field">Telegram ID (اختياري للإشعارات)<input name="telegram_id" inputmode="numeric" pattern="[0-9]*" placeholder="يمكنك إضافته لاحقًا"></label>
-    <button class="btn primary" type="submit">إنشاء الحساب وإرسال OTP</button></form><a class="btn" style="width:100%;margin-top:8px" href="{{url_for('google_login')}}">◉ التسجيل باستخدام Google</a><p>كود التحقق صالح لمدة 10 دقائق ويُستخدم مرة واحدة.</p><p>عندك حساب؟ <a style="color:var(--mint)" href="{{url_for('login')}}">سجل دخولك</a></p></section>"""
+    <button class="btn primary" type="submit">إنشاء الحساب وإرسال OTP</button></form><a class="btn" style="width:100%;margin-top:8px" href="{{url_for('google_login')}}">◉ التسجيل باستخدام Google</a><p>كود التحقق صالح لمدة 10 دقائق ويُستخدم مرة واحدة.</p><p>عندك حساب؟ <a style="color:var(--mint)" href="{{url_for('login')}}">سجل دخولك</a></p></section>
+    <script>function toggleRegMethod(){let p=document.getElementById('regMethod').value==='phone';document.getElementById('regPhone').style.display=p?'block':'none';document.getElementById('regEmail').style.display=p?'none':'block';document.querySelector('#regEmail input').required=!p;document.querySelector('#regPhone input').required=p;}toggleRegMethod();</script>"""
     return page("حساب جديد", body)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        email = request.form.get("email", "").strip().lower()
+        identifier = request.form.get("identifier", "").strip()
         password = request.form.get("password", "")
+        phone = normalize_phone(identifier)
         with db() as con:
-            user = con.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+            if phone:
+                user = con.execute("SELECT * FROM users WHERE phone=?", (phone,)).fetchone()
+            else:
+                user = con.execute("SELECT * FROM users WHERE email=?", (identifier.lower(),)).fetchone()
         if user and check_password_hash(user["password_hash"], password):
-            # Admin bypasses email OTP after a valid password; all regular users still require OTP.
             if user["email"].lower() == ADMIN_EMAIL:
                 session.clear()
                 session["user_id"] = user["id"]
                 flash("أهلًا بك يا مدير، تم تسجيل دخولك مباشرة.")
                 return redirect(url_for("admin"))
-            code = f"{random.randint(0, 999999):06d}"
+            code = f"{secrets.randbelow(1_000_000):06d}"
+            method = "phone" if phone and user["phone"] else "email"
+            target = user["phone"] if method == "phone" else user["email"]
             with db() as con:
                 con.execute("INSERT INTO otp_codes(email,code_hash,purpose,payload,expires_at) VALUES(?,?,?,?,?)",
-                    (email, generate_password_hash(code), "كود تسجيل الدخول", "{}", (datetime.utcnow()+timedelta(minutes=10)).isoformat()))
+                    (target, generate_password_hash(code), "كود تسجيل الدخول", json.dumps({"method": method}), (datetime.utcnow()+timedelta(minutes=10)).isoformat()))
             try:
-                send_otp_email(email, code, "كود تسجيل الدخول")
+                if method == "phone":
+                    send_otp_sms(target, code, "تسجيل الدخول")
+                else:
+                    send_otp_email(target, code, "كود تسجيل الدخول")
                 session.clear()
-                session["otp_email"] = email
+                session["otp_email"] = target
                 session["pending_auth_uid"] = user["id"]
-                flash("تم التحقق من كلمة المرور. أدخل كود الأمان الذي أرسلناه لبريدك.")
+                session["otp_method"] = method
+                flash("أرسلنا كود الأمان إلى هاتفك برسالة SMS." if method == "phone" else "أرسلنا كود الأمان إلى بريدك الإلكتروني.")
                 return redirect(url_for("verify_otp"))
             except Exception:
-                app.logger.exception("Login OTP email failed")
-                flash("تعذر إرسال كود الأمان إلى بريدك. راجع إعدادات SENDLIBERTY_API_KEY وSENDLIBERTY_FROM_EMAIL في Render، ثم حاول مجددًا.")
+                app.logger.exception("Login OTP delivery failed")
+                flash("تعذر إرسال كود الأمان. تأكد من إعداد الخدمة واتصال الهاتف ثم حاول مجددًا.")
         else:
             flash("بيانات الدخول غير صحيحة.")
     body = r"""
-    <section class="formcard"><h1>أهلًا بعودتك</h1><p>بعد كلمة المرور، سنرسل كود تحقق إلى بريدك الإلكتروني.</p>
-    <form method="post"><label class="field">البريد الإلكتروني<input type="email" name="email" required autocomplete="email"></label>
-    <label class="field">كلمة المرور<input type="password" name="password" required autocomplete="current-password"></label>
+    <section class="formcard"><h1>أهلًا بعودتك</h1><p>اكتب بريدك الإلكتروني أو رقم هاتفك، وسنرسل كود الأمان إلى وسيلة حسابك.</p>
+    <form method="post"><label class="field">البريد الإلكتروني أو رقم الهاتف<input name="identifier" required autocomplete="username" placeholder="البريد الإلكتروني أو 01012345678"></label>
+    <label class="field">كلمة المرور<input type="password" name="password" minlength="8" required autocomplete="current-password"></label>
     <button class="btn primary" type="submit">دخول</button></form><a class="btn" style="width:100%;margin-top:8px" href="{{url_for('google_login')}}">◉ المتابعة باستخدام Google</a><p>لسه جديد؟ <a style="color:var(--mint)" href="{{url_for('register')}}">اعمل حساب</a></p></section>"""
     return page("تسجيل الدخول", body)
 
@@ -1289,7 +1363,7 @@ def verify_otp():
                     return redirect(url_for("admin") if user and user["email"].lower() == ADMIN_EMAIL else url_for("home"))
                 return redirect(url_for("login"))
         flash("الكود غير صحيح أو انتهت صلاحيته أو تجاوزت عدد المحاولات المسموح بها.")
-    body = r"""<section class="formcard"><h1>اكتب كود التحقق</h1><p>افتح البريد الإلكتروني الذي سجلت به، واكتب كود التحقق المكوّن من 6 أرقام. الكود صالح لمدة 10 دقائق.</p><form method="post"><label class="field">كود OTP<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="one-time-code"></label><button class="btn primary">تحقق</button></form></section>"""
+    body = r"""<section class="formcard"><h1>اكتب كود التحقق</h1><p>افتح البريد الإلكتروني أو رسائل SMS حسب وسيلة التسجيل، واكتب كود التحقق المكوّن من 6 أرقام. الكود صالح لمدة 10 دقائق.</p><form method="post"><label class="field">كود OTP<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="one-time-code"></label><button class="btn primary">تحقق</button></form></section>"""
     return page("كود التحقق", body)
 
 @app.route("/reviews/submit", methods=["POST"])
