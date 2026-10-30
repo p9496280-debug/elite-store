@@ -152,6 +152,10 @@ def init_db():
         _ensure_column(con, "announcements", "created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
         con.execute("""CREATE TABLE IF NOT EXISTS site_settings(
             key TEXT PRIMARY KEY, value TEXT DEFAULT '')""")
+        # Developer earnings/profile settings (additive; preserves existing site data).
+        con.execute("INSERT OR IGNORE INTO site_settings(key,value) VALUES('developer_earnings_usd','500')")
+        con.execute("INSERT OR IGNORE INTO site_settings(key,value) VALUES('developer_username','@Mido_M9do')")
+        con.execute("INSERT OR IGNORE INTO site_settings(key,value) VALUES('developer_earnings_image','')")
         con.execute("""CREATE TABLE IF NOT EXISTS wallet_topups(
             id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
             amount INTEGER NOT NULL, method TEXT NOT NULL, reference TEXT DEFAULT '',
@@ -524,7 +528,7 @@ body{--mint:var(--theme-accent);--mint2:var(--theme-accent2)}
 <div class="wrap install-strip" id="installStrip"><div><strong>📲 هل تريد تثبيت تطبيق MIDO NOVA؟</strong><small>ثبّته على هاتفك وافتحه مباشرة من الشاشة الرئيسية.</small></div><button class="btn primary small" id="installAppBtn" type="button">تثبيت التطبيق</button><button class="btn small" id="dismissInstallBtn" type="button" aria-label="إغلاق">×</button></div>
 <header class="topbar"><div class="wrap nav">
 <a class="brand" href="{{ url_for('home') }}"><div class="mark">M</div><div>MIDO <span>NOVA</span></div></a>
-<nav class="navlinks"><a href="{{ url_for('home') }}">الرئيسية</a><a href="{{ url_for('home') }}#categories">الأقسام</a><a href="{{ url_for('home') }}#products">المتجر</a><a href="{{url_for('lucky_wheel')}}">🎡 عجلة الحظ</a><a href="{{url_for('nova_ai')}}">✦ NOVA AI</a><a href="{{url_for('nova_super_hub')}}">✦ SUPER HUB</a><a href="{{url_for('digital_hub')}}">NOVA HUB</a><a href="{{ url_for('my_orders') }}">طلباتي</a>{% if user %}<a href="{{ url_for('profile') }}">بروفايلي</a>{% endif %}</nav>
+<nav class="navlinks"><a href="{{ url_for('home') }}">الرئيسية</a><a href="{{ url_for('home') }}#categories">الأقسام</a><a href="{{ url_for('home') }}#products">المتجر</a><a href="{{url_for('lucky_wheel')}}">🎡 عجلة الحظ</a><a href="{{url_for('nova_ai')}}">✦ NOVA AI</a><a href="{{url_for('nova_super_hub')}}">✦ SUPER HUB</a><a href="{{url_for('digital_hub')}}">NOVA HUB</a><a href="{{url_for('developer_earnings')}}">💎 مكاسب المطور</a><a href="{{ url_for('my_orders') }}">طلباتي</a>{% if user %}<a href="{{ url_for('profile') }}">بروفايلي</a>{% endif %}</nav>
 <div class="navactions">
 {% if user %}<a class="btn small" href="{{ url_for('profile') }}">👤 بروفايلي</a><a class="btn primary small" href="{{ url_for('logout') }}">خروج</a>
 {% else %}<a class="btn small" href="{{ url_for('login') }}">دخول</a><a class="btn primary small" href="{{ url_for('register') }}">حساب جديد</a>{% endif %}
@@ -542,8 +546,8 @@ body{--mint:var(--theme-accent);--mint2:var(--theme-accent2)}
 (()=>{
   const themes={gold:['#f2c94c','#d99b22'],blue:['#48a9ff','#2467d6'],cyan:['#35dfd0','#0da99d'],green:['#39d98a','#119b61'],red:['#ff657a','#d93654'],purple:['#b18cff','#7950d0'],orange:['#ff9b52','#d96a21'],pink:['#ff83c5','#d94f9c']};
   const panel=document.getElementById('themePanel'),toggle=document.getElementById('themeToggle');
-  const applyTheme=(name)=>{const pair=themes[name]||themes.gold;document.documentElement.style.setProperty('--theme-accent',pair[0]);document.documentElement.style.setProperty('--theme-accent2',pair[1]);document.document.documentElement.dataset.theme=name;localStorage.setItem('midoColorTheme',name);document.querySelectorAll('.theme-swatch').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.theme===name)));};
-  applyTheme(localStorage.getItem('midoColorTheme')||'gold');
+  const applyTheme=(name)=>{const pair=themes[name]||themes.gold;document.documentElement.style.setProperty('--theme-accent',pair[0]);document.documentElement.style.setProperty('--theme-accent2',pair[1]);document.documentElement.dataset.theme=name;try{localStorage.setItem('midoColorTheme',name)}catch(e){};document.querySelectorAll('.theme-swatch').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.theme===name)));};
+  let savedTheme='gold';try{savedTheme=localStorage.getItem('midoColorTheme')||'gold'}catch(e){};applyTheme(savedTheme);
   toggle.addEventListener('click',()=>{const open=panel.classList.toggle('open');toggle.setAttribute('aria-expanded',String(open));});
   document.querySelectorAll('.theme-swatch').forEach(b=>b.addEventListener('click',()=>applyTheme(b.dataset.theme)));
   document.addEventListener('click',e=>{if(!document.getElementById('themeControl').contains(e.target)){panel.classList.remove('open');toggle.setAttribute('aria-expanded','false');}});
@@ -1628,6 +1632,21 @@ def order_receipt_download(order_id):
     resp.headers["Content-Disposition"] = f'attachment; filename="MIDO-NOVA-receipt-{order_id}.html"'
     return resp
 
+@app.route("/developer-earnings")
+def developer_earnings():
+    with db() as con:
+        rows = {r["key"]: r["value"] for r in con.execute("SELECT key,value FROM site_settings WHERE key IN ('developer_earnings_usd','developer_username','developer_earnings_image')").fetchall()}
+    amount = rows.get("developer_earnings_usd", "500")
+    username = rows.get("developer_username", "@Mido_M9do")
+    photo = rows.get("developer_earnings_image", "") or url_for("static", filename="contact-developer.svg")
+    body = r'''<section style="max-width:920px;margin:28px auto 45px;padding:clamp(16px,4vw,30px);border:1px solid #8b7440;border-radius:28px;background:radial-gradient(circle at 12% 0,#51401d88,transparent 42%),linear-gradient(145deg,#171a19,#0b1110 72%);box-shadow:0 22px 65px #0008;color:#f8f4e8;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="padding:7px 12px;border-radius:30px;background:#332b18;color:#f7d987;font-size:11px;font-weight:900;letter-spacing:1px">MIDO NOVA · CREATOR PROFILE</span><span style="color:#9eb4a8;font-size:11px">لوحة إنجازات المطور</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:24px;align-items:center;margin-top:25px">
+      <div style="text-align:center"><div style="width:min(68vw,230px);height:min(68vw,230px);margin:auto;padding:5px;border-radius:50%;background:linear-gradient(135deg,#f5d982,#b18b3e,#fff0b4);box-shadow:0 0 45px #d9ae4a33"><img src="{{photo}}" alt="صورة المطور" style="width:100%;height:100%;border-radius:50%;object-fit:cover;background:#18211d"></div><h2 style="font-size:clamp(23px,4vw,32px);margin:16px 0 5px">{{username}}</h2><span style="color:#d7c18c;font-size:12px">مطور وصانع MIDO NOVA</span></div>
+      <div style="padding:clamp(18px,4vw,30px);border:1px solid #77602f;border-radius:23px;background:linear-gradient(145deg,#2a2417,#171a18 80%);text-align:center"><div style="font-size:12px;color:#e2cb91;font-weight:900;letter-spacing:2px">إجمالي مكاسب المطور حتى الآن</div><div style="font-size:clamp(48px,10vw,76px);line-height:1.2;font-weight:1000;color:#f7d978;text-shadow:0 5px 25px #e2b94c33;margin:15px 0">${{amount}}</div><div style="color:#b8b5a7;font-size:12px;line-height:1.9">قيمة معروضة حسب الرقم الذي حدده المطور في لوحة الإدارة.</div><div style="height:1px;background:#75613a;margin:18px 0"></div><a href="https://t.me/Mido_M9do" target="_blank" rel="noopener" style="display:inline-flex;justify-content:center;text-decoration:none;padding:12px 20px;border-radius:13px;background:linear-gradient(135deg,#f6dc91,#c69a3e);color:#21190a;font-weight:900">✈ تواصل مع المطور</a></div>
+    </div><p style="margin:22px 0 0;color:#8f9d94;font-size:11px;text-align:center">هذه صفحة تعريفية لعرض إنجازات المطور، وليست كشفًا ماليًا موثقًا أو إثباتًا لأرباح محققة.</p></section>'''
+    return page("مكاسب المطور", body, amount=amount, username=username, photo=photo)
+
 @app.route("/admin")
 @admin_required
 def admin():
@@ -1641,7 +1660,12 @@ def admin():
         announcements = con.execute("SELECT * FROM announcements ORDER BY id DESC").fetchall()
         setting = con.execute("SELECT value FROM site_settings WHERE key='banner'").fetchone()
     banner = setting["value"] if setting else ""
-    coin_packages=[(100,1000,"بداية"),(250,2200,"الأكثر طلبًا"),(600,5000,"قيمة أفضل")]
+    with db() as con:
+        dev_settings = {r["key"]: r["value"] for r in con.execute("SELECT key,value FROM site_settings WHERE key IN ('developer_earnings_usd','developer_username','developer_earnings_image')").fetchall()}
+    dev_amount = dev_settings.get("developer_earnings_usd", "500")
+    dev_username = dev_settings.get("developer_username", "@Mido_M9do")
+    dev_image = dev_settings.get("developer_earnings_image", "")
+    coin_packages=[(100,1000,"بداية"),(250,2200,"أكثر طلبًا"),(600,5000,"قيمة أفضل")]
     with db() as con:
         saved_coin_packages=con.execute("SELECT value FROM site_settings WHERE key='nova_coin_packages'").fetchone()
     if saved_coin_packages and saved_coin_packages["value"]:
@@ -1650,6 +1674,7 @@ def admin():
         except Exception: pass
     body = r"""
     <section class="section"><div class="section-head"><div><h2>لوحة الإدارة</h2><p>إدارة المنتجات ومراجعة الطلبات</p></div><a class="btn small" href="{{url_for('home')}}">عرض المتجر</a></div>
+    <div class="formcard" style="max-width:none;margin:15px 0;border:1px solid #b89545;background:linear-gradient(130deg,#211d13,#111a16)"><h2 style="margin-top:0;color:#f4d579">💎 إدارة صفحة مكاسب المطور</h2><p style="color:#bdc6bd">عدّل اسم المستخدم والمبلغ والصورة التي تظهر للزوار في قائمة مكاسب المطور.</p><form method="post" action="{{url_for('admin_developer_earnings')}}" enctype="multipart/form-data" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:end"><label class="field">اسم المستخدم<input name="username" maxlength="60" value="{{dev_username}}" required></label><label class="field">المكاسب بالدولار<input name="amount" type="number" min="0" max="100000000" step="0.01" value="{{dev_amount}}" required></label><label class="field">صورة المطور<input name="developer_image" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label><button class="btn primary" type="submit">حفظ بيانات صفحة المكاسب</button></form>{% if dev_image %}<img src="{{dev_image}}" alt="صورة المطور الحالية" style="width:100px;height:100px;object-fit:cover;border-radius:50%;margin-top:12px;border:3px solid #d7b65f">{% endif %}<p style="font-size:11px;color:#9eaa9f">القيمة الافتراضية $500. غيّرها من هنا عند الحاجة.</p></div>
     <div class="formcard" style="max-width:none;margin:15px 0;border-color:#65b7ff"><h2 style="margin-top:0">🖼️ صور قوائم NOVA SUPER HUB</h2><p>اختار أي قائمة وارفع صورة من الموبايل لتغيير صورتها. الصيغ المدعومة: JPG / PNG / WEBP / GIF (حتى 8MB).</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">{% for slug,label in [('ai','NOVA AI'),('security','NOVA SECURITY'),('gaming','NOVA GAMING'),('wallet','NOVA WALLET'),('rewards','NOVA REWARDS'),('tools','NOVA TOOLS'),('club','NOVA CLUB'),('social','NOVA SOCIAL'),('google_services','خدمات Google Play'),('google_play','Google Play'),('coins','شراء عملات NOVA'),('cards','بطاقات الدفع'),('developer','صورة المطور')] %}<form method="post" action="{{url_for('admin_super_hub_image')}}" enctype="multipart/form-data" style="display:grid;gap:8px;padding:12px;border:1px solid #29463d;border-radius:13px"><b>{{label}}</b><input type="hidden" name="section" value="{{slug}}"><input type="file" name="section_image" accept="image/png,image/jpeg,image/webp,image/gif" required><button class="btn small" type="submit">تحديث صورة القائمة</button></form>{% endfor %}</div><p style="font-size:12px;color:#9eb7ab">الصور الافتراضية عبر الإنترنت؛ بعد رفع صورة من هنا سيستخدم القسم صورتك بدل الافتراضية.</p></div>
     <div class="formcard" style="max-width:none;margin:15px 0;border-color:#a58aff"><h2>🖼️ صور أقسام الصفحة الرئيسية</h2><p>ارفع صورة مستقلة للتقييمات والإحصائيات ونصائح السوشيال ميديا.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px">{% for slug,label in [('home_reviews','صورة تقييمات التطبيق'),('home_stats','صورة الإحصائيات'),('home_tips','صورة نصائح السوشيال ميديا')] %}<form method="post" action="{{url_for('admin_super_hub_image')}}" enctype="multipart/form-data" style="display:grid;gap:8px;padding:12px;border:1px solid #29463d;border-radius:13px"><b>{{label}}</b><input type="hidden" name="section" value="{{slug}}"><input type="file" name="section_image" accept="image/png,image/jpeg,image/webp,image/gif" required><button class="btn small" type="submit">تحديث الصورة</button></form>{% endfor %}</div></div>
     <div class="formcard" style="max-width:none;margin:15px 0;border-color:#d4ae3d"><h2 style="margin-top:0;color:#f4d35e">🪙 إدارة باقات عملات NOVA</h2><p>عدّل عدد العملات والسعر بالجنيه واسم كل باقة. اترك صف الباقة فارغًا لحذفه من قائمة الشراء. السعر يقبل الكسور مثل 12.50.</p><form method="post" action="{{url_for('admin_nova_coins_settings')}}" style="display:grid;gap:10px">{% for i in range(1,9) %}<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;padding:10px;border:1px solid #514522;border-radius:12px"><label class="field">عدد العملات<input type="number" min="1" name="coins_{{i}}" value="{{coin_packages[i-1][0] if coin_packages|length >= i else ''}}"></label><label class="field">السعر بالجنيه<input type="number" min="0.01" step="0.01" name="price_{{i}}" value="{{'%.2f'|format(coin_packages[i-1][1]/100) if coin_packages|length >= i else ''}}"></label><label class="field">اسم الباقة<input name="label_{{i}}" maxlength="40" value="{{coin_packages[i-1][2] if coin_packages|length >= i else ''}}"></label></div>{% endfor %}<button class="btn primary" type="submit">حفظ باقات العملات</button></form><p style="font-size:12px;color:#aebeb4">صورة قائمة شراء العملات يتم تغييرها من قسم صور SUPER HUB أعلاه ← شراء عملات NOVA.</p></div>
@@ -1690,7 +1715,37 @@ def admin():
     <button class="btn primary" type="submit">إنشاء الكود</button></form>
     <div class="tablewrap"><table><thead><tr><th>الكود</th><th>الخصم</th><th>المتبقي</th><th>الحالة</th></tr></thead><tbody>{% for c in coupons %}<tr><td>{{c.code}}</td><td>{{c.percent}}%</td><td>{{c.uses_left}}</td><td>{{'فعال' if c.active else 'موقوف'}}</td></tr>{% endfor %}</tbody></table></div></div>
     <div class="notice">تنبيه أمني: غيّر كلمة مرور الإدارة الافتراضية وإعداد SECRET_KEY قبل النشر. أضف حماية CSRF وتحديد معدل المحاولات وربط بوابة دفع موثوقة قبل استقبال مدفوعات حقيقية.</div></section>"""
-    return page("لوحة الإدارة", body, orders=orders, products=products, posts=posts, coupons=coupons, announcements=announcements, banner=banner, coin_packages=coin_packages)
+    return page("لوحة الإدارة", body, orders=orders, products=products, posts=posts, coupons=coupons, announcements=announcements, banner=banner, coin_packages=coin_packages, dev_amount=dev_amount, dev_username=dev_username, dev_image=dev_image)
+
+@app.route("/admin/developer-earnings", methods=["POST"])
+@admin_required
+def admin_developer_earnings():
+    username = (request.form.get("username") or "").strip()[:60]
+    raw_amount = (request.form.get("amount") or "").strip()
+    try:
+        amount = float(raw_amount)
+        if amount < 0 or amount > 100000000:
+            raise ValueError
+    except ValueError:
+        flash("اكتب مبلغًا صحيحًا للمكاسب بالدولار.")
+        return redirect(url_for("admin"))
+    image = request.files.get("developer_image")
+    image_path = None
+    if image and image.filename:
+        ext = os.path.splitext(secure_filename(image.filename))[1].lower()
+        if ext not in {".png", ".jpg", ".jpeg", ".webp", ".gif"}:
+            flash("صيغة الصورة غير مدعومة.")
+            return redirect(url_for("admin"))
+        filename = f"developer_earnings_{secrets.token_hex(8)}{ext}"
+        image.save(os.path.join(UPLOAD_FOLDER, filename))
+        image_path = url_for("static", filename=f"uploads/{filename}")
+    with db() as con:
+        con.execute("INSERT INTO site_settings(key,value) VALUES('developer_earnings_usd',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (f"{amount:.2f}".rstrip("0").rstrip("."),))
+        con.execute("INSERT INTO site_settings(key,value) VALUES('developer_username',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (username or "@Mido_M9do",))
+        if image_path:
+            con.execute("INSERT INTO site_settings(key,value) VALUES('developer_earnings_image',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (image_path,))
+    flash("تم تحديث صفحة مكاسب المطور بنجاح.")
+    return redirect(url_for("admin"))
 
 @app.route("/admin/product/add", methods=["POST"])
 @admin_required
