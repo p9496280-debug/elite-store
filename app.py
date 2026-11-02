@@ -30,8 +30,8 @@ UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 SENDLIBERTY_API_KEY = os.environ.get("SENDLIBERTY_API_KEY", "").strip()
 SENDLIBERTY_FROM_EMAIL = os.environ.get("SENDLIBERTY_FROM_EMAIL", "P9496280@gmail.com").strip()
-TEXTBEE_API_KEY = os.environ.get("TEXTBEE_API_KEY", "txb_ZqPwWoi7UdJ3IGhWguhU9PQQPdiswkzN").strip()
-TEXTBEE_DEVICE_ID = os.environ.get("TEXTBEE_DEVICE_ID", "6ae4ea1259a24e053fd5be18").strip()
+TEXTBEE_API_KEY = os.environ.get("TEXTBEE_API_KEY", "").strip()
+TEXTBEE_DEVICE_ID = os.environ.get("TEXTBEE_DEVICE_ID", "").strip()
 TEXTBEE_BASE_URL = os.environ.get("TEXTBEE_BASE_URL", "https://api.textbee.dev/api/v1").rstrip("/")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash").strip()
@@ -537,7 +537,7 @@ body{--mint:var(--theme-accent);--mint2:var(--theme-accent2)}
 <div class="wrap install-strip" id="installStrip"><div><strong>📲 هل تريد تثبيت تطبيق MIDO NOVA؟</strong><small>ثبّته على هاتفك وافتحه مباشرة من الشاشة الرئيسية.</small></div><button class="btn primary small" id="installAppBtn" type="button">تثبيت التطبيق</button><button class="btn small" id="dismissInstallBtn" type="button" aria-label="إغلاق">×</button></div>
 <header class="topbar"><div class="wrap nav">
 <a class="brand" href="{{ url_for('home') }}"><div class="mark">M</div><div>MIDO <span>NOVA</span></div></a>
-<nav class="navlinks"><a href="{{ url_for('home') }}">الرئيسية</a><a href="{{ url_for('home') }}#categories">الأقسام</a><a href="{{ url_for('home') }}#products">المتجر</a><a href="{{url_for('lucky_wheel')}}">🎡 عجلة الحظ</a><a href="{{url_for('nova_ai')}}">✦ NOVA AI</a><a href="{{url_for('nova_super_hub')}}">✦ SUPER HUB</a><a href="{{url_for('digital_hub')}}">NOVA HUB</a><a href="{{url_for('developer_earnings')}}">💎 مكاسب المطور</a><a href="{{ url_for('my_orders') }}">طلباتي</a>{% if user %}<a href="{{ url_for('profile') }}">بروفايلي</a>{% endif %}</nav>
+<nav class="navlinks"><a href="{{ url_for('home') }}">الرئيسية</a><a href="{{ url_for('home') }}#categories">الأقسام</a><a href="{{ url_for('home') }}#products">المتجر</a><a href="{{url_for('lucky_wheel')}}">🎡 عجلة الحظ</a><a href="{{url_for('ana_muslim')}}">🕌 أنا مسلم</a><a href="{{url_for('nova_ai')}}">✦ NOVA AI</a><a href="{{url_for('nova_super_hub')}}">✦ SUPER HUB</a><a href="{{url_for('digital_hub')}}">NOVA HUB</a><a href="{{url_for('developer_earnings')}}">💎 مكاسب المطور</a><a href="{{ url_for('my_orders') }}">طلباتي</a>{% if user %}<a href="{{ url_for('profile') }}">بروفايلي</a>{% endif %}</nav>
 <div class="navactions">
 {% if user %}<a class="btn small" href="{{ url_for('profile') }}">👤 بروفايلي</a><a class="btn primary small" href="{{ url_for('logout') }}">خروج</a>
 {% else %}<a class="btn small" href="{{ url_for('login') }}">دخول</a><a class="btn primary small" href="{{ url_for('register') }}">حساب جديد</a>{% endif %}
@@ -2084,6 +2084,33 @@ def admin_add_coupon():
         except sqlite3.IntegrityError:
             flash("الكود موجود بالفعل.")
     return redirect(url_for("admin"))
+
+@app.route("/ana-muslim")
+def ana_muslim():
+    body = r"""
+<style>
+.im-wrap{max-width:1100px;margin:auto;color:#eefaf3}.im-hero{border:1px solid #245a45;border-radius:26px;padding:26px;background:radial-gradient(ellipse at top left,#087f55 0,#09251e 48%,#101b19 100%);box-shadow:0 15px 50px #0005}.im-hero h1{font-size:clamp(27px,5vw,42px);margin:0 0 8px}.im-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:14px;margin-top:16px}.im-card{background:#101d19;border:1px solid #254438;border-radius:20px;padding:18px;box-shadow:0 10px 25px #0002}.im-card h2{margin:0 0 12px;font-size:21px;color:#7ef0b2}.im-btn{background:linear-gradient(120deg,#20c77c,#087c56);border:0;border-radius:13px;padding:12px 16px;color:#041b11;font-weight:bold;cursor:pointer}.im-input{background:#07130f;color:#f1fff7;border:1px solid #315847;border-radius:12px;padding:11px;width:100%;box-sizing:border-box}.im-prayer{display:flex;justify-content:space-between;padding:10px;border-bottom:1px solid #254438}.im-counter{font-size:44px;font-weight:800;color:#82ffc0;text-align:center;margin:12px}.im-sub{color:#a6c3b4;font-size:13px}.im-compass{width:150px;height:150px;margin:12px auto;border:2px solid #39c987;border-radius:50%;display:grid;place-items:center;font-size:45px;background:radial-gradient(#143b2c,#09150f)}
+</style>
+<div class="im-wrap">
+<section class="im-hero"><div class="im-sub">MIDO NOVA • مساحة إيمانية</div><h1>🕌 أنا مسلم</h1><p>صلاتك، أذكارك، وردك اليومي — في مكان واحد بتصميم هادئ.</p><div style="display:flex;gap:9px;flex-wrap:wrap"><button class="im-btn" onclick="loadPrayer()">📍 مواقيت الصلاة حسب موقعي</button><button class="im-btn" onclick="getQibla()">🧭 تحديد اتجاه القبلة</button></div><p id="im-status" class="im-sub" aria-live="polite">فعّل الموقع عند الطلب لحساب المواقيت والقبلة.</p></section>
+<div class="im-grid">
+<section class="im-card"><h2>🕰️ مواقيت الصلاة</h2><div class="im-sub">تُجلب من خدمة مواقيت خارجية بعد موافقتك على الموقع.</div><div id="im-prayers"><div class="im-prayer"><span>الفجر</span><span>—</span></div><div class="im-prayer"><span>الشروق</span><span>—</span></div><div class="im-prayer"><span>الظهر</span><span>—</span></div><div class="im-prayer"><span>العصر</span><span>—</span></div><div class="im-prayer"><span>المغرب</span><span>—</span></div><div class="im-prayer"><span>العشاء</span><span>—</span></div></div><label class="im-sub">طريقة الحساب</label><select id="im-method" class="im-input"><option value="5">الهيئة المصرية العامة للمساحة</option><option value="3">رابطة العالم الإسلامي</option><option value="2">الجمعية الإسلامية لأمريكا الشمالية</option></select></section>
+<section class="im-card"><h2>📿 المسبحة الإلكترونية</h2><div class="im-sub">اختر الذكر واضغط للتسبيح.</div><select id="im-dhikr" class="im-input"><option>سبحان الله</option><option>الحمد لله</option><option>الله أكبر</option><option>أستغفر الله</option><option>لا إله إلا الله</option></select><div class="im-counter" id="im-count">0</div><button class="im-btn" style="width:100%;padding:18px" onclick="countDhikr()">سبّح ✨</button><button class="im-btn" style="margin-top:8px;background:#20372d;color:#eafff2" onclick="resetDhikr()">تصفير العداد</button><div class="im-sub" id="im-goal" style="margin-top:8px">الهدف: 33</div></section>
+<section class="im-card"><h2>🧭 اتجاه القبلة</h2><p class="im-sub">يعرض الاتجاه التقريبي من موقعك إلى الكعبة، وليس بديلاً عن التحقق من البوصلة.</p><div class="im-compass" id="im-compass">🧭</div><div id="im-qibla" style="text-align:center;font-weight:bold">لم يتم تحديد الاتجاه</div><button class="im-btn" onclick="getQibla()">احسب اتجاه القبلة</button><p class="im-sub">قد تحتاج لمعايرة بوصلة الجهاز وإبعاد الهاتف عن المعادن.</p></section>
+<section class="im-card"><h2>🤲 أذكار مختارة</h2><details open><summary>ذكر بعد الصلاة</summary><p dir="rtl">أستغفر الله (ثلاثًا)، اللهم أنت السلام ومنك السلام، تباركت يا ذا الجلال والإكرام.</p></details><details><summary>ذكر الصباح والمساء</summary><p dir="rtl">رضيت بالله ربًا، وبالإسلام دينًا، وبمحمد ﷺ نبيًا.</p></details><details><summary>عند الكرب</summary><p dir="rtl">لا إله إلا أنت سبحانك إني كنت من الظالمين.</p></details><p class="im-sub">أذكار موجزة؛ يُستحسن مراجعة النصوص المطوّلة من مصدر موثوق.</p></section>
+<section class="im-card"><h2>📖 ورد قرآني</h2><p>ابدأ وردك اليومي بقراءة القرآن من مصحف موثوق.</p><a class="im-btn" style="display:inline-block;text-decoration:none" href="https://quran.com" target="_blank" rel="noopener noreferrer">فتح القرآن الكريم ↗</a><p class="im-sub">يفتح موقع القرآن في نافذة جديدة.</p></section>
+<section class="im-card"><h2>🌙 تذكير لطيف</h2><p>«ألا بذكر الله تطمئن القلوب»</p><p class="im-sub">الرعد: 28</p><button class="im-btn" onclick="shareReminder()">مشاركة التذكير</button></section>
+</div></div>
+<script>
+let imN=0;function countDhikr(){imN++;document.getElementById('im-count').textContent=imN;if(imN===33||imN===100)document.getElementById('im-goal').textContent='أحسنت 🌿 وصلت '+imN+' تسبيحة';}function resetDhikr(){imN=0;document.getElementById('im-count').textContent=0;document.getElementById('im-goal').textContent='الهدف: 33';}
+function locate(){return new Promise((resolve,reject)=>{if(!navigator.geolocation)return reject(Error('المتصفح لا يدعم تحديد الموقع'));navigator.geolocation.getCurrentPosition(p=>resolve([p.coords.latitude,p.coords.longitude]),e=>reject(e),{enableHighAccuracy:true,timeout:12000});});}
+async function loadPrayer(){let status=document.getElementById('im-status');status.textContent='جارٍ تحديد موقعك…';try{let [lat,lon]=await locate(),method=document.getElementById('im-method').value;let d=new Date(),url=`https://api.aladhan.com/v1/timings/${Math.floor(d.getTime()/1000)}?latitude=${lat}&longitude=${lon}&method=${method}`;let r=await fetch(url);if(!r.ok)throw Error('خدمة المواقيت غير متاحة');let j=await r.json();if(j.code!==200)throw Error('تعذر جلب المواقيت');let t=j.data.timings;document.getElementById('im-prayers').innerHTML=[['الفجر','Fajr'],['الشروق','Sunrise'],['الظهر','Dhuhr'],['العصر','Asr'],['المغرب','Maghrib'],['العشاء','Isha']].map(([a,b])=>`<div class="im-prayer"><span>${a}</span><strong dir="ltr">${t[b]}</strong></div>`).join('');status.textContent='مواقيت اليوم حسب موقعك • '+(j.data.date.readable||'');window.imCoords=[lat,lon];calcQibla(lat,lon);}catch(e){status.textContent='تعذر جلب المواقيت: '+(e.message||'تحقق من إذن الموقع والاتصال.');}}
+function calcQibla(lat,lon){let kLat=21.4225*Math.PI/180,kLon=39.8262*Math.PI/180,p=lat*Math.PI/180,l=lon*Math.PI/180,y=Math.sin(kLon-l),x=Math.cos(p)*Math.tan(kLat)-Math.sin(p)*Math.cos(kLon-l),deg=(Math.atan2(y,x)*180/Math.PI+360)%360;document.getElementById('im-qibla').textContent='اتجاه القبلة: '+deg.toFixed(1)+'° من الشمال';document.getElementById('im-compass').style.transform=`rotate(${deg}deg)`;document.getElementById('im-compass').textContent='⬆️';}
+async function getQibla(){try{let [lat,lon]=await locate();window.imCoords=[lat,lon];calcQibla(lat,lon);document.getElementById('im-status').textContent='تم حساب اتجاه القبلة التقريبي.';}catch(e){document.getElementById('im-status').textContent='اسمح بتحديد الموقع لحساب الاتجاه.';}}
+async function shareReminder(){let text='ألا بذكر الله تطمئن القلوب — الرعد: 28';try{if(navigator.share)await navigator.share({text});else if(navigator.clipboard){await navigator.clipboard.writeText(text);alert('تم نسخ التذكير');}else alert(text);}catch(e){}}
+</script>
+"""
+    return page("أنا مسلم", body)
 
 @app.errorhandler(403)
 def forbidden(_):
