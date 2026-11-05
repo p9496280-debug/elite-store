@@ -45,7 +45,7 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
 TELEGRAM_BOT_URL = "https://t.me/midoassistantAIbot"
 TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "").strip()
 PAYPAL_URL = os.environ.get("PAYPAL_URL", "https://www.paypal.com/")
-VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "01011541698")
+VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "ضع رقم فودافون كاش هنا")
 
 
 CATEGORIES = [
@@ -649,6 +649,9 @@ def page(title, body, **kwargs):
     }
     template_context.update(kwargs)
     rendered_body = render_template_string(body, **template_context)
+    if user:
+        quick = f"""<div style='max-width:1120px;margin:12px auto;padding:0 14px;display:flex;gap:9px;flex-wrap:wrap'><a href='{url_for('nova_daily_rewards')}' style='padding:9px 13px;border-radius:13px;background:#352b14;color:#ffe49a;text-decoration:none;border:1px solid #b89545'>🎁 مكافأة اليوم</a><a href='{url_for('nova_notifications')}' style='padding:9px 13px;border-radius:13px;background:#102b27;color:#a9f5db;text-decoration:none;border:1px solid #397b68'>🔔 الإشعارات</a></div>"""
+        rendered_body = quick + rendered_body
     return render_template_string(BASE, title=title, body=rendered_body, user=user, announcements=announcements,
                                  year=__import__("datetime").datetime.now().year,
                                  vodafone_number=VODAFONE_CASH_NUMBER)
@@ -750,6 +753,22 @@ def pwa_service_worker():
     worker = '''const CACHE_NAME = "mido-nova-pwa-v1";
 self.addEventListener("install", event => { self.skipWaiting(); });
 self.addEventListener("activate", event => { event.waitUntil(self.clients.claim()); });
+self.addEventListener("push", event => {
+  let data = {title:"MIDO NOVA", body:"لديك إشعار جديد", url:"/nova-notifications"};
+  try { if (event.data) data = {...data, ...event.data.json()}; } catch(e) {}
+  event.waitUntil(self.registration.showNotification(data.title, {
+    body:data.body, icon:data.icon || "/pwa-icon.svg", badge:"/pwa-icon.svg",
+    data:{url:data.url || "/nova-notifications"}, vibrate:[120,60,120]
+  }));
+});
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  const target = event.notification.data && event.notification.data.url || "/nova-notifications";
+  event.waitUntil(clients.matchAll({type:"window",includeUncontrolled:true}).then(list => {
+    for (const client of list) { if ("focus" in client) { client.navigate(target); return client.focus(); } }
+    return clients.openWindow(target);
+  }));
+});
 self.addEventListener("fetch", event => {
   const req = event.request;
   if (req.method !== "GET" || new URL(req.url).origin !== self.location.origin) return;
@@ -1877,7 +1896,7 @@ def admin():
             coin_packages=[(int(x["coins"]),int(x["price"]),str(x.get("label","باقة"))) for x in json.loads(saved_coin_packages["value"])][:8]
         except Exception: pass
     body = r"""
-    <section class="section"><div class="section-head"><div><h2>لوحة الإدارة</h2><p>إدارة المنتجات ومراجعة الطلبات</p></div><a class="btn small" href="{{url_for('home')}}">عرض المتجر</a></div>
+    <section class="section"><div class="formcard" style="max-width:none;margin:10px 0;border:1px solid #d7b65f;background:linear-gradient(120deg,#302711,#14231d)"><h2 style="color:#ffe49a">🎁 NOVA DAILY REWARDS & 🔔 NOTIFICATIONS</h2><p>إدارة مكافأة تسجيل الدخول اليومية وإرسال إشعارات للمستخدمين.</p><a class="btn primary" href="{{url_for('admin_nova_engagement')}}">فتح إدارة المكافآت والإشعارات ←</a></div><div class="section-head"><div><h2>لوحة الإدارة</h2><p>إدارة المنتجات ومراجعة الطلبات</p></div><a class="btn small" href="{{url_for('home')}}">عرض المتجر</a></div>
     <div class="formcard" style="max-width:none;margin:15px 0;border:1px solid #b89545;background:linear-gradient(130deg,#211d13,#111a16)"><h2 style="margin-top:0;color:#f4d579">💎 إدارة صفحة مكاسب المطور</h2><p style="color:#bdc6bd">عدّل اسم المستخدم والمبلغ والصورة التي تظهر للزوار في قائمة مكاسب المطور.</p><form method="post" action="{{url_for('admin_developer_earnings')}}" enctype="multipart/form-data" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:end"><label class="field">اسم المستخدم<input name="username" maxlength="60" value="{{dev_username}}" required></label><label class="field">المكاسب بالدولار<input name="amount" type="number" min="0" max="100000000" step="0.01" value="{{dev_amount}}" required></label><label class="field">صورة المطور<input name="developer_image" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label><button class="btn primary" type="submit">حفظ بيانات صفحة المكاسب</button></form>{% if dev_image %}<img src="{{dev_image}}" alt="صورة المطور الحالية" style="width:100px;height:100px;object-fit:cover;border-radius:50%;margin-top:12px;border:3px solid #d7b65f">{% endif %}<p style="font-size:11px;color:#9eaa9f">القيمة الافتراضية $500. غيّرها من هنا عند الحاجة.</p></div>
     <div class="formcard" style="max-width:none;margin:15px 0;border:1px solid #d74dff;background:linear-gradient(130deg,#1a1024,#101326)"><h2 style="margin-top:0;color:#ff9aef">✨ تخصيص شكل البروفايل لكل المستخدمين</h2><p>غيّر خلفية البروفايل ولوني الإضاءة؛ التغييرات تظهر للمستخدمين عند فتح بروفايلاتهم.</p><form method="post" action="{{url_for('admin_profile_appearance')}}" enctype="multipart/form-data" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:end"><label class="field">صورة الخلفية<input type="file" name="profile_background" accept="image/png,image/jpeg,image/webp"></label><label class="field">لون الإضاءة الأول<input type="color" name="neon_a" value="{{profile_neon_a}}" style="width:100%;height:45px"></label><label class="field">لون الإضاءة الثاني<input type="color" name="neon_b" value="{{profile_neon_b}}" style="width:100%;height:45px"></label><button class="btn primary" type="submit">حفظ شكل البروفايل</button></form>{% if profile_bg_image %}<img src="{{profile_bg_image}}" alt="الخلفية الحالية" style="width:150px;height:90px;object-fit:cover;border-radius:12px;margin-top:10px">{% endif %}<p style="font-size:11px;color:#aab3c8">الصورة اختيارية. ارفع صورة جديدة لتغيير الخلفية، واتركها بدون اختيار للاحتفاظ بالحالية.</p></div>
     <div class="formcard" style="max-width:none;margin:15px 0;border-color:#65b7ff"><h2 style="margin-top:0">🖼️ صور قوائم NOVA SUPER HUB</h2><p>اختار أي قائمة وارفع صورة من الموبايل لتغيير صورتها. الصيغ المدعومة: JPG / PNG / WEBP / GIF (حتى 8MB).</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">{% for slug,label in [('ai','NOVA AI'),('security','NOVA SECURITY'),('gaming','NOVA GAMING'),('wallet','NOVA WALLET'),('rewards','NOVA REWARDS'),('tools','NOVA TOOLS'),('club','NOVA CLUB'),('social','NOVA SOCIAL'),('google_services','خدمات Google Play'),('google_play','Google Play'),('coins','شراء عملات NOVA'),('cards','بطاقات الدفع'),('developer','صورة المطور')] %}<form method="post" action="{{url_for('admin_super_hub_image')}}" enctype="multipart/form-data" style="display:grid;gap:8px;padding:12px;border:1px solid #29463d;border-radius:13px"><b>{{label}}</b><input type="hidden" name="section" value="{{slug}}"><input type="file" name="section_image" accept="image/png,image/jpeg,image/webp,image/gif" required><button class="btn small" type="submit">تحديث صورة القائمة</button></form>{% endfor %}</div><p style="font-size:12px;color:#9eb7ab">الصور الافتراضية عبر الإنترنت؛ بعد رفع صورة من هنا سيستخدم القسم صورتك بدل الافتراضية.</p></div>
@@ -2182,6 +2201,261 @@ renderAdhkar();loadSurahList();
 </script>
 """
     return page("أنا مسلم", body)
+
+
+
+# =========================================================
+# NOVA DAILY REWARDS + NOTIFICATION CENTER (additive)
+# =========================================================
+def ensure_rewards_notifications_schema():
+    with db() as con:
+        con.execute("""CREATE TABLE IF NOT EXISTS daily_reward_claims(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+            claim_date TEXT NOT NULL, cash_amount INTEGER NOT NULL DEFAULT 0,
+            coin_amount INTEGER NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, claim_date))""")
+        con.execute("""CREATE TABLE IF NOT EXISTS app_notifications(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT NOT NULL,
+            image_url TEXT DEFAULT '', target TEXT NOT NULL DEFAULT 'all',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, active INTEGER DEFAULT 1)""")
+        con.execute("""CREATE TABLE IF NOT EXISTS user_notifications(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+            notification_id INTEGER NOT NULL, is_read INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, notification_id))""")
+        con.execute("""CREATE TABLE IF NOT EXISTS push_subscriptions(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+            endpoint TEXT NOT NULL UNIQUE, subscription_json TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        defaults = {
+            "daily_reward_enabled": "1",
+            "daily_reward_cash": "0",
+            "daily_reward_coins": "10",
+            "daily_reward_title": "مكافأة تسجيل الدخول اليومية",
+            "daily_reward_image": "",
+            "push_vapid_public": os.environ.get("VAPID_PUBLIC_KEY", "")
+        }
+        for key, value in defaults.items():
+            con.execute("INSERT OR IGNORE INTO site_settings(key,value) VALUES(?,?)", (key, value))
+
+ensure_rewards_notifications_schema()
+
+
+def _nova_setting(key, default=""):
+    with db() as con:
+        row = con.execute("SELECT value FROM site_settings WHERE key=?", (key,)).fetchone()
+    return row["value"] if row else default
+
+
+@app.route("/nova-rewards")
+def nova_daily_rewards():
+    user = current_user()
+    today = datetime.now().strftime("%Y-%m-%d")
+    claimed = False
+    if user:
+        with db() as con:
+            claimed = bool(con.execute("SELECT 1 FROM daily_reward_claims WHERE user_id=? AND claim_date=?", (user["id"], today)).fetchone())
+    enabled = _nova_setting("daily_reward_enabled", "1") == "1"
+    cash = int(_nova_setting("daily_reward_cash", "0") or 0)
+    coins = int(_nova_setting("daily_reward_coins", "10") or 0)
+    title = _nova_setting("daily_reward_title", "مكافأة تسجيل الدخول اليومية")
+    image = _nova_setting("daily_reward_image", "")
+    body = r"""
+    <section style="max-width:850px;margin:28px auto;padding:18px">
+      <div style="border:1px solid #d7b65f;border-radius:28px;padding:24px;background:radial-gradient(circle at 85% 5%,#57451d,#171b16 68%);box-shadow:0 18px 50px #0005;text-align:center">
+        {% if image %}<img src="{{image}}" style="width:100%;max-height:220px;object-fit:cover;border-radius:18px;margin-bottom:15px">{% else %}<div style="font-size:65px">💵💎</div>{% endif %}
+        <small style="color:#ffe49a;letter-spacing:2px;font-weight:900">MIDO NOVA · DAILY BONUS</small>
+        <h1 style="color:#ffe49a">{{title}}</h1>
+        <p style="color:#f6ebcc;line-height:2">سجّل دخولك يوميًا واستلم مكافأتك. المكافأة المتاحة اليوم:</p>
+        <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:20px 0">
+          <div style="background:#101a15;border:1px solid #d7b65f;border-radius:18px;padding:18px 26px"><div style="font-size:30px">💵</div><b style="font-size:25px;color:#ffe49a">{{cash}}</b><div>قرش في المحفظة</div></div>
+          <div style="background:#101a15;border:1px solid #62cda7;border-radius:18px;padding:18px 26px"><div style="font-size:30px">🪙</div><b style="font-size:25px;color:#9ff0d2">{{coins}}</b><div>NOVA Coins</div></div>
+        </div>
+        {% if not user %}<a class="btn primary" href="{{url_for('login')}}">سجّل الدخول لاستلام المكافأة</a>
+        {% elif not enabled %}<button class="btn" disabled>المكافأة متوقفة حاليًا</button>
+        {% elif claimed %}<div class="btn" style="background:#173b2d;color:#a8f5d3">✅ استلمت مكافأة اليوم — ارجع بكرة</div>
+        {% else %}<form method="post" action="{{url_for('claim_daily_reward')}}"><button class="btn primary" style="font-size:17px;padding:15px 28px">🎁 استلم مكافأتي الآن</button></form>{% endif %}
+      </div>
+      <p style="text-align:center;color:#aebdb4;font-size:12px">المكافأة تُصرف مرة واحدة لكل حساب في اليوم، وفق القيم المحددة من الإدارة.</p>
+    </section>"""
+    return page("NOVA DAILY REWARDS", body, cash=cash, coins=coins, title=title, image=image,
+                enabled=enabled, claimed=claimed)
+
+
+@app.route("/nova-rewards/claim", methods=["POST"])
+def claim_daily_reward():
+    user = current_user()
+    if not user:
+        flash("سجّل الدخول أولًا لاستلام مكافأتك.", "error")
+        return redirect(url_for("login"))
+    if _nova_setting("daily_reward_enabled", "1") != "1":
+        flash("المكافأة اليومية متوقفة حاليًا.", "error")
+        return redirect(url_for("nova_daily_rewards"))
+    cash = max(0, min(100000, int(_nova_setting("daily_reward_cash", "0") or 0)))
+    coins = max(0, min(100000, int(_nova_setting("daily_reward_coins", "10") or 0)))
+    today = datetime.now().strftime("%Y-%m-%d")
+    try:
+        with db() as con:
+            cur = con.execute("INSERT OR IGNORE INTO daily_reward_claims(user_id,claim_date,cash_amount,coin_amount) VALUES(?,?,?,?)",
+                              (user["id"], today, cash, coins))
+            if cur.rowcount:
+                con.execute("UPDATE users SET wallet_balance=wallet_balance+?, nova_coins=nova_coins+? WHERE id=?",
+                            (cash, coins, user["id"]))
+                flash(f"🎉 مبروك! أضفنا {cash} قرش و {coins} NOVA Coins إلى حسابك.", "success")
+            else:
+                flash("استلمت مكافأة النهارده بالفعل. ارجع بكرة ❤️", "error")
+    except sqlite3.Error:
+        app.logger.exception("Daily reward claim failed")
+        flash("حصل خطأ أثناء تسجيل المكافأة. حاول مرة أخرى.", "error")
+    return redirect(url_for("nova_daily_rewards"))
+
+
+@app.route("/nova-notifications")
+def nova_notifications():
+    user = current_user()
+    if not user:
+        return redirect(url_for("login"))
+    with db() as con:
+        rows = con.execute("""SELECT n.*,un.is_read FROM user_notifications un
+            JOIN app_notifications n ON n.id=un.notification_id
+            WHERE un.user_id=? AND n.active=1 ORDER BY n.id DESC LIMIT 100""", (user["id"],)).fetchall()
+    body = r"""
+    <section style="max-width:850px;margin:25px auto;padding:18px">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><div><small style="color:#9debd0">MIDO NOVA · ALERT CENTER</small><h1>🔔 الإشعارات</h1><p>كل أخبار وتنبيهات حسابك في مكان واحد.</p></div><button class="btn primary" onclick="enableNovaPush()">🔔 تفعيل إشعارات الهاتف</button></div>
+      <div id="push-status" style="font-size:12px;color:#a8c8bb;margin:8px 0"></div>
+      {% for n in rows %}<article style="display:flex;gap:14px;align-items:center;padding:15px;margin:12px 0;border:1px solid #31594b;border-radius:17px;background:#101d19">
+        {% if n.image_url %}<img src="{{n.image_url}}" style="width:75px;height:75px;object-fit:cover;border-radius:12px">{% else %}<div style="font-size:32px">🔔</div>{% endif %}
+        <div><b>{{n.title}}</b><p style="margin:6px 0;color:#c3d4cc">{{n.body}}</p><small style="color:#91aa9e">{{n.created_at}}</small></div>
+      </article>{% else %}<div class="formcard">لا توجد إشعارات حتى الآن.</div>{% endfor %}
+    </section>
+    <script>
+    async function enableNovaPush(){
+      const status=document.getElementById('push-status');
+      if(!('Notification' in window)||!('serviceWorker' in navigator)){status.textContent='المتصفح لا يدعم إشعارات الويب.';return;}
+      try{
+        const permission=await Notification.requestPermission();
+        if(permission!=='granted'){status.textContent='لم يتم السماح بالإشعارات. يمكنك تفعيلها من إعدادات المتصفح.';return;}
+        const reg=await navigator.serviceWorker.register('/service-worker.js');
+        const key={{vapid_public|tojson}};
+        if(!key){status.textContent='تم السماح، لكن الإدارة لم تضبط مفتاح إشعارات الهاتف بعد.';return;}
+        const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(key)});
+        const res=await fetch('/api/push/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sub)});
+        status.textContent=res.ok?'✅ تم تفعيل إشعارات الهاتف بنجاح.':'تعذر حفظ إعداد الإشعارات.';
+      }catch(e){status.textContent='تعذر التفعيل: '+e.message;}
+    }
+    function urlBase64ToUint8Array(base64String){const padding='='.repeat((4-base64String.length%4)%4);const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(base64);return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));}
+    </script>"""
+    return page("الإشعارات", body, rows=rows, vapid_public=_nova_setting("push_vapid_public", ""))
+
+
+@app.route("/api/push/subscribe", methods=["POST"])
+def save_push_subscription():
+    user = current_user()
+    if not user:
+        return jsonify(ok=False, error="login_required"), 401
+    data = request.get_json(silent=True) or {}
+    endpoint = data.get("endpoint")
+    if not endpoint or not isinstance(endpoint, str) or len(endpoint) > 3000:
+        return jsonify(ok=False), 400
+    with db() as con:
+        con.execute("""INSERT INTO push_subscriptions(user_id,endpoint,subscription_json) VALUES(?,?,?)
+            ON CONFLICT(endpoint) DO UPDATE SET user_id=excluded.user_id,subscription_json=excluded.subscription_json""",
+                    (user["id"], endpoint, json.dumps(data)))
+    return jsonify(ok=True)
+
+
+@app.route("/admin/nova-engagement", methods=["GET", "POST"])
+@admin_required
+def admin_nova_engagement():
+    if request.method == "POST":
+        form = request.form
+        settings = {
+            "daily_reward_enabled": "1" if form.get("enabled") == "1" else "0",
+            "daily_reward_cash": str(max(0, min(100000, int(form.get("cash", 0) or 0)))),
+            "daily_reward_coins": str(max(0, min(100000, int(form.get("coins", 0) or 0)))),
+            "daily_reward_title": form.get("reward_title", "مكافأة تسجيل الدخول اليومية")[:100]
+        }
+        with db() as con:
+            for key, value in settings.items():
+                con.execute("INSERT INTO site_settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key,value))
+            image = request.files.get("reward_image")
+            if image and image.filename:
+                filename = secure_filename(f"daily_reward_{secrets.token_hex(8)}_{image.filename}")
+                image.save(os.path.join(UPLOAD_FOLDER, filename))
+                con.execute("INSERT INTO site_settings(key,value) VALUES('daily_reward_image',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                            (url_for("static", filename="uploads/"+filename),))
+            pub = form.get("vapid_public", "").strip()
+            if pub:
+                con.execute("INSERT INTO site_settings(key,value) VALUES('push_vapid_public',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (pub,))
+        flash("تم حفظ إعدادات المكافآت اليومية.", "success")
+        return redirect(url_for("admin_nova_engagement"))
+    body = r"""
+    <section class="section"><h1>🎁 المكافآت والإشعارات</h1><p>تحكم في مكافأة تسجيل الدخول اليومية وإعدادات إشعارات الهاتف.</p>
+    <div class="formcard" style="max-width:none"><h2>💵 مكافأة تسجيل الدخول اليومية</h2><form method="post" enctype="multipart/form-data" style="display:grid;gap:12px">
+      <label><input type="checkbox" name="enabled" value="1" {% if enabled %}checked{% endif %}> تفعيل المكافأة اليومية</label>
+      <label class="field">عنوان المكافأة<input name="reward_title" maxlength="100" value="{{title}}" required></label>
+      <label class="field">المبلغ في المحفظة (قرش مصري)<input name="cash" type="number" min="0" max="100000" value="{{cash}}"></label>
+      <label class="field">عدد NOVA Coins<input name="coins" type="number" min="0" max="100000" value="{{coins}}"></label>
+      <label class="field">صورة المكافأة / الدولار<input type="file" name="reward_image" accept="image/png,image/jpeg,image/webp"></label>
+      {% if image %}<img src="{{image}}" style="width:180px;border-radius:15px">{% endif %}
+      <button class="btn primary">حفظ إعدادات المكافأة</button></form></div>
+    <div class="formcard" style="max-width:none;margin-top:16px"><h2>🔔 إشعارات الهاتف</h2><p>زر تفعيل الإشعارات يظهر للمستخدم في مركز الإشعارات. لإرسال إشعارات حتى عند إغلاق الموقع، يلزم إعداد مفاتيح Web Push.</p>
+      <form method="post" style="display:grid;gap:10px"><input type="hidden" name="enabled" value="{{'1' if enabled else '0'}}"><input type="hidden" name="cash" value="{{cash}}"><input type="hidden" name="coins" value="{{coins}}"><input type="hidden" name="reward_title" value="{{title}}"><label class="field">VAPID Public Key<input name="vapid_public" value="{{vapid_public}}" placeholder="المفتاح العام فقط"></label><button class="btn">حفظ مفتاح الإشعارات العام</button></form>
+      <p style="font-size:12px;color:#aabbb2">يجب ضبط VAPID_PRIVATE_KEY وVAPID_CLAIMS_EMAIL في Render، وإضافة pywebpush إلى requirements.txt لتفعيل الإرسال الفعلي.</p>
+    </div>
+    <div class="formcard" style="max-width:none;margin-top:16px"><h2>📣 إرسال إشعار جديد</h2><form method="post" action="{{url_for('admin_send_nova_notification')}}" enctype="multipart/form-data" style="display:grid;gap:10px">
+      <label class="field">عنوان الإشعار<input name="title" maxlength="120" required></label><label class="field">نص الإشعار<textarea name="body" maxlength="1000" required></textarea></label><label class="field">صورة اختيارية<input type="file" name="image" accept="image/png,image/jpeg,image/webp"></label><label class="field">إرسال إلى<select name="target"><option value="all">كل المستخدمين</option><option value="active">المستخدمين الذين فعّلوا إشعارات الهاتف</option></select></label><button class="btn primary">إرسال الإشعار</button></form></div>
+    </section>"""
+    return page("إدارة المكافآت والإشعارات", body,
+                enabled=_nova_setting("daily_reward_enabled","1")=="1",
+                cash=_nova_setting("daily_reward_cash","0"), coins=_nova_setting("daily_reward_coins","10"),
+                title=_nova_setting("daily_reward_title","مكافأة تسجيل الدخول اليومية"),
+                image=_nova_setting("daily_reward_image",""),
+                vapid_public=_nova_setting("push_vapid_public",""))
+
+
+@app.route("/admin/nova-engagement/notify", methods=["POST"])
+@admin_required
+def admin_send_nova_notification():
+    title=request.form.get("title","").strip()[:120]
+    body=request.form.get("body","").strip()[:1000]
+    target=request.form.get("target","all")
+    if not title or not body:
+        flash("اكتب عنوان ونص الإشعار.", "error")
+        return redirect(url_for("admin_nova_engagement"))
+    image_url=""
+    image=request.files.get("image")
+    if image and image.filename:
+        filename=secure_filename(f"notification_{secrets.token_hex(8)}_{image.filename}")
+        image.save(os.path.join(UPLOAD_FOLDER,filename))
+        image_url=url_for("static",filename="uploads/"+filename)
+    with db() as con:
+        cur=con.execute("INSERT INTO app_notifications(title,body,image_url,target) VALUES(?,?,?,?)",(title,body,image_url,target))
+        nid=cur.lastrowid
+        users=con.execute("SELECT id FROM users").fetchall()
+        for u in users:
+            con.execute("INSERT OR IGNORE INTO user_notifications(user_id,notification_id) VALUES(?,?)",(u["id"],nid))
+        subs=con.execute("SELECT subscription_json FROM push_subscriptions").fetchall()
+    sent=0
+    # Web Push is optional: in-app inbox always works; native push needs pywebpush + VAPID env vars.
+    try:
+        from pywebpush import webpush, WebPushException
+        private=os.environ.get("VAPID_PRIVATE_KEY","").strip()
+        claims=os.environ.get("VAPID_CLAIMS_EMAIL","mailto:admin@example.com").strip()
+        if private and claims:
+            payload=json.dumps({"title":title,"body":body,"url":url_for("nova_notifications",_external=True),"icon":url_for("pwa_icon",_external=True) if "pwa_icon" in app.view_functions else ""})
+            for sub in subs:
+                try:
+                    webpush(subscription_info=json.loads(sub["subscription_json"]),data=payload,
+                            vapid_private_key=private,vapid_claims={"sub":claims})
+                    sent+=1
+                except Exception:
+                    app.logger.exception("Web push delivery failed")
+    except ImportError:
+        pass
+    flash(f"تم نشر الإشعار داخل التطبيق لكل المستخدمين. إشعارات الهاتف المرسلة: {sent}.", "success")
+    return redirect(url_for("admin_nova_engagement"))
+
 
 @app.errorhandler(403)
 def forbidden(_):
