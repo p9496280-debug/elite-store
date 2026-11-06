@@ -24,8 +24,8 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024  # image uploads and receipts up to 8 MB
 DB_PATH = os.environ.get("DATABASE_PATH", "mido_nova.db")
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com").lower()
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@midonova.com").lower()
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeThis-Admin-123!")
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 SENDLIBERTY_API_KEY = os.environ.get("SENDLIBERTY_API_KEY", "").strip()
@@ -39,7 +39,7 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 # ضع توكن البوت الذي أنشأته من BotFather هنا بين علامتي الاقتباس.
 # لا تشارك هذا الملف علنًا بعد وضع التوكن الحقيقي بداخله.
-TELEGRAM_BOT_TOKEN = os.environ.get("8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4", "").strip()
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
 # اسم القناة العامة أو رقم Chat ID، والبوت لازم يكون مشرفًا فيها.
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
 TELEGRAM_BOT_URL = "https://t.me/midoassistantAIbot"
@@ -831,7 +831,7 @@ def nova_pulse_community():
 
 @app.route("/nova-pulse/games")
 def nova_pulse_games():
-    body = r'''<section style="max-width:950px;margin:28px auto;padding:20px"><div style="padding:30px;border-radius:25px;border:1px solid #a66d4f;background:linear-gradient(140deg,#40271d,#101615)"><div style="font-size:42px">🎮</div><small style="color:#ffc09e;font-weight:900">NOVA PULSE / GAMES</small><h1 style="color:#ffc09e">NOVA GAMES</h1><p style="color:#ead5ca;line-height:2">بوابة الألعاب والترفيه. تصفح منتجات الألعاب الرقمية المتاحة، واكتشف الألعاب والتحديات التي ستضاف لاحقًا.</p><a class="btn" href="{{url_for('home')}}#products">🎮 تصفح منتجات الألعاب ←</a><p style="color:#c4a99b;font-size:12px;margin-top:20px">الألعاب التفاعلية الجديدة داخل التطبيق ستضاف بعد تجهيزها واختبارها.</p></div><a class="btn" href="{{url_for('nova_pulse')}}">← العودة إلى NOVA PULSE</a></section>'''
+    body = r'''<section style="max-width:950px;margin:28px auto;padding:20px"><div style="padding:30px;border-radius:25px;border:1px solid #a66d4f;background:linear-gradient(140deg,#40271d,#101615)"><div style="font-size:42px">🎮</div><small style="color:#ffc09e;font-weight:900">NOVA PULSE / GAMES</small><h1 style="color:#ffc09e">NOVA GAMES</h1><p style="color:#ead5ca;line-height:2">بوابة الألعاب والترفيه. تصفح منتجات الألعاب الرقمية المتاحة، واكتشف الألعاب والتحديات التي ستضاف لاحقًا.</p><a class="btn" href="/nova-games/football-5v5">⚽ العب NOVA FOOTBALL 5v5</a><a class="btn" href="{{url_for('home')}}#products">🎮 تصفح منتجات الألعاب ←</a></div><a class="btn" href="{{url_for('nova_pulse')}}">← العودة إلى NOVA PULSE</a></section>'''
     return page("NOVA GAMES", body)
 
 @app.route("/super-hub")
@@ -2456,6 +2456,13 @@ def admin_send_nova_notification():
     flash(f"تم نشر الإشعار داخل التطبيق لكل المستخدمين. إشعارات الهاتف المرسلة: {sent}.", "success")
     return redirect(url_for("admin_nova_engagement"))
 
+
+
+@app.route('/nova-games/football-5v5')
+def nova_football_5v5():
+    body = r'''<section style="max-width:1000px;margin:20px auto;padding:12px;color:#eff"><h1>⚽ NOVA FOOTBALL <span style="color:#7ee6b4">5v5</span></h1><p>مباراة سريعة ضد الكمبيوتر — تحكم باللمس أو لوحة المفاتيح.</p><div style="display:flex;justify-content:center;gap:20px;padding:12px;background:#10251c;border-radius:15px"><b>NOVA</b><strong id="sc">0 - 0</strong><b>RIVALS</b><span id="tm">90</span></div><div style="position:relative;margin-top:12px;border:4px solid #eee;border-radius:15px;overflow:hidden"><canvas id="field" width="900" height="540" style="width:100%;display:block;background:#176b43;touch-action:none"></canvas><div id="cover" style="position:absolute;inset:0;background:#0019;display:grid;place-items:center;text-align:center"><div><h2>جاهز للمباراة؟</h2><button class="btn" onclick="begin()">▶ ابدأ المباراة</button></div></div></div><div style="display:flex;gap:10px;justify-content:space-around;flex-wrap:wrap;margin:14px"><div id="joy" style="padding:28px;background:#183629;border-radius:15px;touch-action:none">اسحب للتحريك</div><button class="btn" onclick="kick(7)">↗ تمرير</button><button class="btn" onclick="kick(11)">⚽ تسديد</button><button class="btn" onclick="fast=!fast">⚡ سرعة</button><button class="btn" onclick="location.reload()">↻ إعادة</button></div><small>WASD أو الأسهم للتحريك — Space للتسديد — E للتمرير.</small></section>
+<script>(()=>{let c=document.getElementById('field'),g=c.getContext('2d'),P=[],b={x:450,y:270,vx:0,vy:0},sc=[0,0],t=90,run=false,fast=false,K={},J={x:0,y:0};function init(){P=[];for(let s=0;s<2;s++)for(let i=0;i<5;i++)P.push({x:s?650+i%2*55:250-i%2*55,y:75+i*95,s,n:i+1});P[0].x=110;P[0].y=270;P[5].x=790;P[5].y=270}function draw(){g.fillStyle='#176b43';g.fillRect(0,0,900,540);for(let i=0;i<9;i++){g.fillStyle=i%2?'#ffffff0a':'#0000000a';g.fillRect(i*100,0,100,540)}g.strokeStyle='white';g.lineWidth=3;g.strokeRect(15,15,870,510);g.beginPath();g.moveTo(450,15);g.lineTo(450,525);g.arc(450,270,70,0,7);g.stroke();g.strokeRect(15,170,100,200);g.strokeRect(785,170,100,200);P.forEach(p=>{g.fillStyle='#0005';g.beginPath();g.ellipse(p.x,p.y+13,14,5,0,0,7);g.fill();g.fillStyle=p.s?'#f47750':'#e8eee9';g.fillRect(p.x-10,p.y-5,20,23);g.fillStyle=p.s?'#273746':'#087b54';g.beginPath();g.arc(p.x,p.y-12,10,0,7);g.fill();g.fillStyle='#e9bd99';g.beginPath();g.arc(p.x,p.y-14,7,0,7);g.fill();g.fillStyle='white';g.fillText(p.n,p.x-3,p.y+10)});g.fillStyle='white';g.beginPath();g.arc(b.x,b.y,9,0,7);g.fill()}function tick(){if(!run)return;let p=P[0],dx=(K.ArrowRight||K.d?1:0)-(K.ArrowLeft||K.a?1:0)+J.x,dy=(K.ArrowDown||K.s?1:0)-(K.ArrowUp||K.w?1:0)+J.y,m=Math.hypot(dx,dy)||1,v=fast?5:3;p.x=Math.max(25,Math.min(875,p.x+dx/m*v));p.y=Math.max(25,Math.min(515,p.y+dy/m*v));P.slice(1,5).forEach((q,i)=>{q.x+=(b.x-75-q.x)*.012;q.y+=(b.y+(i-2)*45-q.y)*.012});P.slice(5).forEach(q=>{q.x+=(b.x-q.x)*.018;q.y+=(b.y-q.y)*.018});if(Math.hypot(p.x-b.x,p.y-b.y)<28){b.vx+=(b.x-p.x)*.04;b.vy+=(b.y-p.y)*.04}b.x+=b.vx;b.y+=b.vy;b.vx*=.985;b.vy*=.985;if(b.y<25||b.y>515)b.vy*=-.8;if(b.x<20||b.x>880){if(b.y>200&&b.y<340){sc[b.x>450?0:1]++;document.getElementById('sc').textContent=sc.join(' - ');b={x:450,y:270,vx:0,vy:0}}else b.vx*=-.8}draw();requestAnimationFrame(tick)}window.begin=()=>{run=true;document.getElementById('cover').style.display='none';requestAnimationFrame(tick);let z=setInterval(()=>{if(!run){clearInterval(z);return}document.getElementById('tm').textContent=--t;if(t<=0){run=false;document.getElementById('cover').style.display='grid';document.getElementById('cover').innerHTML='<h2>انتهت المباراة — '+sc.join(' - ')+'</h2><button onclick="location.reload()">العب مجددًا</button>';clearInterval(z)}},1000)};window.kick=v=>{let a=Math.atan2(270-b.y,880-b.x);b.vx=Math.cos(a)*v;b.vy=Math.sin(a)*v};onkeydown=e=>{K[e.key]=true;if(e.code==='Space')kick(11);if(e.key==='e')kick(7)};onkeyup=e=>K[e.key]=false;let j=document.getElementById('joy');j.onpointerdown=e=>j.setPointerCapture(e.pointerId);j.onpointermove=e=>{if(e.buttons){let r=j.getBoundingClientRect();J={x:Math.max(-1,Math.min(1,(e.clientX-r.left-r.width/2)/35)),y:Math.max(-1,Math.min(1,(e.clientY-r.top-r.height/2)/35))}}};j.onpointerup=j.onpointercancel=()=>J={x:0,y:0};init();draw()})();</script>'''
+    return page('NOVA FOOTBALL 5v5', body)
 
 @app.errorhandler(403)
 def forbidden(_):
