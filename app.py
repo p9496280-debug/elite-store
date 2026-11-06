@@ -802,7 +802,7 @@ def nova_pulse():
       ("nova_news", "📰", "NOVA NEWS", "آخر أخبار التقنية والألعاب وتحديثات MIDO NOVA والعروض.", "#78c9ff", "#102b40", "الأخبار والمقالات الحالية", "عرض المقالات", "social_tips_list"),
       ("nova_rewards", "🏆", "NOVA REWARDS", "مكافآت وتحديات ونقاط ومستويات — مع توضيح شروط كل مكافأة.", "#f4d36d", "#393015", "عجلة الحظ الحالية", "افتح العجلة", "lucky_wheel"),
       ("nova_community", "🌐", "NOVA COMMUNITY", "مساحة تجمع مستخدمي NOVA لمشاركة الأفكار والتجارب والتواصل.", "#75e0bd", "#12372e", "ملفك ونصائح المجتمع", "استكشف المحتوى", "profile"),
-      ("nova_games", "🎮", "NOVA GAMES", "بوابة الألعاب والتحديات والترفيه داخل منظومة NOVA.", "#ffad83", "#3a241c", "ألعاب ومنتجات الألعاب", "تصفح الألعاب", "home")
+      ("nova_games", "🎮", "NOVA GAMES", "بوابة الألعاب والتحديات والترفيه داخل منظومة NOVA.", "#ffad83", "#3a241c", "ألعاب ومنتجات الألعاب", "تصفح الألعاب", "nova_pulse_games")
     ]
     body = r'''<section style="max-width:1120px;margin:24px auto;padding:clamp(14px,3vw,28px)">
     <div style="padding:clamp(25px,5vw,48px);border:1px solid #3e7d75;border-radius:30px;background:radial-gradient(circle at 5% 0,#1b594a,transparent 42%),radial-gradient(circle at 95% 10%,#234b72,transparent 40%),linear-gradient(140deg,#071713,#0b1420);box-shadow:0 22px 60px #0006">
