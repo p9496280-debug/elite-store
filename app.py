@@ -246,6 +246,25 @@ def current_user():
     with db() as con:
         return con.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
 
+
+# Require authentication before entering the app. Keep authentication callbacks,
+# static assets, PWA metadata and server-to-server webhooks publicly reachable.
+_PUBLIC_ENDPOINTS = {
+    "login", "register", "verify_otp", "send_otp", "google_login",
+    "google_callback", "logout", "static", "pwa_manifest", "pwa_icon",
+    "telegram_webhook",
+}
+
+@app.before_request
+def require_login_for_app():
+    endpoint = request.endpoint
+    if endpoint is None or endpoint in _PUBLIC_ENDPOINTS:
+        return None
+    if not session.get("user_id"):
+        session["after_login_url"] = request.full_path if request.query_string else request.path
+        return redirect(url_for("login"))
+    return None
+
 def admin_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
@@ -1315,6 +1334,7 @@ def login():
             if user["email"].lower() == ADMIN_EMAIL:
                 session.clear()
                 session["user_id"] = user["id"]
+                session.permanent = request.form.get("remember") == "1"
                 flash("أهلًا بك يا مدير، تم تسجيل دخولك مباشرة.")
                 return redirect(url_for("admin"))
             code = f"{secrets.randbelow(1_000_000):06d}"
@@ -1328,10 +1348,14 @@ def login():
                     send_otp_sms(target, code, "تسجيل الدخول")
                 else:
                     send_otp_email(target, code, "كود تسجيل الدخول")
+                remember_after_otp = request.form.get("remember") == "1"
+                destination_after_otp = session.get("after_login_url", "")
                 session.clear()
                 session["otp_email"] = target
                 session["pending_auth_uid"] = user["id"]
                 session["otp_method"] = method
+                session["remember_after_otp"] = remember_after_otp
+                session["after_login_url"] = destination_after_otp
                 flash("أرسلنا كود الأمان إلى هاتفك برسالة SMS." if method == "phone" else "أرسلنا كود الأمان إلى بريدك الإلكتروني.")
                 return redirect(url_for("verify_otp"))
             except Exception:
@@ -1340,11 +1364,34 @@ def login():
         else:
             flash("بيانات الدخول غير صحيحة.")
     body = r"""
-    <section class="formcard"><h1>أهلًا بعودتك</h1><p>اكتب بريدك الإلكتروني أو رقم هاتفك، وسنرسل كود الأمان إلى وسيلة حسابك.</p>
-    <form method="post"><label class="field">البريد الإلكتروني أو رقم الهاتف<input name="identifier" required autocomplete="username" placeholder="البريد الإلكتروني أو 01012345678"></label>
-    <label class="field">كلمة المرور<input type="password" name="password" minlength="8" required autocomplete="current-password"></label>
-    <button class="btn primary" type="submit">دخول</button></form><a class="btn" style="width:100%;margin-top:8px" href="{{url_for('google_login')}}">◉ المتابعة باستخدام Google</a><p>لسه جديد؟ <a style="color:var(--mint)" href="{{url_for('register')}}">اعمل حساب</a></p></section>"""
-    return page("تسجيل الدخول", body)
+    <style>
+    body{background:#eaf0ff!important;color:#101b46!important;font-family:Arial,'Cairo',sans-serif!important}
+    .topbar,.footer{display:none!important}.wrap{max-width:100%;padding:0!important}
+    .login-shell{min-height:100vh;overflow:hidden;position:relative;display:flex;justify-content:center;align-items:center;padding:34px 18px;background:radial-gradient(ellipse at 0 0,#cbdcff 0,transparent 35%),radial-gradient(ellipse at 100% 100%,#c8d8ff 0,transparent 34%),linear-gradient(145deg,#f4f7ff,#e4ebfb 55%,#f8faff)}
+    .login-shell:before,.login-shell:after{content:'';position:absolute;width:310px;height:310px;border:2px solid #fff9;border-radius:50%;box-shadow:0 15px 35px #4774dc25,inset 0 0 25px #fff;pointer-events:none}.login-shell:before{top:-170px;left:-100px}.login-shell:after{bottom:-190px;right:-110px}
+    .login-card{width:min(100%,470px);position:relative;z-index:1;text-align:center;padding:18px 8px 24px}
+    .nova-mark{width:148px;height:148px;margin:0 auto 25px;border-radius:42px;background:linear-gradient(145deg,#f9fbff,#dce6fb);box-shadow:12px 12px 28px #aebcdb80,-12px -12px 28px #fff;display:grid;place-items:center}
+    .nova-mark svg{width:100px;height:112px;filter:drop-shadow(0 9px 9px #1746a855)}
+    .login-card h1{font-size:clamp(34px,8vw,48px);color:#101b46;letter-spacing:-1.4px;margin:0 0 8px;line-height:1.2}.login-sub{letter-spacing:4px;color:#66749a;font-size:13px;margin:0 0 34px}
+    .login-input{height:68px;width:100%;border:1px solid #fff;background:linear-gradient(145deg,#edf2ff,#dce5f7);border-radius:23px;box-shadow:7px 8px 17px #aab9d56b,-7px -7px 17px #fff;margin:0 0 17px;padding:0 20px;color:#1a2b59;font-size:16px;outline:none}.login-input:focus{border-color:#77a6ff;box-shadow:inset 3px 3px 8px #b5c4df,0 0 0 3px #3979ff20}
+    .login-input::placeholder{color:#7482a2}.login-options{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#27365e;font-size:13px;margin:8px 5px 22px}.login-options a{color:#1759cf;font-weight:700}.remember{display:flex;align-items:center;gap:8px}.remember input{width:20px;height:20px;accent-color:#2467e8}
+    .login-submit{height:68px;width:100%;border:1px solid #8bbaff;border-radius:24px;background:linear-gradient(110deg,#249cf5,#174ee5 68%,#3537d5);color:#fff;font-size:22px;font-weight:900;box-shadow:0 13px 25px #2859d34a,inset 0 1px #ffffff80;cursor:pointer}.login-submit:active{transform:translateY(1px)}
+    .login-or{display:flex;align-items:center;gap:14px;color:#7886a7;letter-spacing:3px;font-size:11px;margin:30px 0 18px}.login-or:before,.login-or:after{content:'';height:1px;background:#9baacc;flex:1}
+    .login-google{display:inline-flex;align-items:center;justify-content:center;gap:10px;width:74px;height:70px;border-radius:22px;background:linear-gradient(145deg,#f6f9ff,#dce6f8);box-shadow:7px 8px 17px #aab9d56b,-7px -7px 17px #fff;color:#4285f4;font-size:27px;font-weight:900}
+    .login-bottom{margin-top:34px;color:#7482a2;font-size:11px;letter-spacing:3px;font-weight:700}.login-create{display:block;margin-top:24px;color:#1c5bd0;font-weight:800}
+    .login-flash{max-width:460px;margin:0 auto 16px;text-align:center;background:#fff;border:1px solid #b9cafa;border-radius:14px;padding:10px;color:#24417e}
+    @media(max-width:420px){.nova-mark{width:126px;height:126px}.login-input{height:62px}.login-submit{height:62px}.login-card{padding-top:8px}}
+    </style>
+    <main class="login-shell"><section class="login-card">
+      <div class="nova-mark" aria-label="MIDO NOVA"><svg viewBox="0 0 120 130" role="img"><defs><linearGradient id="flameA" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#83caff"/><stop offset=".55" stop-color="#1769f4"/><stop offset="1" stop-color="#0635b9"/></linearGradient><linearGradient id="flameB" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#9bbcff"/></linearGradient></defs><path d="M62 5C34 29 34 51 58 69c11 8 17 17 13 30 30-23 29-49 5-68C65 22 64 13 62 5Z" fill="url(#flameB)"/><path d="M42 28C14 52 17 76 43 91c13 8 18 18 13 32 31-23 30-47 5-67C47 43 44 35 42 28Z" fill="url(#flameA)"/><path d="M82 51C60 70 62 88 82 101c9 6 12 13 9 22 24-18 22-37 3-52-10-8-11-13-12-20Z" fill="#1789ff"/></svg></div>
+      <h1>Welcome Back</h1><p class="login-sub">Sign in to continue</p>
+      {% with messages=get_flashed_messages() %}{% for message in messages %}<div class="login-flash">{{message}}</div>{% endfor %}{% endwith %}
+      <form method="post" autocomplete="on"><input class="login-input" name="identifier" required autocomplete="username" placeholder="♙   Username or Email / Phone" aria-label="Username or Email or Phone"><div style="position:relative"><input class="login-input" id="loginPassword" type="password" name="password" minlength="8" required autocomplete="current-password" placeholder="▣   Password" aria-label="Password" style="padding-right:58px"><button type="button" onclick="let x=document.getElementById('loginPassword');x.type=x.type==='password'?'text':'password'" aria-label="Show password" style="position:absolute;right:17px;top:17px;border:0;background:transparent;color:#52658e;font-size:19px;cursor:pointer">◉</button></div>
+      <div class="login-options"><label class="remember"><input type="checkbox" name="remember" value="1"> Remember Me</label><a href="{{url_for('register')}}">Need an account?</a></div><button class="login-submit" type="submit">Login　➜</button></form>
+      <div class="login-or">OR CONTINUE WITH</div><a class="login-google" href="{{url_for('google_login')}}" aria-label="Continue with Google">G</a>
+      <a class="login-create" href="{{url_for('register')}}">إنشاء حساب جديد · Create account</a><div class="login-bottom">PLAY • COMPETE • GROW TOGETHER</div>
+    </section></main>"""
+    return page("تسجيل الدخول | MIDO NOVA", body)
 
 @app.route("/login/google")
 def google_login():
@@ -1445,10 +1492,17 @@ def verify_otp():
                 session.pop("otp_email", None)
                 session.pop("otp_method", None)
                 if pending_uid:
+                    remember_after_otp = bool(session.pop("remember_after_otp", False))
+                    destination = session.pop("after_login_url", "")
                     session.clear()
                     session["user_id"] = pending_uid
+                    session.permanent = remember_after_otp
                     user = current_user()
-                    return redirect(url_for("admin") if user and user["email"].lower() == ADMIN_EMAIL else url_for("home"))
+                    if user and user["email"].lower() == ADMIN_EMAIL:
+                        return redirect(url_for("admin"))
+                    if destination and destination.startswith("/") and not destination.startswith("//"):
+                        return redirect(destination)
+                    return redirect(url_for("home"))
                 return redirect(url_for("login"))
         flash("الكود غير صحيح أو انتهت صلاحيته أو تجاوزت عدد المحاولات المسموح بها.")
     body = r"""<section class="formcard"><h1>اكتب كود التحقق</h1><p>افتح البريد الإلكتروني أو رسائل SMS حسب وسيلة التسجيل، واكتب كود التحقق المكوّن من 6 أرقام. الكود صالح لمدة 10 دقائق.</p><form method="post"><label class="field">كود OTP<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="one-time-code"></label><button class="btn primary">تحقق</button></form></section>"""
