@@ -24,8 +24,8 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024  # image uploads and receipts up to 8 MB
 DB_PATH = os.environ.get("DATABASE_PATH", "mido_nova.db")
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com").lower()
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@midonova.com").lower()
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeThis-Admin-123!")
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 SENDLIBERTY_API_KEY = os.environ.get("SENDLIBERTY_API_KEY", "").strip()
@@ -39,13 +39,13 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 # ضع توكن البوت الذي أنشأته من BotFather هنا بين علامتي الاقتباس.
 # لا تشارك هذا الملف علنًا بعد وضع التوكن الحقيقي بداخله.
-TELEGRAM_BOT_TOKEN = os.environ.get("8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4", "").strip()
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
 # اسم القناة العامة أو رقم Chat ID، والبوت لازم يكون مشرفًا فيها.
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
 TELEGRAM_BOT_URL = "https://t.me/midoassistantAIbot"
 TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "").strip()
 PAYPAL_URL = os.environ.get("PAYPAL_URL", "https://www.paypal.com/")
-VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "01011541698")
+VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "ضع رقم فودافون كاش هنا")
 
 
 CATEGORIES = [
@@ -550,10 +550,44 @@ body{--mint:var(--theme-accent);--mint2:var(--theme-accent2)}
 .theme-swatch{width:38px;height:38px;border-radius:50%;border:2px solid #ffffff55;cursor:pointer;box-shadow:0 3px 10px #0006}
 .theme-swatch[aria-pressed="true"]{outline:2px solid white;outline-offset:3px}
 @media(max-width:520px){.theme-control{left:10px;bottom:12px}.theme-toggle{padding:9px 12px;font-size:12px}}
+.theme-mode-toggle{width:100%;margin:0 0 12px;padding:10px 12px;border:1px solid #52675e;border-radius:12px;background:#1b2a25;color:#fff;font-weight:800;cursor:pointer;text-align:center}
+html[data-mode="light"] body{background:radial-gradient(ellipse at 85% -10%,#dcefe8,transparent 42%),#f4f7fb!important;color:#172033!important}
+html[data-mode="light"] .topbar{background:#ffffffed!important;border-color:#dce4e8!important}
+html[data-mode="light"] .navlinks{color:#536477!important}
+html[data-mode="light"] .btn:not(.primary),html[data-mode="light"] .filter,html[data-mode="light"] .search{background:#fff!important;color:#26364a!important;border-color:#d6e0e7!important}
+html[data-mode="light"] .cat,html[data-mode="light"] .product,html[data-mode="light"] .benefit,html[data-mode="light"] .formcard,html[data-mode="light"] .showcase{background:linear-gradient(145deg,#fff,#f1f6f8)!important;color:#172033!important;border-color:#d9e4e8!important;box-shadow:0 8px 24px #20364a0c}
+html[data-mode="light"] .hero p,html[data-mode="light"] .product p,html[data-mode="light"] .cat small,html[data-mode="light"] .benefit p,html[data-mode="light"] .section-head p,html[data-mode="light"] .footer{color:#657789!important}
+html[data-mode="light"] .search,html[data-mode="light"] .field input,html[data-mode="light"] .field select{background:#fff!important;color:#172033!important;border-color:#d5e0e7!important}
+html[data-mode="light"] .field{color:#405367!important}
+html[data-mode="light"] .notice{background:#fff!important;color:#536477!important;border-color:#d9e4e8!important}
+html[data-mode="light"] .theme-toggle{background:#fff;color:#26364a}
+html[data-mode="light"] .theme-panel{background:#fff;border-color:#d6e0e7}
+html[data-mode="light"] .theme-panel strong{color:#26364a}
+html[data-mode="light"] .login-shell{background:radial-gradient(ellipse at 0 0,#cbdcff 0,transparent 35%),radial-gradient(ellipse at 100% 100%,#c8d8ff 0,transparent 34%),linear-gradient(145deg,#f4f7ff,#e4ebfb 55%,#f8faff)!important}
+html[data-mode="dark"] .login-shell,html[data-mode="dark"] .register-shell{background:radial-gradient(ellipse at 0 0,#173a50 0,transparent 36%),radial-gradient(ellipse at 100% 100%,#173c36 0,transparent 34%),linear-gradient(145deg,#08131c,#101d2b 55%,#091712)!important}
+html[data-mode="dark"] .login-card h1,html[data-mode="dark"] .register-card h1{color:#f1f7ff!important}
+html[data-mode="dark"] .login-sub,html[data-mode="dark"] .register-sub,html[data-mode="dark"] .login-bottom,html[data-mode="dark"] .register-note,html[data-mode="dark"] .register-login{color:#a9bbd0!important}
+html[data-mode="dark"] .login-input,html[data-mode="dark"] .register-card input,html[data-mode="dark"] .register-card select{background:linear-gradient(145deg,#17283a,#101e2d)!important;color:#f2f7ff!important;border-color:#31465b!important;box-shadow:inset 2px 2px 6px #07111b,0 5px 14px #0003!important}
+html[data-mode="dark"] .login-input::placeholder,html[data-mode="dark"] .register-card input::placeholder{color:#91a5bc!important}
+html[data-mode="dark"] .login-options,html[data-mode="dark"] .register-card .field{color:#c5d3e3!important}
+html[data-mode="dark"] .login-google,html[data-mode="dark"] .register-google{background:linear-gradient(145deg,#1b2e43,#142338)!important;color:#dceaff!important;box-shadow:5px 6px 15px #0005!important}
+html[data-mode="dark"] .register-mark,html[data-mode="dark"] .nova-mark{background:linear-gradient(145deg,#1b3047,#102033)!important;box-shadow:8px 8px 22px #0005!important}
+html[data-mode="dark"] .register-flash,html[data-mode="dark"] .login-flash{background:#14283a!important;color:#d9eaff!important;border-color:#35516b!important}
+html[data-mode="dark"] .login-create,html[data-mode="dark"] .register-login a{color:#83b7ff!important}
+.wa-maintenance-btn{display:flex;align-items:center;justify-content:center;gap:11px;width:100%;min-height:58px;margin-top:12px;border:1px solid #20b85a;border-radius:18px;background:linear-gradient(135deg,#25d366,#16a34a);color:#fff;font-size:16px;font-weight:900;box-shadow:0 10px 24px #16a34a30;cursor:pointer;transition:.2s}
+.wa-maintenance-btn:hover{transform:translateY(-2px);filter:brightness(1.04)}
+.wa-maintenance-btn svg{width:25px;height:25px;flex:none}
+.wa-modal{display:none;position:fixed;inset:0;z-index:20000;background:#07111dcc;backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px}
+.wa-modal.open{display:flex}.wa-modal-card{width:min(100%,390px);padding:25px 22px;border:1px solid #2b7651;border-radius:24px;background:linear-gradient(145deg,#142b22,#0c1915);color:#effff5;text-align:center;box-shadow:0 25px 80px #0009}
+.wa-modal-icon{width:64px;height:64px;margin:0 auto 14px;border-radius:21px;background:#25d366;display:grid;place-items:center}.wa-modal-icon svg{width:39px;height:39px}
+.wa-modal-card h3{font-size:21px;margin:0 0 8px}.wa-modal-card p{color:#b8d3c3;line-height:1.9;font-size:13px;margin:0 0 18px}
+.wa-modal-close{border:0;border-radius:13px;padding:11px 22px;background:#25d366;color:#062411;font-weight:900;cursor:pointer;min-width:120px}
+html[data-mode="light"] .wa-modal-card{background:linear-gradient(145deg,#fff,#effaf3);color:#173323;border-color:#a9dfbd}
+html[data-mode="light"] .wa-modal-card p{color:#557362}
 </style>
 </head>
 <body>
-<div class="theme-control" id="themeControl"><button class="theme-toggle" id="themeToggle" type="button" aria-expanded="false">🎨 ألوان التطبيق</button><div class="theme-panel" id="themePanel" aria-label="اختيار لون التطبيق"><strong>اختار اللون اللي يعجبك</strong><div class="theme-swatches"><button class="theme-swatch" data-theme="gold" style="background:#f2c94c" aria-label="ذهبي"></button><button class="theme-swatch" data-theme="blue" style="background:#48a9ff" aria-label="أزرق"></button><button class="theme-swatch" data-theme="cyan" style="background:#35dfd0" aria-label="تركواز"></button><button class="theme-swatch" data-theme="green" style="background:#39d98a" aria-label="أخضر"></button><button class="theme-swatch" data-theme="red" style="background:#ff657a" aria-label="أحمر"></button><button class="theme-swatch" data-theme="purple" style="background:#b18cff" aria-label="بنفسجي"></button><button class="theme-swatch" data-theme="orange" style="background:#ff9b52" aria-label="برتقالي"></button><button class="theme-swatch" data-theme="pink" style="background:#ff83c5" aria-label="وردي"></button></div></div></div>
+<div class="theme-control" id="themeControl"><button class="theme-toggle" id="themeToggle" type="button" aria-expanded="false">🎨 ألوان التطبيق</button><div class="theme-panel" id="themePanel" aria-label="إعدادات المظهر"><strong>اختار المظهر اللي يريح عينك</strong><button class="theme-mode-toggle" id="themeModeToggle" type="button">🌙 تفعيل الوضع الداكن</button><div class="theme-swatches"><button class="theme-swatch" data-theme="gold" style="background:#f2c94c" aria-label="ذهبي"></button><button class="theme-swatch" data-theme="blue" style="background:#48a9ff" aria-label="أزرق"></button><button class="theme-swatch" data-theme="cyan" style="background:#35dfd0" aria-label="تركواز"></button><button class="theme-swatch" data-theme="green" style="background:#39d98a" aria-label="أخضر"></button><button class="theme-swatch" data-theme="red" style="background:#ff657a" aria-label="أحمر"></button><button class="theme-swatch" data-theme="purple" style="background:#b18cff" aria-label="بنفسجي"></button><button class="theme-swatch" data-theme="orange" style="background:#ff9b52" aria-label="برتقالي"></button><button class="theme-swatch" data-theme="pink" style="background:#ff83c5" aria-label="وردي"></button></div></div></div>
 <div class="wrap install-strip" id="installStrip"><div><strong>📲 هل تريد تثبيت تطبيق MIDO NOVA؟</strong><small>ثبّته على هاتفك وافتحه مباشرة من الشاشة الرئيسية.</small></div><button class="btn primary small" id="installAppBtn" type="button">تثبيت التطبيق</button><button class="btn small" id="dismissInstallBtn" type="button" aria-label="إغلاق">×</button></div>
 <header class="topbar"><div class="wrap nav">
 <a class="brand" href="{{ url_for('home') }}"><div class="mark">M</div><div>MIDO <span>NOVA</span></div></a>
@@ -577,6 +611,10 @@ body{--mint:var(--theme-accent);--mint2:var(--theme-accent2)}
   const panel=document.getElementById('themePanel'),toggle=document.getElementById('themeToggle');
   const applyTheme=(name)=>{const pair=themes[name]||themes.gold;document.documentElement.style.setProperty('--theme-accent',pair[0]);document.documentElement.style.setProperty('--theme-accent2',pair[1]);document.documentElement.dataset.theme=name;try{localStorage.setItem('midoColorTheme',name)}catch(e){};document.querySelectorAll('.theme-swatch').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.theme===name)));};
   let savedTheme='gold';try{savedTheme=localStorage.getItem('midoColorTheme')||'gold'}catch(e){};applyTheme(savedTheme);
+  const modeToggle=document.getElementById('themeModeToggle');
+  const applyMode=(mode)=>{const selected=mode==='light'?'light':'dark';document.documentElement.dataset.mode=selected;modeToggle.textContent=selected==='dark'?'☀️ تفعيل الوضع الفاتح':'🌙 تفعيل الوضع الداكن';modeToggle.setAttribute('aria-label',selected==='dark'?'تفعيل الوضع الفاتح':'تفعيل الوضع الداكن');try{localStorage.setItem('midoDisplayMode',selected)}catch(e){}};
+  let savedMode='dark';try{savedMode=localStorage.getItem('midoDisplayMode')||'dark'}catch(e){};applyMode(savedMode);
+  modeToggle.addEventListener('click',()=>applyMode(document.documentElement.dataset.mode==='dark'?'light':'dark'));
   toggle.addEventListener('click',()=>{const open=panel.classList.toggle('open');toggle.setAttribute('aria-expanded',String(open));});
   document.querySelectorAll('.theme-swatch').forEach(b=>b.addEventListener('click',()=>applyTheme(b.dataset.theme)));
   document.addEventListener('click',e=>{if(!document.getElementById('themeControl').contains(e.target)){panel.classList.remove('open');toggle.setAttribute('aria-expanded','false');}});
@@ -1343,6 +1381,15 @@ def register():
         <button class="register-submit" type="submit">إنشاء الحساب وإرسال OTP　➜</button>
       </form>
       <a class="register-google" href="{{url_for('google_login')}}">🌐 التسجيل باستخدام Google</a>
+      <button class="wa-maintenance-btn" type="button" onclick="openWhatsAppMaintenance()">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#fff"/><path fill="#25D366" d="M16 4.2A11.7 11.7 0 0 0 6 21.9L4.4 27.8l6-1.6A11.8 11.8 0 1 0 16 4.2Zm0 21.3a9.5 9.5 0 0 1-4.8-1.3l-.4-.2-3.5.9.9-3.4-.2-.4A9.5 9.5 0 1 1 16 25.5Zm5.2-7.1c-.3-.2-1.8-.9-2.1-1s-.5-.2-.7.2-.8 1-.9 1.1-.3.2-.6.1a7.8 7.8 0 0 1-2.3-1.4 8.7 8.7 0 0 1-1.6-2c-.2-.3 0-.5.1-.6l.5-.6c.2-.2.2-.3.3-.5s0-.4 0-.5-.7-1.7-1-2.3c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4s-1 1-1 2.4 1 2.8 1.2 3 2 3.1 4.8 4.2c.7.3 1.2.5 1.7.6.7.2 1.3.2 1.8.1.6-.1 1.8-.7 2.1-1.4s.3-1.3.2-1.4-.3-.2-.6-.4Z"/></svg>
+        المتابعة باستخدام WhatsApp
+      </button>
+      <div class="wa-modal" id="waMaintenanceModal" role="dialog" aria-modal="true" aria-labelledby="waMaintenanceTitle" onclick="if(event.target===this)closeWhatsAppMaintenance()">
+      <div class="wa-modal-card"><div class="wa-modal-icon"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="#fff" d="M16 3.2A12.7 12.7 0 0 0 5.1 22.4L3.4 28.6l6.4-1.7A12.8 12.8 0 1 0 16 3.2Zm0 23.1a10.3 10.3 0 0 1-5.2-1.4l-.4-.2-3.8 1 1-3.7-.2-.4A10.3 10.3 0 1 1 16 26.3Zm5.7-7.7c-.3-.2-2-.9-2.3-1s-.5-.2-.7.2-.9 1-1.1 1.2-.4.2-.7.1a8.5 8.5 0 0 1-2.5-1.5 9.4 9.4 0 0 1-1.8-2.2c-.2-.3 0-.5.2-.7l.5-.6c.2-.2.2-.4.3-.6s0-.4 0-.5-.7-1.9-1-2.5c-.3-.6-.5-.5-.8-.5h-.7c-.2 0-.6.1-.9.4s-1.1 1.1-1.1 2.6 1.1 3 1.3 3.2 2.2 3.4 5.2 4.6c.7.3 1.3.5 1.8.6.8.2 1.4.2 1.9.1.6-.1 2-.8 2.3-1.5s.3-1.4.2-1.5-.3-.2-.6-.4Z"/></svg></div>
+        <h3 id="waMaintenanceTitle">خدمة WhatsApp تحت الصيانة</h3><p>نعتذر عن عدم توفر التسجيل أو المتابعة باستخدام WhatsApp حاليًا. فريق MIDO NOVA يعمل على تجهيز الخدمة، وستكون متاحة قريبًا بإذن الله.</p><button class="wa-modal-close" type="button" onclick="closeWhatsAppMaintenance()">حسنًا</button>
+      </div></div>
+    <script>function openWhatsAppMaintenance(){const m=document.getElementById('waMaintenanceModal');if(m){m.classList.add('open');document.body.style.overflow='hidden';}}function closeWhatsAppMaintenance(){const m=document.getElementById('waMaintenanceModal');if(m){m.classList.remove('open');document.body.style.overflow='';}}document.addEventListener('keydown',e=>{if(e.key==='Escape')closeWhatsAppMaintenance();});</script>
       <p class="register-note">كود التحقق صالح لمدة 10 دقائق ويُستخدم مرة واحدة.</p>
       <p class="register-login">عندك حساب؟ <a href="{{url_for('login')}}">سجل دخولك</a></p>
     </section></main>
@@ -1419,6 +1466,15 @@ def login():
       <form method="post" autocomplete="on"><input class="login-input" name="identifier" required autocomplete="username" placeholder="♙   Username or Email / Phone" aria-label="Username or Email or Phone"><div style="position:relative"><input class="login-input" id="loginPassword" type="password" name="password" minlength="8" required autocomplete="current-password" placeholder="▣   Password" aria-label="Password" style="padding-right:58px"><button type="button" onclick="let x=document.getElementById('loginPassword');x.type=x.type==='password'?'text':'password'" aria-label="Show password" style="position:absolute;right:17px;top:17px;border:0;background:transparent;color:#52658e;font-size:19px;cursor:pointer">◉</button></div>
       <div class="login-options"><label class="remember"><input type="checkbox" name="remember" value="1"> Remember Me</label><a href="{{url_for('register')}}">Need an account?</a></div><button class="login-submit" type="submit">Login　➜</button></form>
       <div class="login-or">OR CONTINUE WITH</div><a class="login-google" href="{{url_for('google_login')}}" aria-label="Continue with Google">G</a>
+      <button class="wa-maintenance-btn" type="button" onclick="openWhatsAppMaintenance()">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#fff"/><path fill="#25D366" d="M16 4.2A11.7 11.7 0 0 0 6 21.9L4.4 27.8l6-1.6A11.8 11.8 0 1 0 16 4.2Zm0 21.3a9.5 9.5 0 0 1-4.8-1.3l-.4-.2-3.5.9.9-3.4-.2-.4A9.5 9.5 0 1 1 16 25.5Zm5.2-7.1c-.3-.2-1.8-.9-2.1-1s-.5-.2-.7.2-.8 1-.9 1.1-.3.2-.6.1a7.8 7.8 0 0 1-2.3-1.4 8.7 8.7 0 0 1-1.6-2c-.2-.3 0-.5.1-.6l.5-.6c.2-.2.2-.3.3-.5s0-.4 0-.5-.7-1.7-1-2.3c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4s-1 1-1 2.4 1 2.8 1.2 3 2 3.1 4.8 4.2c.7.3 1.2.5 1.7.6.7.2 1.3.2 1.8.1.6-.1 1.8-.7 2.1-1.4s.3-1.3.2-1.4-.3-.2-.6-.4Z"/></svg>
+        المتابعة باستخدام WhatsApp
+      </button>
+      <div class="wa-modal" id="waMaintenanceModal" role="dialog" aria-modal="true" aria-labelledby="waMaintenanceTitle" onclick="if(event.target===this)closeWhatsAppMaintenance()">
+      <div class="wa-modal-card"><div class="wa-modal-icon"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="#fff" d="M16 3.2A12.7 12.7 0 0 0 5.1 22.4L3.4 28.6l6.4-1.7A12.8 12.8 0 1 0 16 3.2Zm0 23.1a10.3 10.3 0 0 1-5.2-1.4l-.4-.2-3.8 1 1-3.7-.2-.4A10.3 10.3 0 1 1 16 26.3Zm5.7-7.7c-.3-.2-2-.9-2.3-1s-.5-.2-.7.2-.9 1-1.1 1.2-.4.2-.7.1a8.5 8.5 0 0 1-2.5-1.5 9.4 9.4 0 0 1-1.8-2.2c-.2-.3 0-.5.2-.7l.5-.6c.2-.2.2-.4.3-.6s0-.4 0-.5-.7-1.9-1-2.5c-.3-.6-.5-.5-.8-.5h-.7c-.2 0-.6.1-.9.4s-1.1 1.1-1.1 2.6 1.1 3 1.3 3.2 2.2 3.4 5.2 4.6c.7.3 1.3.5 1.8.6.8.2 1.4.2 1.9.1.6-.1 2-.8 2.3-1.5s.3-1.4.2-1.5-.3-.2-.6-.4Z"/></svg></div>
+        <h3 id="waMaintenanceTitle">خدمة WhatsApp تحت الصيانة</h3><p>نعتذر عن عدم توفر التسجيل أو المتابعة باستخدام WhatsApp حاليًا. فريق MIDO NOVA يعمل على تجهيز الخدمة، وستكون متاحة قريبًا بإذن الله.</p><button class="wa-modal-close" type="button" onclick="closeWhatsAppMaintenance()">حسنًا</button>
+      </div></div>
+    <script>function openWhatsAppMaintenance(){const m=document.getElementById('waMaintenanceModal');if(m){m.classList.add('open');document.body.style.overflow='hidden';}}function closeWhatsAppMaintenance(){const m=document.getElementById('waMaintenanceModal');if(m){m.classList.remove('open');document.body.style.overflow='';}}document.addEventListener('keydown',e=>{if(e.key==='Escape')closeWhatsAppMaintenance();});</script>
       <a class="login-create" href="{{url_for('register')}}">إنشاء حساب جديد · Create account</a><div class="login-bottom">PLAY • COMPETE • GROW TOGETHER</div>
     </section></main>"""
     return page("تسجيل الدخول | MIDO NOVA", body)
