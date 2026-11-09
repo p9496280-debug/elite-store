@@ -1308,14 +1308,44 @@ def register():
                         con.execute("DELETE FROM users WHERE id=?", (new_uid,))
                 flash("تعذر إرسال كود التحقق. راجع إعدادات TextBee أو البريد الإلكتروني وحالة الهاتف ثم حاول مجددًا.")
     body = r"""
-    <section class="formcard"><h1>انضم إلى <span class="gradient">MIDO NOVA</span></h1><p>أنشئ حسابك بأمان واختر استقبال كود التحقق بالبريد أو SMS.</p>
-    <form method="post"><label class="field">الاسم<input name="name" maxlength="70" required autocomplete="name"></label>
-    <label class="field">طريقة التسجيل<select name="method" id="regMethod" onchange="toggleRegMethod()"><option value="email">البريد الإلكتروني</option><option value="phone">رقم الهاتف (SMS)</option></select></label>
-    <label class="field" id="regEmail">البريد الإلكتروني<input type="email" name="email" autocomplete="email"></label>
-    <label class="field" id="regPhone" style="display:none">رقم الهاتف<input type="tel" name="phone" inputmode="tel" placeholder="01012345678 أو +201012345678" autocomplete="tel"></label>
-    <label class="field">كلمة المرور<input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
-    <label class="field">Telegram ID (اختياري للإشعارات)<input name="telegram_id" inputmode="numeric" pattern="[0-9]*" placeholder="يمكنك إضافته لاحقًا"></label>
-    <button class="btn primary" type="submit">إنشاء الحساب وإرسال OTP</button></form><a class="btn" style="width:100%;margin-top:8px" href="{{url_for('google_login')}}">◉ التسجيل باستخدام Google</a><p>كود التحقق صالح لمدة 10 دقائق ويُستخدم مرة واحدة.</p><p>عندك حساب؟ <a style="color:var(--mint)" href="{{url_for('login')}}">سجل دخولك</a></p></section>
+    <style>
+    body{background:#eaf0ff!important;color:#101b46!important;font-family:Arial,'Cairo',sans-serif!important}
+    .topbar,.footer{display:none!important}.wrap{max-width:100%;padding:0!important}
+    .register-shell{min-height:100vh;overflow:hidden;position:relative;display:flex;justify-content:center;align-items:center;padding:30px 16px;background:radial-gradient(ellipse at 0 0,#cbdcff 0,transparent 35%),radial-gradient(ellipse at 100% 100%,#c8d8ff 0,transparent 34%),linear-gradient(145deg,#f4f7ff,#e4ebfb 55%,#f8faff)}
+    .register-shell:before,.register-shell:after{content:'';position:absolute;width:310px;height:310px;border:2px solid #fff9;border-radius:50%;box-shadow:0 15px 35px #4774dc25,inset 0 0 25px #fff;pointer-events:none}.register-shell:before{top:-170px;left:-100px}.register-shell:after{bottom:-190px;right:-110px}
+    .register-card{width:min(100%,590px);position:relative;z-index:1;padding:20px 8px 24px}
+    .register-mark{width:104px;height:104px;margin:0 auto 15px;border-radius:32px;background:linear-gradient(145deg,#f9fbff,#dce6fb);box-shadow:10px 10px 24px #aebcdb80,-10px -10px 24px #fff;display:grid;place-items:center}
+    .register-mark svg{width:70px;height:78px;filter:drop-shadow(0 7px 7px #1746a855)}
+    .register-card h1{text-align:center;font-size:clamp(29px,6vw,38px);color:#101b46;letter-spacing:-1px;margin:0 0 8px;line-height:1.25}.register-sub{text-align:center;color:#66749a;font-size:14px;margin:0 0 24px;line-height:1.8}
+    .register-card .field{display:block;color:#34446b;font-size:13px;font-weight:700;margin:0 0 13px}
+    .register-card input,.register-card select{display:block;box-sizing:border-box;width:100%;height:54px;margin-top:7px;border:1px solid #fff;background:linear-gradient(145deg,#edf2ff,#dce5f7);border-radius:17px;box-shadow:6px 7px 14px #aab9d55c,-6px -6px 14px #fff;padding:0 16px;color:#1a2b59;font-size:15px;outline:none}
+    .register-card input:focus,.register-card select:focus{border-color:#77a6ff;box-shadow:inset 3px 3px 8px #b5c4df,0 0 0 3px #3979ff20}
+    .register-card input::placeholder{color:#8490aa}
+    .register-submit{height:60px;width:100%;border:1px solid #8bbaff;border-radius:20px;background:linear-gradient(110deg,#249cf5,#174ee5 68%,#3537d5);color:#fff;font-size:19px;font-weight:900;box-shadow:0 12px 23px #2859d34a,inset 0 1px #ffffff80;cursor:pointer;margin-top:7px}
+    .register-google{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:57px;box-sizing:border-box;margin-top:10px;border-radius:18px;background:linear-gradient(145deg,#f6f9ff,#dce6f8);box-shadow:6px 7px 14px #aab9d55c,-6px -6px 14px #fff;color:#2456b9;font-size:16px;font-weight:800;text-decoration:none}
+    .register-note{text-align:center;color:#7482a2;font-size:12px;line-height:1.8;margin:14px 0 0}
+    .register-login{text-align:center;margin:15px 0 0;color:#526387;font-size:14px}.register-login a{color:#1759cf;font-weight:800;text-decoration:none}
+    .register-flash{margin:0 auto 15px;text-align:center;background:#fff;border:1px solid #b9cafa;border-radius:14px;padding:10px;color:#24417e}
+    @media(max-width:480px){.register-mark{width:88px;height:88px}.register-card input,.register-card select{height:51px}.register-shell{align-items:flex-start;padding-top:20px}}
+    </style>
+    <main class="register-shell"><section class="register-card">
+      <div class="register-mark" aria-label="MIDO NOVA"><svg viewBox="0 0 120 130" role="img"><defs><linearGradient id="regFlameA" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#83caff"/><stop offset=".55" stop-color="#1769f4"/><stop offset="1" stop-color="#0635b9"/></linearGradient><linearGradient id="regFlameB" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#9bbcff"/></linearGradient></defs><path d="M62 5C34 29 34 51 58 69c11 8 17 17 13 30 30-23 29-49 5-68C65 22 64 13 62 5Z" fill="url(#regFlameB)"/><path d="M42 28C14 52 17 76 43 91c13 8 18 18 13 32 31-23 30-47 5-67C47 43 44 35 42 28Z" fill="url(#regFlameA)"/><path d="M82 51C60 70 62 88 82 101c9 6 12 13 9 22 24-18 22-37 3-52-10-8-11-13-12-20Z" fill="#1789ff"/></svg></div>
+      <h1>انضم إلى <span style="background:linear-gradient(90deg,#249cf5,#174ee5);-webkit-background-clip:text;background-clip:text;color:transparent">MIDO NOVA</span></h1>
+      <p class="register-sub">أنشئ حسابك بأمان واختر استقبال كود التحقق بالبريد أو SMS.</p>
+      {% with messages=get_flashed_messages() %}{% for message in messages %}<div class="register-flash">{{message}}</div>{% endfor %}{% endwith %}
+      <form method="post" autocomplete="on">
+        <label class="field">الاسم<input name="name" maxlength="70" required autocomplete="name" placeholder="اكتب اسمك"></label>
+        <label class="field">طريقة التسجيل<select name="method" id="regMethod" onchange="toggleRegMethod()"><option value="email">البريد الإلكتروني</option><option value="phone">رقم الهاتف (SMS)</option></select></label>
+        <label class="field" id="regEmail">البريد الإلكتروني<input type="email" name="email" autocomplete="email" placeholder="name@example.com"></label>
+        <label class="field" id="regPhone" style="display:none">رقم الهاتف<input type="tel" name="phone" inputmode="tel" placeholder="01012345678 أو +201012345678" autocomplete="tel"></label>
+        <label class="field">كلمة المرور<input type="password" name="password" minlength="8" required autocomplete="new-password" placeholder="8 أحرف على الأقل"></label>
+        <label class="field">Telegram ID (اختياري للإشعارات)<input name="telegram_id" inputmode="numeric" pattern="[0-9]*" placeholder="يمكنك إضافته لاحقًا"></label>
+        <button class="register-submit" type="submit">إنشاء الحساب وإرسال OTP　➜</button>
+      </form>
+      <a class="register-google" href="{{url_for('google_login')}}">🌐 التسجيل باستخدام Google</a>
+      <p class="register-note">كود التحقق صالح لمدة 10 دقائق ويُستخدم مرة واحدة.</p>
+      <p class="register-login">عندك حساب؟ <a href="{{url_for('login')}}">سجل دخولك</a></p>
+    </section></main>
     <script>function toggleRegMethod(){let p=document.getElementById('regMethod').value==='phone';document.getElementById('regPhone').style.display=p?'block':'none';document.getElementById('regEmail').style.display=p?'none':'block';document.querySelector('#regEmail input').required=!p;document.querySelector('#regPhone input').required=p;}toggleRegMethod();</script>"""
     return page("حساب جديد", body)
 
