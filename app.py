@@ -2387,6 +2387,13 @@ def ensure_rewards_notifications_schema():
             claim_date TEXT NOT NULL, cash_amount INTEGER NOT NULL DEFAULT 0,
             coin_amount INTEGER NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(user_id, claim_date))""")
+        # Scheduled rewards: one configurable reward per calendar day. Existing claims/settings stay intact.
+        con.execute("""CREATE TABLE IF NOT EXISTS daily_rewards(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, reward_date TEXT NOT NULL UNIQUE,
+            title TEXT NOT NULL, description TEXT DEFAULT '', cash_amount INTEGER NOT NULL DEFAULT 0,
+            coin_amount INTEGER NOT NULL DEFAULT 0, image_url TEXT DEFAULT '',
+            background_url TEXT DEFAULT '', active INTEGER NOT NULL DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
         con.execute("""CREATE TABLE IF NOT EXISTS app_notifications(
             id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT NOT NULL,
             image_url TEXT DEFAULT '', target TEXT NOT NULL DEFAULT 'all',
@@ -2406,6 +2413,7 @@ def ensure_rewards_notifications_schema():
             "daily_reward_coins": "10",
             "daily_reward_title": "مكافأة تسجيل الدخول اليومية",
             "daily_reward_image": "",
+            "daily_reward_bg_image": "",
             "push_vapid_public": os.environ.get("VAPID_PUBLIC_KEY", "")
         }
         for key, value in defaults.items():
@@ -2420,39 +2428,83 @@ def _nova_setting(key, default=""):
     return row["value"] if row else default
 
 
+def _reward_upload(field_name, prefix):
+    image = request.files.get(field_name)
+    if not image or not image.filename:
+        return ""
+    allowed = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp", "image/gif": ".gif"}
+    ext = allowed.get(image.mimetype)
+    if not ext:
+        raise ValueError("صيغة الصورة غير مدعومة. استخدم PNG أو JPG أو WEBP أو GIF.")
+    filename = f"{prefix}_{secrets.token_hex(10)}{ext}"
+    image.save(os.path.join(UPLOAD_FOLDER, filename))
+    return url_for("static", filename="uploads/" + filename)
+
+
 @app.route("/nova-rewards")
 def nova_daily_rewards():
     user = current_user()
     today = datetime.now().strftime("%Y-%m-%d")
-    claimed = False
-    if user:
-        with db() as con:
-            claimed = bool(con.execute("SELECT 1 FROM daily_reward_claims WHERE user_id=? AND claim_date=?", (user["id"], today)).fetchone())
+    with db() as con:
+        reward = con.execute("SELECT * FROM daily_rewards WHERE reward_date=? AND active=1", (today,)).fetchone()
+        upcoming = con.execute("SELECT * FROM daily_rewards WHERE reward_date>=? AND active=1 ORDER BY reward_date LIMIT 7", (today,)).fetchall()
+        claimed = bool(user and con.execute(
+            "SELECT 1 FROM daily_reward_claims WHERE user_id=? AND claim_date=?", (user["id"], today)
+        ).fetchone())
     enabled = _nova_setting("daily_reward_enabled", "1") == "1"
-    cash = int(_nova_setting("daily_reward_cash", "0") or 0)
-    coins = int(_nova_setting("daily_reward_coins", "10") or 0)
-    title = _nova_setting("daily_reward_title", "مكافأة تسجيل الدخول اليومية")
-    image = _nova_setting("daily_reward_image", "")
+    # Backward-compatible fallback to the original single daily reward settings.
+    cash = int(reward["cash_amount"] if reward else (_nova_setting("daily_reward_cash", "0") or 0))
+    coins = int(reward["coin_amount"] if reward else (_nova_setting("daily_reward_coins", "10") or 0))
+    title = reward["title"] if reward else _nova_setting("daily_reward_title", "مكافأة تسجيل الدخول اليومية")
+    description = (reward["description"] if reward else "") or "سجّل دخولك يوميًا واستلم مكافأتك. المكافأة المتاحة اليوم:"
+    image = (reward["image_url"] if reward else "") or _nova_setting("daily_reward_image", "")
+    background = (reward["background_url"] if reward else "") or _nova_setting("daily_reward_bg_image", "")
+    has_scheduled_reward = reward is not None
     body = r"""
-    <section style="max-width:850px;margin:28px auto;padding:18px">
-      <div style="border:1px solid #d7b65f;border-radius:28px;padding:24px;background:radial-gradient(circle at 85% 5%,#57451d,#171b16 68%);box-shadow:0 18px 50px #0005;text-align:center">
-        {% if image %}<img src="{{image}}" style="width:100%;max-height:220px;object-fit:cover;border-radius:18px;margin-bottom:15px">{% else %}<div style="font-size:65px">💵💎</div>{% endif %}
-        <small style="color:#ffe49a;letter-spacing:2px;font-weight:900">MIDO NOVA · DAILY BONUS</small>
-        <h1 style="color:#ffe49a">{{title}}</h1>
-        <p style="color:#f6ebcc;line-height:2">سجّل دخولك يوميًا واستلم مكافأتك. المكافأة المتاحة اليوم:</p>
-        <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:20px 0">
-          <div style="background:#101a15;border:1px solid #d7b65f;border-radius:18px;padding:18px 26px"><div style="font-size:30px">💵</div><b style="font-size:25px;color:#ffe49a">{{cash}}</b><div>قرش في المحفظة</div></div>
-          <div style="background:#101a15;border:1px solid #62cda7;border-radius:18px;padding:18px 26px"><div style="font-size:30px">🪙</div><b style="font-size:25px;color:#9ff0d2">{{coins}}</b><div>NOVA Coins</div></div>
+    <style>
+      .daily-rewards-shell{max-width:980px;margin:26px auto;padding:clamp(12px,3vw,24px)}
+      .daily-reward-hero{position:relative;isolation:isolate;overflow:hidden;min-height:410px;border:1px solid #b99b55;border-radius:30px;padding:clamp(22px,5vw,42px);text-align:center;background:radial-gradient(circle at 15% 10%,#254f60,#111b31 48%,#090e1c);box-shadow:0 24px 70px #0008}
+      .daily-reward-hero:before{content:"";position:absolute;inset:0;z-index:-2;background-image:linear-gradient(135deg,#07101bdc,#10172bd9),url("{{background}}");background-size:cover;background-position:center;opacity:1}
+      .daily-reward-hero:after{content:"✦";position:absolute;top:22px;right:7%;font-size:50px;color:#ffe5a1;opacity:.45;text-shadow:0 0 30px #ffdc7a;z-index:-1}
+      .daily-reward-kicker{display:inline-block;border:1px solid #e6c87888;background:#171e31bb;color:#ffe6a2;padding:8px 15px;border-radius:40px;font-weight:900;letter-spacing:1.5px;font-size:11px}
+      .daily-reward-hero h1{color:#fff1bf;font-size:clamp(27px,5vw,43px);margin:15px 0 8px}
+      .daily-reward-desc{color:#e2e9f5;line-height:2;max-width:650px;margin:0 auto}
+      .daily-reward-art{width:min(100%,390px);max-height:190px;object-fit:cover;border-radius:20px;margin:18px auto 5px;border:1px solid #ffffff44;box-shadow:0 12px 35px #0007}
+      .daily-reward-values{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:22px 0}
+      .daily-reward-value{min-width:145px;padding:16px 22px;border-radius:19px;background:#08121ddd;border:1px solid #e1c46d88;color:#fff5d6;backdrop-filter:blur(8px)}
+      .daily-reward-value b{display:block;color:#ffe49a;font-size:27px}
+      .daily-reward-value small{color:#c9d8e7}
+      .daily-reward-claim{display:inline-flex;justify-content:center;padding:14px 28px;border-radius:15px;background:linear-gradient(120deg,#ffe7a0,#d5a943);color:#201707;font-weight:1000;font-size:16px;box-shadow:0 10px 30px #d9ad4a44;border:0;cursor:pointer}
+      .daily-reward-upcoming{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:11px;margin-top:18px}
+      .daily-reward-day{border:1px solid #324b68;border-radius:17px;padding:14px;background:linear-gradient(145deg,#14243a,#0b1422);color:#eaf2ff}
+      .daily-reward-day.today{border-color:#e1bf64;box-shadow:0 0 0 1px #e1bf6433}
+      @media(max-width:520px){.daily-reward-hero{min-height:0}.daily-reward-value{flex:1;min-width:125px}}
+    </style>
+    <section class="daily-rewards-shell">
+      <div class="daily-reward-hero">
+        <span class="daily-reward-kicker">MIDO NOVA · DAILY REWARDS</span>
+        <h1>🎁 {{title}}</h1>
+        <p class="daily-reward-desc">{{description}}</p>
+        {% if image %}<img class="daily-reward-art" src="{{image}}" alt="صورة مكافأة اليوم">{% else %}<div style="font-size:66px;margin:18px">💎 🎁 ✨</div>{% endif %}
+        <div class="daily-reward-values">
+          <div class="daily-reward-value"><span style="font-size:25px">💵</span><b>{{cash}}</b><small>قرش في المحفظة</small></div>
+          <div class="daily-reward-value"><span style="font-size:25px">🪙</span><b>{{coins}}</b><small>NOVA Coins</small></div>
         </div>
-        {% if not user %}<a class="btn primary" href="{{url_for('login')}}">سجّل الدخول لاستلام المكافأة</a>
-        {% elif not enabled %}<button class="btn" disabled>المكافأة متوقفة حاليًا</button>
-        {% elif claimed %}<div class="btn" style="background:#173b2d;color:#a8f5d3">✅ استلمت مكافأة اليوم — ارجع بكرة</div>
-        {% else %}<form method="post" action="{{url_for('claim_daily_reward')}}"><button class="btn primary" style="font-size:17px;padding:15px 28px">🎁 استلم مكافأتي الآن</button></form>{% endif %}
+        {% if not user %}<a class="daily-reward-claim" href="{{url_for('login')}}">سجّل الدخول لاستلام المكافأة</a>
+        {% elif not enabled %}<span class="daily-reward-claim" style="opacity:.55">المكافآت متوقفة حاليًا</span>
+        {% elif claimed %}<span class="daily-reward-claim" style="background:linear-gradient(120deg,#9ee6c2,#55b98a)">✅ استلمت مكافأة اليوم — ارجع بكرة</span>
+        {% else %}<form method="post" action="{{url_for('claim_daily_reward')}}"><button class="daily-reward-claim" type="submit">استلم مكافأتي الآن ✨</button></form>{% endif %}
+        <div style="color:#c1d0e0;font-size:11px;margin-top:15px">{{today}} · مكافأة واحدة لكل حساب يوميًا</div>
       </div>
-      <p style="text-align:center;color:#aebdb4;font-size:12px">المكافأة تُصرف مرة واحدة لكل حساب في اليوم، وفق القيم المحددة من الإدارة.</p>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:24px 2px 10px"><div><small style="color:#d8bd70;font-weight:900;letter-spacing:1px">YOUR REWARD CALENDAR</small><h2 style="margin:3px 0;color:#f3f6ff">مكافآت الأيام القادمة</h2></div><span style="font-size:11px;color:#9aadc4">تتغير حسب جدول المطور</span></div>
+      <div class="daily-reward-upcoming">
+        {% for item in upcoming %}<article class="daily-reward-day {% if item.reward_date==today %}today{% endif %}"><small style="color:#e5ca7a">{{'مكافأة اليوم' if item.reward_date==today else item.reward_date}}</small><b style="display:block;margin:6px 0">{{item.title}}</b><div style="font-size:12px;color:#c1d1e3">💵 {{item.cash_amount}} قرش · 🪙 {{item.coin_amount}} عملة</div></article>{% else %}<div class="daily-reward-day">سيتم الإعلان عن المكافآت القادمة قريبًا ✨</div>{% endfor %}
+      </div>
+      <p style="text-align:center;color:#8296aa;font-size:11px;margin:18px 0">المكافآت تُضاف تلقائيًا إلى محفظتك وعملات NOVA بعد الضغط على الاستلام.</p>
     </section>"""
-    return page("NOVA DAILY REWARDS", body, cash=cash, coins=coins, title=title, image=image,
-                enabled=enabled, claimed=claimed)
+    return page("مكافآت NOVA اليومية", body, cash=cash, coins=coins, title=title,
+                description=description, image=image, background=background, enabled=enabled,
+                claimed=claimed, user=user, today=today, upcoming=upcoming)
 
 
 @app.route("/nova-rewards/claim", methods=["POST"])
@@ -2462,24 +2514,21 @@ def claim_daily_reward():
         flash("سجّل الدخول أولًا لاستلام مكافأتك.", "error")
         return redirect(url_for("login"))
     if _nova_setting("daily_reward_enabled", "1") != "1":
-        flash("المكافأة اليومية متوقفة حاليًا.", "error")
+        flash("المكافآت اليومية متوقفة حاليًا.", "error")
         return redirect(url_for("nova_daily_rewards"))
-    cash = max(0, min(100000, int(_nova_setting("daily_reward_cash", "0") or 0)))
-    coins = max(0, min(100000, int(_nova_setting("daily_reward_coins", "10") or 0)))
     today = datetime.now().strftime("%Y-%m-%d")
-    try:
-        with db() as con:
-            cur = con.execute("INSERT OR IGNORE INTO daily_reward_claims(user_id,claim_date,cash_amount,coin_amount) VALUES(?,?,?,?)",
-                              (user["id"], today, cash, coins))
-            if cur.rowcount:
-                con.execute("UPDATE users SET wallet_balance=wallet_balance+?, nova_coins=nova_coins+? WHERE id=?",
-                            (cash, coins, user["id"]))
-                flash(f"🎉 مبروك! أضفنا {cash} قرش و {coins} NOVA Coins إلى حسابك.", "success")
-            else:
-                flash("استلمت مكافأة النهارده بالفعل. ارجع بكرة ❤️", "error")
-    except sqlite3.Error:
-        app.logger.exception("Daily reward claim failed")
-        flash("حصل خطأ أثناء تسجيل المكافأة. حاول مرة أخرى.", "error")
+    with db() as con:
+        scheduled = con.execute("SELECT * FROM daily_rewards WHERE reward_date=? AND active=1", (today,)).fetchone()
+        cash = max(0, min(100000, int(scheduled["cash_amount"] if scheduled else (_nova_setting("daily_reward_cash", "0") or 0))))
+        coins = max(0, min(100000, int(scheduled["coin_amount"] if scheduled else (_nova_setting("daily_reward_coins", "10") or 0))))
+        cur = con.execute("INSERT OR IGNORE INTO daily_reward_claims(user_id,claim_date,cash_amount,coin_amount) VALUES(?,?,?,?)",
+                          (user["id"], today, cash, coins))
+        if cur.rowcount:
+            con.execute("UPDATE users SET wallet_balance=wallet_balance+?, nova_coins=nova_coins+? WHERE id=?",
+                        (cash, coins, user["id"]))
+            flash(f"🎉 مبروك! أضفنا {cash} قرش و {coins} NOVA Coins إلى حسابك.", "success")
+        else:
+            flash("استلمت مكافأة النهارده بالفعل. ارجع بكرة ❤️", "error")
     return redirect(url_for("nova_daily_rewards"))
 
 
@@ -2542,48 +2591,106 @@ def save_push_subscription():
 def admin_nova_engagement():
     if request.method == "POST":
         form = request.form
-        settings = {
-            "daily_reward_enabled": "1" if form.get("enabled") == "1" else "0",
-            "daily_reward_cash": str(max(0, min(100000, int(form.get("cash", 0) or 0)))),
-            "daily_reward_coins": str(max(0, min(100000, int(form.get("coins", 0) or 0)))),
-            "daily_reward_title": form.get("reward_title", "مكافأة تسجيل الدخول اليومية")[:100]
-        }
-        with db() as con:
-            for key, value in settings.items():
-                con.execute("INSERT INTO site_settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key,value))
-            image = request.files.get("reward_image")
-            if image and image.filename:
-                filename = secure_filename(f"daily_reward_{secrets.token_hex(8)}_{image.filename}")
-                image.save(os.path.join(UPLOAD_FOLDER, filename))
-                con.execute("INSERT INTO site_settings(key,value) VALUES('daily_reward_image',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-                            (url_for("static", filename="uploads/"+filename),))
-            pub = form.get("vapid_public", "").strip()
-            if pub:
-                con.execute("INSERT INTO site_settings(key,value) VALUES('push_vapid_public',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (pub,))
-        flash("تم حفظ إعدادات المكافآت اليومية.", "success")
+        action = form.get("action", "settings")
+        try:
+            if action == "create_daily_reward":
+                reward_date = form.get("reward_date", "").strip()
+                try:
+                    datetime.strptime(reward_date, "%Y-%m-%d")
+                except ValueError:
+                    raise ValueError("اختار تاريخًا صحيحًا للمكافأة.")
+                title = form.get("scheduled_title", "").strip()[:100]
+                if not title:
+                    raise ValueError("اكتب عنوان المكافأة.")
+                description = form.get("scheduled_description", "").strip()[:500]
+                cash = max(0, min(100000, int(form.get("scheduled_cash", 0) or 0)))
+                coins = max(0, min(100000, int(form.get("scheduled_coins", 0) or 0)))
+                reward_image = _reward_upload("scheduled_image", "reward")
+                background_image = _reward_upload("scheduled_background", "reward_bg")
+                with db() as con:
+                    con.execute("""INSERT INTO daily_rewards(reward_date,title,description,cash_amount,coin_amount,image_url,background_url,active)
+                        VALUES(?,?,?,?,?,?,?,1)
+                        ON CONFLICT(reward_date) DO UPDATE SET title=excluded.title,description=excluded.description,
+                        cash_amount=excluded.cash_amount,coin_amount=excluded.coin_amount,
+                        image_url=CASE WHEN excluded.image_url='' THEN daily_rewards.image_url ELSE excluded.image_url END,
+                        background_url=CASE WHEN excluded.background_url='' THEN daily_rewards.background_url ELSE excluded.background_url END,
+                        active=1""",
+                        (reward_date,title,description,cash,coins,reward_image,background_image))
+                flash("تم حفظ مكافأة اليوم في الجدول بنجاح.", "success")
+            elif action == "delete_daily_reward":
+                reward_id = int(form.get("reward_id", "0"))
+                with db() as con:
+                    con.execute("DELETE FROM daily_rewards WHERE id=?", (reward_id,))
+                flash("تم حذف المكافأة المجدولة.", "success")
+            else:
+                settings = {
+                    "daily_reward_enabled": "1" if form.get("enabled") == "1" else "0",
+                    "daily_reward_cash": str(max(0, min(100000, int(form.get("cash", 0) or 0)))),
+                    "daily_reward_coins": str(max(0, min(100000, int(form.get("coins", 0) or 0)))),
+                    "daily_reward_title": form.get("reward_title", "مكافأة تسجيل الدخول اليومية")[:100]
+                }
+                with db() as con:
+                    for key, value in settings.items():
+                        con.execute("INSERT INTO site_settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key,value))
+                    reward_image = _reward_upload("reward_image", "daily_reward")
+                    background_image = _reward_upload("reward_background", "daily_reward_bg")
+                    if reward_image:
+                        con.execute("INSERT INTO site_settings(key,value) VALUES('daily_reward_image',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (reward_image,))
+                    if background_image:
+                        con.execute("INSERT INTO site_settings(key,value) VALUES('daily_reward_bg_image',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (background_image,))
+                    pub = form.get("vapid_public", "").strip()
+                    if pub:
+                        con.execute("INSERT INTO site_settings(key,value) VALUES('push_vapid_public',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (pub,))
+                flash("تم حفظ إعدادات المكافآت اليومية.", "success")
+        except (ValueError, TypeError) as exc:
+            flash(str(exc), "error")
+        except Exception:
+            app.logger.exception("Saving daily reward settings failed")
+            flash("تعذر حفظ المكافأة. راجع سجلات الاستضافة وحاول مرة أخرى.", "error")
         return redirect(url_for("admin_nova_engagement"))
+
+    with db() as con:
+        scheduled_rewards = con.execute("SELECT * FROM daily_rewards ORDER BY reward_date DESC LIMIT 60").fetchall()
     body = r"""
-    <section class="section"><h1>🎁 المكافآت والإشعارات</h1><p>تحكم في مكافأة تسجيل الدخول اليومية وإعدادات إشعارات الهاتف.</p>
-    <div class="formcard" style="max-width:none"><h2>💵 مكافأة تسجيل الدخول اليومية</h2><form method="post" enctype="multipart/form-data" style="display:grid;gap:12px">
-      <label><input type="checkbox" name="enabled" value="1" {% if enabled %}checked{% endif %}> تفعيل المكافأة اليومية</label>
-      <label class="field">عنوان المكافأة<input name="reward_title" maxlength="100" value="{{title}}" required></label>
+    <section class="section"><h1>🎁 المكافآت والإشعارات</h1><p>تحكم في مكافأة تسجيل الدخول اليومية، وجدولة مكافأة مختلفة لكل تاريخ، وصور الخلفية.</p>
+    <div class="formcard" style="max-width:none"><h2>⚙️ الإعداد الافتراضي</h2><form method="post" enctype="multipart/form-data" style="display:grid;gap:12px">
+      <input type="hidden" name="action" value="settings">
+      <label><input type="checkbox" name="enabled" value="1" {% if enabled %}checked{% endif %}> تفعيل المكافآت اليومية</label>
+      <label class="field">عنوان المكافأة الافتراضية<input name="reward_title" maxlength="100" value="{{title}}" required></label>
       <label class="field">المبلغ في المحفظة (قرش مصري)<input name="cash" type="number" min="0" max="100000" value="{{cash}}"></label>
       <label class="field">عدد NOVA Coins<input name="coins" type="number" min="0" max="100000" value="{{coins}}"></label>
-      <label class="field">صورة المكافأة / الدولار<input type="file" name="reward_image" accept="image/png,image/jpeg,image/webp"></label>
-      {% if image %}<img src="{{image}}" style="width:180px;border-radius:15px">{% endif %}
-      <button class="btn primary">حفظ إعدادات المكافأة</button></form></div>
-    <div class="formcard" style="max-width:none;margin-top:16px"><h2>🔔 إشعارات الهاتف</h2><p>زر تفعيل الإشعارات يظهر للمستخدم في مركز الإشعارات. لإرسال إشعارات حتى عند إغلاق الموقع، يلزم إعداد مفاتيح Web Push.</p>
-      <form method="post" style="display:grid;gap:10px"><input type="hidden" name="enabled" value="{{'1' if enabled else '0'}}"><input type="hidden" name="cash" value="{{cash}}"><input type="hidden" name="coins" value="{{coins}}"><input type="hidden" name="reward_title" value="{{title}}"><label class="field">VAPID Public Key<input name="vapid_public" value="{{vapid_public}}" placeholder="المفتاح العام فقط"></label><button class="btn">حفظ مفتاح الإشعارات العام</button></form>
-      <p style="font-size:12px;color:#aabbb2">يجب ضبط VAPID_PRIVATE_KEY وVAPID_CLAIMS_EMAIL في Render، وإضافة pywebpush إلى requirements.txt لتفعيل الإرسال الفعلي.</p>
-    </div>
-    <div class="formcard" style="max-width:none;margin-top:16px"><h2>📣 إرسال إشعار جديد</h2><form method="post" action="{{url_for('admin_send_nova_notification')}}" enctype="multipart/form-data" style="display:grid;gap:10px">
-      <label class="field">عنوان الإشعار<input name="title" maxlength="120" required></label><label class="field">نص الإشعار<textarea name="body" maxlength="1000" required></textarea></label><label class="field">صورة اختيارية<input type="file" name="image" accept="image/png,image/jpeg,image/webp"></label><label class="field">إرسال إلى<select name="target"><option value="all">كل المستخدمين</option><option value="active">المستخدمين الذين فعّلوا إشعارات الهاتف</option></select></label><button class="btn primary">إرسال الإشعار</button></form></div>
+      <label class="field">صورة المكافأة<input type="file" name="reward_image" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+      {% if image %}<img src="{{image}}" style="width:180px;max-height:110px;object-fit:cover;border-radius:15px">{% endif %}
+      <label class="field">صورة خلفية صفحة المكافآت<input type="file" name="reward_background" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+      {% if background %}<img src="{{background}}" style="width:220px;max-height:110px;object-fit:cover;border-radius:15px">{% endif %}
+      <button class="btn primary">حفظ الإعدادات الافتراضية</button></form></div>
+
+    <div class="formcard" style="max-width:none;margin-top:16px;border-color:#b99b55;background:linear-gradient(145deg,#1d2334,#101725)"><h2 style="color:#ffe49a">📅 إضافة مكافأة بتاريخ محدد</h2><p>تظهر المكافأة تلقائيًا للمستخدمين في التاريخ الذي تختاره. لو أضفت نفس التاريخ مرة أخرى سيتم تحديث مكافأته بدل تكرارها.</p>
+      <form method="post" enctype="multipart/form-data" style="display:grid;gap:11px"><input type="hidden" name="action" value="create_daily_reward">
+      <label class="field">تاريخ ظهور المكافأة<input type="date" name="reward_date" required></label>
+      <label class="field">اسم المكافأة<input name="scheduled_title" maxlength="100" placeholder="مثال: مكافأة يوم الجمعة" required></label>
+      <label class="field">وصف المكافأة<textarea name="scheduled_description" maxlength="500" placeholder="اكتب تفاصيل المكافأة للمستخدم"></textarea></label>
+      <label class="field">رصيد المحفظة بالقرش<input name="scheduled_cash" type="number" min="0" max="100000" value="0"></label>
+      <label class="field">NOVA Coins<input name="scheduled_coins" type="number" min="0" max="100000" value="10"></label>
+      <label class="field">صورة المكافأة (اختياري)<input type="file" name="scheduled_image" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+      <label class="field">خلفية خاصة بهذا اليوم (اختياري)<input type="file" name="scheduled_background" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+      <button class="btn primary">➕ إضافة / تحديث مكافأة اليوم</button></form></div>
+
+    <div class="formcard" style="max-width:none;margin-top:16px"><h2>🗓️ جدول المكافآت المجدولة</h2><div class="tablewrap"><table><tr><th>التاريخ</th><th>المكافأة</th><th>المحفظة</th><th>العملات</th><th>الصور</th><th>إجراء</th></tr>
+      {% for r in scheduled_rewards %}<tr><td>{{r.reward_date}}</td><td>{{r.title}}<br><small>{{r.description}}</small></td><td>{{r.cash_amount}} قرش</td><td>{{r.coin_amount}}</td><td>{% if r.image_url %}صورة ✓{% endif %} {% if r.background_url %}خلفية ✓{% endif %}</td><td><form method="post" onsubmit="return confirm('حذف هذه المكافأة؟')"><input type="hidden" name="action" value="delete_daily_reward"><input type="hidden" name="reward_id" value="{{r.id}}"><button class="btn small">حذف</button></form></td></tr>{% else %}<tr><td colspan="6">لا توجد مكافآت مجدولة بعد.</td></tr>{% endfor %}</table></div></div>
+
+    <div class="formcard" style="max-width:none;margin-top:16px"><h2>🔔 إشعارات الهاتف</h2><p>زر تفعيل الإشعارات يظهر للمستخدم في مركز الإشعارات.</p>
+      <form method="post" style="display:grid;gap:10px"><input type="hidden" name="action" value="settings"><input type="hidden" name="enabled" value="{{'1' if enabled else '0'}}"><input type="hidden" name="cash" value="{{cash}}"><input type="hidden" name="coins" value="{{coins}}"><input type="hidden" name="reward_title" value="{{title}}"><label class="field">VAPID Public Key<input name="vapid_public" value="{{vapid_public}}" placeholder="المفتاح العام فقط"></label><button class="btn">حفظ مفتاح الإشعارات العام</button></form>
+      <p style="font-size:12px;color:#aabbb2">يجب ضبط VAPID_PRIVATE_KEY وVAPID_CLAIMS_EMAIL في Render، وإضافة pywebpush إلى requirements.txt لتفعيل الإرسال الفعلي.</p></div>
+    <div class="formcard" style="max-width:none;margin-top:16px"><h2>📣 إرسال إشعار جديد</h2><form method="post" action="{{url_for('admin_send_nova_notification')}}" enctype="multipart/form-data" style="display:grid;gap:10px"><label class="field">عنوان الإشعار<input name="title" maxlength="120" required></label><label class="field">نص الإشعار<textarea name="body" maxlength="1000" required></textarea></label><label class="field">صورة اختيارية<input type="file" name="image" accept="image/png,image/jpeg,image/webp"></label><label class="field">إرسال إلى<select name="target"><option value="all">كل المستخدمين</option><option value="active">المستخدمين الذين فعّلوا إشعارات الهاتف</option></select></label><button class="btn primary">إرسال الإشعار</button></form></div>
     </section>"""
     return page("إدارة المكافآت والإشعارات", body,
                 enabled=_nova_setting("daily_reward_enabled","1")=="1",
                 cash=_nova_setting("daily_reward_cash","0"), coins=_nova_setting("daily_reward_coins","10"),
                 title=_nova_setting("daily_reward_title","مكافأة تسجيل الدخول اليومية"),
                 image=_nova_setting("daily_reward_image",""),
+                background=_nova_setting("daily_reward_bg_image",""),
+                scheduled_rewards=scheduled_rewards,
                 vapid_public=_nova_setting("push_vapid_public",""))
 
 
