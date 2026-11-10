@@ -2483,7 +2483,7 @@ def nova_daily_rewards():
     <section class="daily-rewards-shell">
       <div class="daily-reward-hero">
         <span class="daily-reward-kicker">MIDO NOVA · DAILY REWARDS</span>
-        <h1>🎁 {{title}}</h1>
+        <h1>🎁 {{reward_title}}</h1>
         <p class="daily-reward-desc">{{description}}</p>
         {% if image %}<img class="daily-reward-art" src="{{image}}" alt="صورة مكافأة اليوم">{% else %}<div style="font-size:66px;margin:18px">💎 🎁 ✨</div>{% endif %}
         <div class="daily-reward-values">
@@ -2502,7 +2502,7 @@ def nova_daily_rewards():
       </div>
       <p style="text-align:center;color:#8296aa;font-size:11px;margin:18px 0">المكافآت تُضاف تلقائيًا إلى محفظتك وعملات NOVA بعد الضغط على الاستلام.</p>
     </section>"""
-    return page("مكافآت NOVA اليومية", body, cash=cash, coins=coins, title=title,
+    return page("مكافآت NOVA اليومية", body, cash=cash, coins=coins, reward_title=title,
                 description=description, image=image, background=background, enabled=enabled,
                 claimed=claimed, user=user, today=today, upcoming=upcoming)
 
@@ -2656,7 +2656,7 @@ def admin_nova_engagement():
     <div class="formcard" style="max-width:none"><h2>⚙️ الإعداد الافتراضي</h2><form method="post" enctype="multipart/form-data" style="display:grid;gap:12px">
       <input type="hidden" name="action" value="settings">
       <label><input type="checkbox" name="enabled" value="1" {% if enabled %}checked{% endif %}> تفعيل المكافآت اليومية</label>
-      <label class="field">عنوان المكافأة الافتراضية<input name="reward_title" maxlength="100" value="{{title}}" required></label>
+      <label class="field">عنوان المكافأة الافتراضية<input name="reward_title" maxlength="100" value="{{reward_title}}" required></label>
       <label class="field">المبلغ في المحفظة (قرش مصري)<input name="cash" type="number" min="0" max="100000" value="{{cash}}"></label>
       <label class="field">عدد NOVA Coins<input name="coins" type="number" min="0" max="100000" value="{{coins}}"></label>
       <label class="field">صورة المكافأة<input type="file" name="reward_image" accept="image/png,image/jpeg,image/webp,image/gif"></label>
@@ -2680,14 +2680,14 @@ def admin_nova_engagement():
       {% for r in scheduled_rewards %}<tr><td>{{r.reward_date}}</td><td>{{r.title}}<br><small>{{r.description}}</small></td><td>{{r.cash_amount}} قرش</td><td>{{r.coin_amount}}</td><td>{% if r.image_url %}صورة ✓{% endif %} {% if r.background_url %}خلفية ✓{% endif %}</td><td><form method="post" onsubmit="return confirm('حذف هذه المكافأة؟')"><input type="hidden" name="action" value="delete_daily_reward"><input type="hidden" name="reward_id" value="{{r.id}}"><button class="btn small">حذف</button></form></td></tr>{% else %}<tr><td colspan="6">لا توجد مكافآت مجدولة بعد.</td></tr>{% endfor %}</table></div></div>
 
     <div class="formcard" style="max-width:none;margin-top:16px"><h2>🔔 إشعارات الهاتف</h2><p>زر تفعيل الإشعارات يظهر للمستخدم في مركز الإشعارات.</p>
-      <form method="post" style="display:grid;gap:10px"><input type="hidden" name="action" value="settings"><input type="hidden" name="enabled" value="{{'1' if enabled else '0'}}"><input type="hidden" name="cash" value="{{cash}}"><input type="hidden" name="coins" value="{{coins}}"><input type="hidden" name="reward_title" value="{{title}}"><label class="field">VAPID Public Key<input name="vapid_public" value="{{vapid_public}}" placeholder="المفتاح العام فقط"></label><button class="btn">حفظ مفتاح الإشعارات العام</button></form>
+      <form method="post" style="display:grid;gap:10px"><input type="hidden" name="action" value="settings"><input type="hidden" name="enabled" value="{{'1' if enabled else '0'}}"><input type="hidden" name="cash" value="{{cash}}"><input type="hidden" name="coins" value="{{coins}}"><input type="hidden" name="reward_title" value="{{reward_title}}"><label class="field">VAPID Public Key<input name="vapid_public" value="{{vapid_public}}" placeholder="المفتاح العام فقط"></label><button class="btn">حفظ مفتاح الإشعارات العام</button></form>
       <p style="font-size:12px;color:#aabbb2">يجب ضبط VAPID_PRIVATE_KEY وVAPID_CLAIMS_EMAIL في Render، وإضافة pywebpush إلى requirements.txt لتفعيل الإرسال الفعلي.</p></div>
     <div class="formcard" style="max-width:none;margin-top:16px"><h2>📣 إرسال إشعار جديد</h2><form method="post" action="{{url_for('admin_send_nova_notification')}}" enctype="multipart/form-data" style="display:grid;gap:10px"><label class="field">عنوان الإشعار<input name="title" maxlength="120" required></label><label class="field">نص الإشعار<textarea name="body" maxlength="1000" required></textarea></label><label class="field">صورة اختيارية<input type="file" name="image" accept="image/png,image/jpeg,image/webp"></label><label class="field">إرسال إلى<select name="target"><option value="all">كل المستخدمين</option><option value="active">المستخدمين الذين فعّلوا إشعارات الهاتف</option></select></label><button class="btn primary">إرسال الإشعار</button></form></div>
     </section>"""
     return page("إدارة المكافآت والإشعارات", body,
                 enabled=_nova_setting("daily_reward_enabled","1")=="1",
                 cash=_nova_setting("daily_reward_cash","0"), coins=_nova_setting("daily_reward_coins","10"),
-                title=_nova_setting("daily_reward_title","مكافأة تسجيل الدخول اليومية"),
+                reward_title=_nova_setting("daily_reward_title","مكافأة تسجيل الدخول اليومية"),
                 image=_nova_setting("daily_reward_image",""),
                 background=_nova_setting("daily_reward_bg_image",""),
                 scheduled_rewards=scheduled_rewards,
