@@ -24,8 +24,8 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024  # image uploads and receipts up to 8 MB
 DB_PATH = os.environ.get("DATABASE_PATH", "mido_nova.db")
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "moh99zzhvni893fj7@gmail.com").lower()
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mohammedaaa222")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@midonova.com").lower()
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeThis-Admin-123!")
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 SENDLIBERTY_API_KEY = os.environ.get("SENDLIBERTY_API_KEY", "").strip()
@@ -39,7 +39,7 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 # ضع توكن البوت الذي أنشأته من BotFather هنا بين علامتي الاقتباس.
 # لا تشارك هذا الملف علنًا بعد وضع التوكن الحقيقي بداخله.
-TELEGRAM_BOT_TOKEN = os.environ.get("8377094717:AAEb-H7GhAZ7qBcKXDtg6QLehJRlN5264-4", "").strip()
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
 # اسم القناة العامة أو رقم Chat ID، والبوت لازم يكون مشرفًا فيها.
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
 TELEGRAM_BOT_URL = "https://t.me/midoassistantAIbot"
@@ -159,6 +159,7 @@ def init_db():
         con.execute("""CREATE TABLE IF NOT EXISTS site_settings(
             key TEXT PRIMARY KEY, value TEXT DEFAULT '')""")
         # Developer earnings/profile settings (additive; preserves existing site data).
+        con.execute("INSERT OR IGNORE INTO site_settings(key,value) VALUES('app_download_count','1500')")
         con.execute("INSERT OR IGNORE INTO site_settings(key,value) VALUES('developer_earnings_usd','500')")
         con.execute("INSERT OR IGNORE INTO site_settings(key,value) VALUES('developer_username','@Mido_M9do')")
         con.execute("INSERT OR IGNORE INTO site_settings(key,value) VALUES('developer_earnings_image','')")
@@ -558,6 +559,12 @@ body{--mint:var(--theme-accent);--mint2:var(--theme-accent2)}
 @media(max-width:520px){.theme-control{left:10px;bottom:12px}.theme-toggle{padding:9px 12px;font-size:12px}}
 .theme-mode-toggle{width:100%;margin:0 0 12px;padding:10px 12px;border:1px solid #52675e;border-radius:12px;background:#1b2a25;color:#fff;font-weight:800;cursor:pointer;text-align:center}
 html[data-mode="light"] body{background:radial-gradient(ellipse at 85% -10%,#dcefe8,transparent 42%),#f4f7fb!important;color:#172033!important}
+/* Keep primary copy readable in light mode; dark mode remains unchanged. */
+html[data-mode="light"] body{color:#000!important}
+html[data-mode="light"] body h1,html[data-mode="light"] body h2,html[data-mode="light"] body h3,html[data-mode="light"] body h4,html[data-mode="light"] body p,html[data-mode="light"] body label,html[data-mode="light"] body li,html[data-mode="light"] body td,html[data-mode="light"] body .product h3,html[data-mode="light"] body .cat strong,html[data-mode="light"] body .benefit b,html[data-mode="light"] body .formcard h1,html[data-mode="light"] body .profile-card,html[data-mode="light"] body .section-head{color:#000!important}
+html[data-mode="light"] .gradient{background:linear-gradient(90deg,#000,#000 75%)!important;background-clip:text!important;color:transparent!important}
+html[data-mode="light"] .price,html[data-mode="light"] .brand span,html[data-mode="light"] .section-head h2,html[data-mode="light"] th,html[data-mode="light"] .status{color:var(--theme-accent)!important}
+html[data-mode="light"] .hero p,html[data-mode="light"] .product p,html[data-mode="light"] .cat small,html[data-mode="light"] .benefit p,html[data-mode="light"] .section-head p,html[data-mode="light"] .footer{color:#333!important}
 html[data-mode="light"] .topbar{background:#ffffffed!important;border-color:#dce4e8!important}
 html[data-mode="light"] .navlinks{color:#536477!important}
 html[data-mode="light"] .btn:not(.primary),html[data-mode="light"] .filter,html[data-mode="light"] .search{background:#fff!important;color:#26364a!important;border-color:#d6e0e7!important}
@@ -638,7 +645,9 @@ html[data-mode="light"] .card-payment-panel select{background:#fff!important;col
   const standalone=window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;
   if(standalone || localStorage.getItem('midoInstallDismissed')==='1') strip.hidden=true;
   window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;strip.hidden=standalone;});
-  window.addEventListener('appinstalled',()=>{strip.hidden=true;deferredPrompt=null;});
+  const recordInstall=()=>{try{if(localStorage.getItem('midoInstallCounted')==='1')return;localStorage.setItem('midoInstallCounted','1');fetch('/api/app-installed',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:'{}'}).catch(()=>{});}catch(e){}};
+  window.addEventListener('appinstalled',()=>{strip.hidden=true;deferredPrompt=null;recordInstall();});
+  if(standalone) recordInstall();
   installBtn.addEventListener('click',async()=>{
     if(deferredPrompt){deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;return;}
     const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -678,7 +687,7 @@ HOME = r"""
 <a href="{{url_for('digital_hub')}}#pdf_tools" style="text-decoration:none;text-align:center;padding:15px 10px;border-radius:16px;background:linear-gradient(135deg,#3e245f,#1a102b);border:1px solid #c29aff;color:#f0e3ff;font-weight:850">📄 أدوات PDF</a>
 <a href="{{url_for('digital_hub')}}#pro_membership" style="text-decoration:none;text-align:center;padding:15px 10px;border-radius:16px;background:linear-gradient(135deg,#4c4113,#211d0a);border:1px solid #f5d65b;color:#fff3a8;font-weight:850">👑 عضوية PRO</a>
 </div></section>
-<section class="section" style="margin-top:25px"><div class="section-head"><div><span class="pill">NOVA INSIGHTS</span><h2>إحصائيات MIDO NOVA</h2><p>أرقام مباشرة من قاعدة بيانات الموقع.</p></div></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px"><div style="position:relative;overflow:hidden;border:1px solid #2d6e58;border-radius:20px;min-height:130px;padding:20px;background:linear-gradient(135deg,#0e3026,#081411)">{% if home_images.get('home_stats_image') %}<img src="{{home_images.get('home_stats_image')}}" alt="إحصائيات التطبيق" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.18">{% endif %}<small>👥 المستخدمون</small><h2 style="font-size:32px;color:#7df4c7;margin:12px 0">{{user_count}}</h2></div><div style="border:1px solid #315c91;border-radius:20px;padding:20px;background:linear-gradient(135deg,#132947,#09131e)"><small>🛍️ المنتجات المتاحة</small><h2 style="font-size:32px;color:#8dc7ff;margin:12px 0">{{product_count}}</h2></div><div style="border:1px solid #75612a;border-radius:20px;padding:20px;background:linear-gradient(135deg,#302710,#121006)"><small>📦 الطلبات المسجلة</small><h2 style="font-size:32px;color:#ffe18b;margin:12px 0">{{order_count}}</h2></div><div style="border:1px solid #5a4679;border-radius:20px;padding:20px;background:linear-gradient(135deg,#271b39,#100c17)"><small>⭐ متوسط التقييم</small><h2 style="font-size:32px;color:#e2c1ff;margin:12px 0">{{'%.1f'|format(review_stats.avg)}}/5</h2><small>{{review_stats.n}} تقييم</small></div></div></section>
+<section class="section" style="margin-top:25px"><div class="section-head"><div><span class="pill">NOVA INSIGHTS</span><h2>إحصائيات MIDO NOVA</h2><p>أرقام مباشرة من قاعدة بيانات الموقع.</p></div></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px"><div style="position:relative;overflow:hidden;border:1px solid #2d6e58;border-radius:20px;min-height:130px;padding:20px;background:linear-gradient(135deg,#0e3026,#081411)">{% if home_images.get('home_stats_image') %}<img src="{{home_images.get('home_stats_image')}}" alt="إحصائيات التطبيق" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.18">{% endif %}<small>⬇️ عدد التنزيلات</small><h2 style="font-size:32px;color:#7df4c7;margin:12px 0">{{download_count}}</h2><small>تثبيت للتطبيق</small></div><div style="border:1px solid #315c91;border-radius:20px;padding:20px;background:linear-gradient(135deg,#132947,#09131e)"><small>🛍️ المنتجات المتاحة</small><h2 style="font-size:32px;color:#8dc7ff;margin:12px 0">{{product_count}}</h2></div><div style="border:1px solid #75612a;border-radius:20px;padding:20px;background:linear-gradient(135deg,#302710,#121006)"><small>📦 الطلبات المسجلة</small><h2 style="font-size:32px;color:#ffe18b;margin:12px 0">{{order_count}}</h2></div><div style="border:1px solid #5a4679;border-radius:20px;padding:20px;background:linear-gradient(135deg,#271b39,#100c17)"><small>⭐ متوسط التقييم</small><h2 style="font-size:32px;color:#e2c1ff;margin:12px 0">{{'%.1f'|format(review_stats.avg)}}/5</h2><small>{{review_stats.n}} تقييم</small></div></div></section>
 <section class="section" id="app-reviews"><div class="section-head"><div><span class="pill">COMMUNITY VOICE</span><h2>تقييمات التطبيق ⭐</h2><p>شارك رأيك وساعدنا نحسّن MIDO NOVA.</p></div></div>{% if home_images.get('home_reviews_image') %}<img src="{{home_images.get('home_reviews_image')}}" alt="تقييمات التطبيق" style="width:100%;max-height:220px;object-fit:cover;border-radius:20px;margin-bottom:14px">{% endif %}<div class="products">{% for review in reviews %}<article class="product"><div style="color:#ffd76a;font-size:20px">{{'★' * review.rating}}{{'☆' * (5-review.rating)}}</div><h3>{{review.name}}</h3><p>{{review.comment or 'تقييم تجربة التطبيق'}}</p></article>{% else %}<article class="product"><h3>كن أول من يقيّم التطبيق</h3><p>تقييمات المستخدمين ستظهر هنا بعد إرسالها.</p></article>{% endfor %}</div>{% if user %}<form method="post" action="{{url_for('submit_review')}}" class="formcard" style="max-width:650px;margin:18px 0"><h3>اكتب تقييمك</h3><label class="field">التقييم<select name="rating" required><option value="5">★★★★★ — ممتاز</option><option value="4">★★★★☆ — جيد جدًا</option><option value="3">★★★☆☆ — جيد</option><option value="2">★★☆☆☆ — يحتاج تحسين</option><option value="1">★☆☆☆☆ — ضعيف</option></select></label><label class="field">تعليقك (اختياري)<input name="comment" maxlength="500" placeholder="شاركنا رأيك باحترام"></label><button class="btn primary">إرسال التقييم</button></form>{% else %}<p><a class="btn primary" href="{{url_for('login')}}">سجّل الدخول لتقييم التطبيق</a></p>{% endif %}</section>
 <section class="section" id="categories"><div class="section-head"><div><h2>تصفح الأقسام</h2><p>اختار القسم اللي يناسبك</p></div></div>
 <div class="categories">{% for key,name,icon in categories %}{% if key != 'all' %}<a class="cat" href="#products" onclick="pickCategory('{{key}}')"><div class="cat-icon">{{icon}}</div><strong>{{name}}</strong><small>اكتشف المزيد ←</small></a>{% endif %}{% endfor %}</div></section>
@@ -796,6 +805,15 @@ def admin_service_orders():
         rows = con.execute("SELECT d.*,u.name user_name,u.email user_email FROM digital_service_orders d JOIN users u ON u.id=d.user_id ORDER BY d.id DESC LIMIT 300").fetchall()
     body = r"""<section class="section"><div class="section-head"><div><h1>طلبات NOVA HUB</h1><p>راجع الطلبات وحدّث حالتها. لا تختَر «تم التسليم» إلا بعد إتمام الخدمة.</p></div><a class="btn" href="{{url_for('admin')}}">لوحة الإدارة</a></div><div class="tablewrap"><table><thead><tr><th>رقم</th><th>المستخدم</th><th>الخدمة</th><th>التفاصيل</th><th>السعر</th><th>الحالة والتحديث</th></tr></thead><tbody>{% for r in rows %}<tr><td>#{{r.id}}<br><small>{{r.created_at}}</small></td><td>{{r.user_name}}<br>{{r.user_email}}</td><td>{{r.service_name}}</td><td style="min-width:220px;white-space:pre-wrap">{{r.details}}</td><td>{{'{:,.2f}'.format(r.price/100)}} ج.م</td><td><form method="post" style="min-width:220px;display:grid;gap:7px"><input type="hidden" name="order_id" value="{{r.id}}"><select name="status">{% for st in ['قيد التنفيذ','يحتاج معلومات','تم التسليم','ملغي/استرداد مطلوب'] %}<option {% if r.status==st %}selected{% endif %}>{{st}}</option>{% endfor %}</select><input name="admin_note" maxlength="1000" value="{{r.admin_note}}" placeholder="رد أو تفاصيل التسليم"><button class="btn small primary">حفظ</button></form></td></tr>{% else %}<tr><td colspan="6">لا توجد طلبات حتى الآن.</td></tr>{% endfor %}</tbody></table></div></section>"""
     return page("طلبات NOVA HUB", body, rows=rows)
+
+@app.route("/api/app-installed", methods=["POST"])
+def record_app_install():
+    """Count one install per browser installation; starts from the requested baseline of 1500."""
+    with db() as con:
+        con.execute("INSERT OR IGNORE INTO site_settings(key,value) VALUES('app_download_count','1500')")
+        con.execute("UPDATE site_settings SET value=CAST(COALESCE(NULLIF(value,''),'1500') AS INTEGER)+1 WHERE key='app_download_count'")
+        row = con.execute("SELECT value FROM site_settings WHERE key='app_download_count'").fetchone()
+    return jsonify({"ok": True, "download_count": int(row["value"])})
 
 @app.route("/manifest.webmanifest")
 def pwa_manifest():
@@ -975,6 +993,8 @@ def home():
         setting = con.execute("SELECT value FROM site_settings WHERE key='banner'").fetchone()
         reviews = con.execute("SELECT r.*,u.name FROM app_reviews r JOIN users u ON u.id=r.user_id WHERE r.active=1 ORDER BY r.id DESC LIMIT 6").fetchall()
         review_stats = con.execute("SELECT COUNT(*) n, COALESCE(AVG(rating),0) avg FROM app_reviews WHERE active=1").fetchone()
+        download_row = con.execute("SELECT value FROM site_settings WHERE key='app_download_count'").fetchone()
+        download_count = int(download_row["value"] or 1500) if download_row else 1500
         user_count = con.execute("SELECT COUNT(*) n FROM users").fetchone()["n"]
         product_count = con.execute("SELECT COUNT(*) n FROM products WHERE active=1").fetchone()["n"]
         order_count = con.execute("SELECT COUNT(*) n FROM orders WHERE status NOT IN ('ملغي','مرفوض')").fetchone()["n"]
@@ -982,7 +1002,7 @@ def home():
         with_image = con.execute("SELECT key,value FROM site_settings WHERE key IN ('home_reviews_image','home_stats_image','home_tips_image')").fetchall()
         home_images = {r['key']:r['value'] for r in with_image}
     banner = setting["value"] if setting else ""
-    return page("الرئيسية", HOME, products=products, posts=posts, banner=banner, reviews=reviews, review_stats=review_stats, user_count=user_count, product_count=product_count, order_count=order_count, tips=tips, home_images=home_images)
+    return page("الرئيسية", HOME, products=products, posts=posts, banner=banner, reviews=reviews, review_stats=review_stats, user_count=user_count, download_count=download_count, product_count=product_count, order_count=order_count, tips=tips, home_images=home_images)
 
 @app.route("/social-tips")
 def social_tips_list():
