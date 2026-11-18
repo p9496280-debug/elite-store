@@ -50,7 +50,7 @@ VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "01011541698")
 
 
 CATEGORIES = [
-    ("all", "كل الزفت", "✦"),
+    ("all", "كل المنتجات", "✦"),
     ("google", "Google Play", "▶"),
     ("games", "الألعاب", "🎮"),
     ("digital", "الخدمات الرقمية", "☁"),
@@ -60,7 +60,7 @@ CATEGORIES = [
 ]
 
 SEED_PRODUCTS = [
-    ("Google Play $10", "google", "بطاقة رقمية", 499, "▶", "الأكثر طلبًا", "بطاقات Google Play حسب المنطقة والتوفر."),
+    ("Google Play $100", "google", "بطاقة رقمية", 499, "▶", "الأكثر طلبًا", "بطاقات Google Play حسب المنطقة والتوفر."),
     ("Google Play $25", "google", "بطاقة رقمية", 1199, "▶", "عرض مميز", "بطاقات Google Play حسب المنطقة والتوفر."),
     ("Steam Wallet $20", "games", "بطاقة ألعاب", 999, "◉", "للجيمرز", "اشحن محفظة Steam بكود صالح للمنطقة المحددة."),
     ("PlayStation Store $20", "games", "بطاقة ألعاب", 999, "△", "", "بطاقات متجر PlayStation حسب المنطقة والتوفر."),
