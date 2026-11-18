@@ -50,7 +50,7 @@ VODAFONE_CASH_NUMBER = os.environ.get("VODAFONE_CASH_NUMBER", "01011541698")
 
 
 CATEGORIES = [
-    ("all", "كل المنتجات", "✦"),
+    ("all", "كل الزفت", "✦"),
     ("google", "Google Play", "▶"),
     ("games", "الألعاب", "🎮"),
     ("digital", "الخدمات الرقمية", "☁"),
